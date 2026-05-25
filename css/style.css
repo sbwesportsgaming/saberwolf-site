@@ -142,7 +142,7 @@ section {
       rgba(2,6,23,0.45) 60%,
       rgba(2,6,23,0.18) 100%
     ),
-    url("../assets/images/sbw-home-hero.png");
+    url("../assets/images/sbw-home-hero.png.png");
 
   background-size: cover;
   background-position: center top;
@@ -604,7 +604,7 @@ section a.btn {
 .game-fighting {
   background:
     linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.40)),
-    url("../assets/images/sbw-alpha-kickboxing.png");
+    url("../assets/images/sbw-alpha-kickboxing.png.png");
   background-size: cover;
   background-position: center;
 }
@@ -612,7 +612,7 @@ section a.btn {
 .game-fps {
   background:
     linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.40)),
-    url("../assets/images/sbw-fps-tactical.png");
+    url("../assets/images/sbw-fps-tactical.png.png");
   background-size: cover;
   background-position: center;
 }
@@ -620,7 +620,7 @@ section a.btn {
 .game-moba {
   background:
     linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.40)),
-    url("../assets/images/sbw-moba-arcane.png");
+    url("../assets/images/sbw-moba-arcane.png.png");
   background-size: cover;
   background-position: center;
 }
@@ -628,7 +628,7 @@ section a.btn {
 .game-sports {
   background:
     linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.40)),
-    url("../assets/images/sbw-basketball.png");
+    url("../assets/images/sbw-basketball.png.png");
   background-size: cover;
   background-position: center;
 }
@@ -636,7 +636,7 @@ section a.btn {
 .game-tournaments {
   background:
     linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.40)),
-    url("../assets/images/sbw-home-hero.png");
+    url("../assets/images/sbw-home-hero.png.png");
   background-size: cover;
   background-position: center;
 }
@@ -867,7 +867,7 @@ section a.btn {
 .fg-theme .hero {
   background:
     linear-gradient(rgba(2,6,23,0.82), rgba(88,28,135,0.55)),
-    url("../assets/images/fighting-girls-logo.jpeg");
+    url("../assets/images/fighting-girls-logo.jpeg.jpeg");
 
   background-size: contain;
   background-position: center;
@@ -1070,7 +1070,7 @@ footer {
 
     background:
       linear-gradient(rgba(2,6,23,0.75), rgba(2,6,23,0.98)),
-      url("../assets/images/sbw-home-hero.png");
+      url("../assets/images/sbw-home-hero.png.png");
 
     background-size: cover;
     background-position: center;
