@@ -1,0 +1,4 @@
+# -SBW- beta fechado
+# Evita indexação enquanto a plataforma está em teste online.
+User-agent: *
+Disallow: /
