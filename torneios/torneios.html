@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Torneios | -SBW-</title>
+
+  <meta
+    name="description"
+    content="Central de torneios da SaberWolf eSports. Veja torneios publicados, acompanhe regras, formatos, participantes, cronograma e inscrições."
+  >
+
+  <link rel="icon" href="../assets/images/logo-sbw.jpg" type="image/jpeg">
+
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/torneios.css">
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+  >
+
+  <style>
+    .public-tournament-layout {
+      display: grid;
+      gap: 22px;
+    }
+
+    .public-tournament-alert {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 42%),
+        rgba(15, 23, 42, 0.74);
+      color: var(--text, #f5f5f5);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .public-tournament-alert strong {
+      color: #38bdf8;
+    }
+
+    .tournament-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .tournament-filter-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tournament-filter-group label {
+      color: var(--muted, #9ca3af);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .tournament-filter-group select {
+      min-height: 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      background: rgba(8, 10, 16, 0.94);
+      color: var(--text, #f5f5f5);
+      padding: 0 12px;
+      outline: none;
+    }
+
+    .tournament-filter-group select:focus {
+      border-color: rgba(56, 189, 248, 0.5);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.08);
+    }
+
+    .public-tournament-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 34px;
+    }
+
+    .public-tournament-group {
+      display: grid;
+      gap: 14px;
+    }
+
+    .public-tournament-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.14);
+    }
+
+    .public-tournament-group-header div {
+      display: grid;
+      gap: 4px;
+    }
+
+    .public-tournament-group-header span {
+      color: #38bdf8;
+      font-size: 0.72rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .public-tournament-group-header h3 {
+      margin: 0;
+      color: var(--text, #f5f5f5);
+      font-size: 1.2rem;
+      line-height: 1.2;
+    }
+
+    .public-tournament-group-header p {
+      margin: 0;
+      color: var(--muted, #9ca3af);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .public-tournament-group-count {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      color: #bae6fd;
+      font-size: 0.74rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .public-tournament-subgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 360px));
+      justify-content: start;
+      align-items: stretch;
+      gap: 18px;
+    }
+
+    .public-tournament-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 360px;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.96)),
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 42%);
+      color: inherit;
+      text-decoration: none;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+      transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .public-tournament-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(56, 189, 248, 0.42);
+      box-shadow: 0 22px 55px rgba(14, 165, 233, 0.12);
+    }
+
+    .public-tournament-banner {
+      min-height: 132px;
+      display: flex;
+      align-items: flex-end;
+      padding: 14px;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.28), transparent 34%),
+        linear-gradient(135deg, rgba(8, 47, 73, 0.95), rgba(15, 23, 42, 0.95));
+    }
+
+    .public-tournament-banner span {
+      display: inline-flex;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(2, 6, 23, 0.72);
+      border: 1px solid rgba(56, 189, 248, 0.24);
+      color: #7dd3fc;
+      font-size: 0.72rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .public-tournament-card-content {
+      display: grid;
+      gap: 11px;
+      padding: 15px;
+      flex: 1;
+    }
+
+    .public-tournament-card h3 {
+      margin: 0;
+      color: var(--text, #f5f5f5);
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    .public-tournament-card p {
+      margin: 0;
+      color: var(--muted, #9ca3af);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .public-tournament-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .public-tournament-meta div {
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.09);
+      background: rgba(15, 23, 42, 0.72);
+    }
+
+    .public-tournament-meta span {
+      display: block;
+      color: var(--muted, #9ca3af);
+      font-size: 0.68rem;
+      margin-bottom: 3px;
+    }
+
+    .public-tournament-meta strong {
+      display: block;
+      color: var(--text, #f5f5f5);
+      font-size: 0.82rem;
+    }
+
+    .public-tournament-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .public-tournament-tags span {
+      padding: 6px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(56, 189, 248, 0.12);
+      color: #cbd5e1;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      max-width: 100%;
+      padding: 6px 9px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-pill.open {
+      background: rgba(14, 165, 233, 0.16);
+      border: 1px solid rgba(14, 165, 233, 0.32);
+      color: #7dd3fc;
+    }
+
+    .status-pill.running {
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #bae6fd;
+    }
+
+    .status-pill.finished {
+      background: rgba(99, 102, 241, 0.14);
+      border: 1px solid rgba(129, 140, 248, 0.28);
+      color: #c7d2fe;
+    }
+
+    .status-pill.draft {
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      color: #cbd5e1;
+    }
+
+    .status-pill.registration {
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.28);
+      color: #a5f3fc;
+    }
+
+    .public-tournament-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: auto;
+      align-items: stretch;
+    }
+
+    .public-tournament-actions a.profile-btn,
+    .public-tournament-actions a.public-card-btn {
+      display: flex !important;
+      justify-content: center;
+      align-items: center;
+      width: 100% !important;
+      height: 38px !important;
+      min-height: 38px !important;
+      max-height: 38px !important;
+      padding: 0 10px !important;
+      margin: 0 !important;
+      border-radius: 999px;
+      box-sizing: border-box;
+      font-size: 0.72rem;
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transform: none;
+      transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease;
+    }
+
+    .public-tournament-actions a.profile-btn {
+      border: 1px solid rgba(56, 189, 248, 0.48);
+      background: rgba(56, 189, 248, 0.1);
+      color: #38bdf8;
+    }
+
+    .public-tournament-actions a.public-card-btn.secondary {
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      background: rgba(15, 23, 42, 0.9);
+      color: #dbeafe;
+    }
+
+    .public-tournament-actions a.profile-btn:hover,
+    .public-tournament-actions a.public-card-btn.secondary:hover {
+      border-color: rgba(56, 189, 248, 0.72);
+      background: rgba(56, 189, 248, 0.15);
+      color: #f8fafc;
+    }
+
+    .empty-tournament-state {
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px dashed rgba(56, 189, 248, 0.2);
+      background: rgba(15, 23, 42, 0.5);
+      color: var(--muted, #9ca3af);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .tournament-organizers-layout {
+      display: grid;
+      gap: 18px;
+    }
+
+    .tournament-organizers-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tournament-organizers-note {
+      margin: 0;
+      color: var(--muted, #9ca3af);
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
+
+    .tournament-organizers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 340px));
+      justify-content: start;
+      gap: 18px;
+    }
+
+    .tournament-organizer-card {
+      width: 100%;
+      max-width: 340px;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.2);
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.96)),
+        radial-gradient(circle at top left, rgba(var(--org-primary-rgb, 56, 189, 248), 0.22), transparent 44%),
+        radial-gradient(circle at bottom right, rgba(var(--org-secondary-rgb, 124, 58, 237), 0.16), transparent 42%);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
+    }
+
+    .tournament-organizer-cover {
+      position: relative;
+      min-height: 86px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      overflow: hidden;
+      padding: 12px;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(var(--org-primary-rgb, 56, 189, 248), 0.34), transparent 32%),
+        radial-gradient(circle at 84% 14%, rgba(var(--org-secondary-rgb, 124, 58, 237), 0.24), transparent 34%),
+        linear-gradient(135deg, rgba(8, 47, 73, 0.95), rgba(17, 24, 39, 0.95));
+    }
+
+    .tournament-organizer-cover-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.42;
+    }
+
+    .tournament-organizer-cover span {
+      position: relative;
+      z-index: 1;
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.34);
+      background: rgba(2, 6, 23, 0.72);
+      color: var(--org-primary, #7dd3fc);
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .tournament-organizer-content {
+      display: grid;
+      gap: 12px;
+      padding: 15px;
+    }
+
+    .tournament-organizer-head {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .tournament-organizer-logo {
+      width: 52px;
+      height: 52px;
+      flex: 0 0 52px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.34);
+      background:
+        radial-gradient(circle at top, rgba(var(--org-primary-rgb, 56, 189, 248), 0.15), transparent 58%),
+        rgba(15, 23, 42, 0.9);
+      color: var(--org-primary, #bae6fd);
+      font-size: 0.82rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+    }
+
+    .tournament-organizer-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .tournament-organizer-head strong {
+      display: block;
+      color: var(--text, #f5f5f5);
+      font-size: 1rem;
+      line-height: 1.2;
+    }
+
+    .tournament-organizer-head small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted, #9ca3af);
+      font-size: 0.75rem;
+      line-height: 1.35;
+    }
+
+    .tournament-organizer-content p {
+      margin: 0;
+      color: var(--muted, #9ca3af);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .tournament-organizer-badges,
+    .tournament-organizer-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .tournament-organizer-badges span,
+    .tournament-organizer-tags span {
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
+      background: rgba(15, 23, 42, 0.8);
+      color: #cbd5e1;
+      font-size: 0.68rem;
+      font-weight: 800;
+    }
+
+    .tournament-organizer-badges span:first-child {
+      border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.32);
+      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.12);
+      color: var(--org-primary, #a5f3fc);
+    }
+
+    .tournament-organizer-actions {
+      display: flex;
+      margin-top: 2px;
+    }
+
+    .tournament-organizer-actions a {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      min-height: 38px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.44);
+      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.1);
+      color: var(--org-primary, #7dd3fc);
+      font-size: 0.72rem;
+      font-weight: 900;
+      line-height: 1;
+      text-decoration: none;
+      transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease;
+    }
+
+    .tournament-organizer-actions a:hover {
+      border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.76);
+      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
+      color: #f8fafc;
+    }
+
+    @media (max-width: 720px) {
+      .public-tournament-group-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .public-tournament-subgrid {
+        grid-template-columns: 1fr;
+      }
+
+      .public-tournament-card {
+        max-width: none;
+      }
+
+      .public-tournament-meta {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .public-tournament-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  
+</head>
+
+<body>
+
+<header>
+
+  <h1>SaberWolf</h1>
+
+  <div class="menu-toggle">
+    ☰
+  </div>
+
+<nav class="main-nav">
+  <a href="../index.html">Home</a>
+  <a href="../blog/noticias.html">Notícias</a>
+  <a href="../pages/sobre.html">Sobre</a>
+  <a href="../creators/creators.html">Creators</a>
+  <a href="../perfis/perfis.html">Perfis</a>
+  <a href="../equipes/equipes.html">Equipes</a>
+  <a href="../torneios/torneios.html">Torneios</a>
+  <a href="../comunidades/comunidades.html">Comunidades</a>
+  <a href="../transferencias/transferencias.html">Transferências</a>
+  <a href="../pages/loja.html">Loja</a>
+</nav>
+
+</header>
+
+<main class="tournaments-main">
+
+  <section class="hero torneios-hero">
+
+    <div class="torneios-hero-content">
+
+      <span class="hero-label">
+        <i class="fa-solid fa-trophy"></i>
+        Central competitiva
+      </span>
+
+      <h2>Central de Torneios</h2>
+
+      <p>
+        Encontre torneios publicados na plataforma, acompanhe informações,
+        veja formatos competitivos e participe dos eventos disponíveis.
+      </p>
+
+      <div class="tournament-dev-notice">
+
+        <span>
+          <i class="fa-solid fa-circle-info"></i>
+          Modo demonstração
+        </span>
+
+        <p>
+          Esta versão pública já tenta carregar dados do Supabase quando ele
+          estiver disponível. Se não houver retorno, a página mantém fallback
+          local-demo para validar a experiência pública.
+        </p>
+
+      </div>
+
+      <div class="hero-actions">
+        <a href="../rankings/rankings.html" class="btn btn-outline">
+          <i class="fa-solid fa-ranking-star"></i>
+          Ver rankings
+        </a>
+      </div>
+
+    </div>
+
+  </section>
+
+  <section class="tournament-section-block">
+
+    <div class="section-heading-line">
+
+      <span class="section-label">
+        Plataforma
+      </span>
+
+      <h2>Área pública de torneios</h2>
+
+    </div>
+
+    <div class="card creator-card tournament-intro-card">
+
+      <div class="intro-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+
+      <div>
+
+        <p>
+          A área de torneios da SaberWolf reúne campeonatos, ligas,
+          eventos competitivos e torneios publicados por organizadores
+          autorizados dentro do ecossistema -SBW-.
+        </p>
+
+        <br>
+
+        <p>
+          Participantes podem visualizar torneios disponíveis, acessar
+          informações de cada evento, acompanhar regras, datas, premiações,
+          formatos e realizar inscrições quando o torneio estiver aberto.
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <section class="tournament-section-block">
+
+    <div class="section-heading-line">
+
+      <span class="section-label">
+        Categorias
+      </span>
+
+      <h2>Categorias de Torneios</h2>
+
+      <p class="section-description">
+        A página já está preparada para listar diferentes tipos de eventos.
+        Nesta etapa, o foco principal é Fighting Games, Grupos + Playoffs,
+        Liga/Pontos Corridos e Double Elimination.
+      </p>
+
+    </div>
+
+    <div class="tournament-grid category-grid">
+
+      <div class="tournament-category-card category-info-card card-fgc">
+
+        <div class="category-icon">
+          <i class="fa-solid fa-layer-group"></i>
+        </div>
+
+        <h3>Todos os Torneios</h3>
+
+        <p>
+          Reúne os eventos publicados na plataforma,
+          incluindo torneios oficiais, parceiros, creators e comunidades.
+        </p>
+
+        <div class="category-meta">
+
+          <span>
+            <i class="fa-solid fa-trophy"></i>
+            Eventos publicados
+          </span>
+
+          <span>
+            <i class="fa-solid fa-users"></i>
+            Múltiplos organizadores
+          </span>
+
+        </div>
+
+      </div>
+
+      <div class="tournament-category-card category-info-card card-sf6">
+
+        <div class="category-icon">
+          <i class="fa-solid fa-hand-fist"></i>
+        </div>
+
+        <h3>Fighting Games</h3>
+
+        <p>
+          Categoria voltada para jogos de luta, FGC,
+          chaves eliminatórias, grupos, ligas e eventos 1v1.
+        </p>
+
+        <div class="category-meta">
+
+          <span>
+            <i class="fa-solid fa-gamepad"></i>
+            Jogos de luta
+          </span>
+
+          <span>
+            <i class="fa-solid fa-user"></i>
+            Formato 1v1
+          </span>
+
+        </div>
+
+      </div>
+
+      <div class="tournament-category-card category-info-card card-fps">
+
+        <div class="category-icon">
+          <i class="fa-solid fa-crosshairs"></i>
+        </div>
+
+        <h3>FPS / Equipes</h3>
+
+        <p>
+          Categoria preparada para jogos de tiro, equipes,
+          partidas táticas, campeonatos 5v5 e competições por esquadrões.
+        </p>
+
+        <div class="category-meta">
+
+          <span>
+            <i class="fa-solid fa-crosshairs"></i>
+            Jogos de tiro
+          </span>
+
+          <span>
+            <i class="fa-solid fa-people-group"></i>
+            Equipes
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <section class="tournament-section-block" id="organizadores-torneio">
+
+    <div class="section-heading-line">
+
+      <span class="section-label">
+        Organizadores
+      </span>
+
+      <h2>Organizadores de Torneio</h2>
+
+      <p class="section-description">
+        Entidades autorizadas pela -SBW- para criar, publicar e gerenciar
+        torneios dentro da plataforma. Esta listagem já lê o Supabase quando
+        disponível e usa dados demo como fallback.
+      </p>
+
+    </div>
+
+    <div class="tournament-organizers-layout">
+
+      <div class="tournament-organizers-toolbar">
+
+        <div class="tournament-counter">
+
+          <strong id="tournamentOrganizerCount">
+            0
+          </strong>
+
+          <span>
+            organizadores listados
+          </span>
+
+        </div>
+
+        <p class="tournament-organizers-note">
+          Cada organizador poderá ter identidade própria, banner, logo,
+          histórico e permissões de edição dos seus torneios.
+        </p>
+
+      </div>
+
+      <div
+        class="tournament-organizers-grid"
+        id="tournamentOrganizersGrid"
+      ></div>
+
+    </div>
+
+  </section>
+
+  <section class="tournament-section-block" id="torneios-publicados">
+
+    <div class="section-heading-line">
+
+      <span class="section-label">
+        Torneios
+      </span>
+
+      <h2>Torneios Publicados</h2>
+
+      <p class="section-description">
+        Torneios publicados no Supabase aparecem primeiro. Quando não houver
+        dados publicados, a página mantém torneios locais/demo para continuar
+        validando a experiência pública.
+      </p>
+
+    </div>
+
+    <div class="public-tournament-layout">
+
+      <div class="public-tournament-alert">
+        <strong>Integração progressiva:</strong>
+        a listagem já está preparada para Supabase, mas preserva fallback
+        local-demo. Os botões públicos seguem preparados para inscrição,
+        visualização e evolução das permissões reais.
+      </div>
+
+      <div class="tournament-toolbar">
+
+        <div class="tournament-counter">
+
+          <strong id="tournamentCount">
+            0
+          </strong>
+
+          <span>
+            torneios listados
+          </span>
+
+        </div>
+
+        <div class="tournament-filter-group">
+
+          <label for="tournamentFilter">
+            Filtrar:
+          </label>
+
+          <select id="tournamentFilter">
+
+            <option value="all">
+              Todos
+            </option>
+
+            <option value="open">
+              Inscrições abertas
+            </option>
+
+            <option value="running">
+              Em andamento
+            </option>
+
+            <option value="finished">
+              Encerrados
+            </option>
+
+            <option value="groups-playoffs">
+              Grupos + Playoffs
+            </option>
+
+            <option value="league">
+              Liga / Pontos Corridos
+            </option>
+
+            <option value="double-elimination">
+              Double Elimination
+            </option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+      <div
+        class="public-tournament-grid"
+        id="publicTournamentGrid"
+      ></div>
+
+    </div>
+
+  </section>
+
+  <section class="tournament-section-block">
+
+    <div class="section-heading-line">
+
+      <span class="section-label">
+        Funcionamento
+      </span>
+
+      <h2>Como Funciona</h2>
+
+    </div>
+
+    <div class="cards tournament-info-grid">
+
+      <div class="card creator-card tournament-info-card">
+
+        <h3>
+          <i class="fa-solid fa-user"></i>
+          Participantes
+        </h3>
+
+        <p>
+          Usuários podem encontrar torneios, visualizar informações,
+          acompanhar regras e realizar inscrições quando o evento estiver disponível.
+        </p>
+
+      </div>
+
+      <div class="card creator-card tournament-info-card">
+
+        <h3>
+          <i class="fa-solid fa-trophy"></i>
+          Torneios
+        </h3>
+
+        <p>
+          Cada torneio pode exibir banner, nome, organizador, datas,
+          premiação, regras, formato competitivo e andamento do evento.
+        </p>
+
+      </div>
+
+      <div class="card creator-card tournament-info-card">
+
+        <h3>
+          <i class="fa-solid fa-shield-halved"></i>
+          Organizadores Autorizados
+        </h3>
+
+        <p>
+          A criação e administração de torneios será feita apenas por
+          organizadores autorizados pela SaberWolf.
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <section class="tournament-section-block">
+
+    <div class="section-heading-line">
+
+      <span class="section-label">
+        Modelos competitivos
+      </span>
+
+      <h2>Formatos Suportados</h2>
+
+      <p class="section-description">
+        Os torneios publicados podem utilizar diferentes modelos
+        competitivos de acordo com a escolha do organizador autorizado.
+      </p>
+
+    </div>
+
+    <div class="competition-models">
+
+      <div class="competition-model-card model-groups">
+
+        <span class="model-tag">
+          Formato
+        </span>
+
+        <h3>Grupos + Playoffs</h3>
+
+        <p>
+          Participantes são divididos em grupos. Os melhores avançam
+          para uma fase eliminatória com playoffs, final geral e disputa de terceiro lugar.
+        </p>
+
+        <div class="groups-preview">
+
+          <div class="group-box">
+
+            <strong>Grupo A</strong>
+
+            <span>Classificados</span>
+
+          </div>
+
+          <div class="group-box">
+
+            <strong>Grupo B</strong>
+
+            <span>Classificados</span>
+
+          </div>
+
+          <div class="playoff-box">
+
+            Playoffs
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="competition-model-card model-league">
+
+        <span class="model-tag">
+          Formato
+        </span>
+
+        <h3>Liga / Pontos Corridos</h3>
+
+        <p>
+          Modelo de competição contínua com tabela geral,
+          rodadas, campanha e campeão definido por pontuação/classificação final.
+        </p>
+
+        <div class="league-preview">
+
+          <div class="league-row league-head">
+
+            <span>#</span>
+            <span>Player</span>
+            <span>PTS</span>
+
+          </div>
+
+          <div class="league-row">
+
+            <span>1</span>
+            <span>Player A</span>
+            <span>12</span>
+
+          </div>
+
+          <div class="league-row">
+
+            <span>2</span>
+            <span>Player B</span>
+            <span>9</span>
+
+          </div>
+
+          <div class="league-row">
+
+            <span>3</span>
+            <span>Player C</span>
+            <span>6</span>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="competition-model-card model-knockout">
+
+        <span class="model-tag">
+          Formato
+        </span>
+
+        <h3>Double Elimination</h3>
+
+        <p>
+          Formato tradicional de Fighting Games com Winners,
+          Losers, Grand Final e possibilidade de reset.
+        </p>
+
+        <div class="mini-bracket-preview">
+
+          <div class="mini-round">
+
+            <div>Winners</div>
+            <div>Losers</div>
+
+          </div>
+
+          <span>→</span>
+
+          <div class="mini-round final-preview">
+
+            <div>Grand Final</div>
+
+          </div>
+
+          <span>→</span>
+
+          <div class="mini-round champion-preview">
+
+            <div>Campeão</div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+</main>
+
+<footer>
+
+  <div class="footer-content">
+
+    <h2>SaberWolf</h2>
+
+    <p>
+      Ecossistema brasileiro de esports,
+      creators, campeonatos e comunidade.
+    </p>
+
+    <div class="footer-links">
+
+      <a href="../index.html">
+        Home
+      </a>
+
+      <a href="../pages/sobre.html">
+        Sobre
+      </a>
+
+      <a href="../equipes/equipes.html">
+        Equipes
+      </a>
+
+      <a href="../creators/creators.html">
+        Creators
+      </a>
+
+      <a href="../comunidades/comunidades.html">
+        Comunidades
+      </a>
+
+      <a href="torneios.html">
+        Torneios
+      </a>
+
+      <a href="../pages/loja.html">
+        Loja
+      </a>
+
+    </div>
+
+    <p class="footer-copy">
+      -SBW- © 2026 — Todos os direitos reservados.
+    </p>
+
+  </div>
+
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase/supabase-config.js"></script>
+<script src="../js/supabase/supabase-client.js"></script>
+<script src="../js/auth/auth-service.js"></script>
+<script src="../js/auth/auth-header.js"></script>
+
+<script src="../js/menu.js"></script>
+
+<script src="../js/tournaments/tournaments-config.js"></script>
+<script src="../js/tournaments/tournaments-demo-data.js"></script>
+<script src="../js/tournaments/tournaments-utils.js"></script>
+<script src="../js/tournaments/tournaments-models.js"></script>
+<script src="../js/tournaments/tournaments-storage.js"></script>
+<script src="../js/tournaments/tournaments-list-page.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Editar Organizador | -SBW-</title>
+
+  <meta
+    name="description"
+    content="Painel de edição de organizador de torneios da -SBW-, com identidade visual, descrição, links, banner, logo e cores."
+  >
+
+  <link rel="icon" href="../assets/images/logo-sbw.jpg" type="image/jpeg">
+
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/torneios.css">
+  <link rel="stylesheet" href="../css/tournaments/tournament-organizer-admin.css">
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+  >
+</head>
+
+<body>
+
+<header>
+
+  <h1>SaberWolf</h1>
+
+  <div class="menu-toggle">
+    ☰
+  </div>
+
+<nav class="main-nav">
+  <a href="../index.html">Home</a>
+  <a href="../blog/noticias.html">Notícias</a>
+  <a href="../pages/sobre.html">Sobre</a>
+  <a href="../creators/creators.html">Creators</a>
+  <a href="../perfis/perfis.html">Perfis</a>
+  <a href="../equipes/equipes.html">Equipes</a>
+  <a href="../torneios/torneios.html">Torneios</a>
+  <a href="../comunidades/comunidades.html">Comunidades</a>
+  <a href="../rankings/rankings.html">Rankings</a>
+  <a href="../transferencias/transferencias.html">Transferências</a>
+  <a href="../pages/loja.html">Loja</a>
+</nav>
+
+</header>
+
+<main class="tournaments-main organizer-admin-layout">
+
+  <section class="hero torneios-hero">
+
+    <div class="torneios-hero-content">
+
+      <div class="organizer-admin-top-actions">
+        <a class="organizer-admin-top-link" href="torneios.html">
+          <i class="fa-solid fa-arrow-left"></i>
+          Torneios
+        </a>
+      </div>
+
+      <span class="hero-label">
+        <i class="fa-solid fa-pen-to-square"></i>
+        Painel do organizador
+      </span>
+
+      <h2>Editar Organizador</h2>
+
+      <p>
+        Ajuste identidade visual, descrição, links e informações públicas do organizador de torneios.
+      </p>
+
+      <div class="tournament-dev-notice">
+
+        <span>
+          <i class="fa-solid fa-circle-info"></i>
+          v1.5.7.5
+        </span>
+
+        <p id="organizerEditorStatusText">
+          Esta primeira versão salva alterações em localStorage para teste visual. Na próxima etapa, o salvamento será conectado ao Supabase.
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <section id="organizerEditorAccess" class="organizer-admin-access">
+    Verificando acesso ao painel do organizador...
+  </section>
+
+  <section id="organizerEditorShell" class="organizer-admin-shell" hidden>
+
+    <article class="organizer-admin-panel">
+
+      <form id="organizerEditorForm" class="organizer-admin-form">
+
+        <div id="organizerEditorMessage" class="organizer-admin-message"></div>
+
+        <fieldset class="organizer-admin-fieldset">
+          <legend>Informações públicas</legend>
+          <small>Esses dados aparecem no perfil público do organizador e na listagem de Organizadores da página de Torneios.</small>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerName">Nome público</label>
+              <input id="organizerName" name="name" type="text" placeholder="Ex: Rinha Online" required>
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerTag">Tag curta</label>
+              <input id="organizerTag" name="tag" type="text" maxlength="12" placeholder="Ex: RINHA">
+            </div>
+          </div>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerType">Tipo do organizador</label>
+              <input id="organizerType" name="type" type="text" placeholder="Ex: Organizador parceiro">
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerStatus">Status público</label>
+              <select id="organizerStatus" name="status">
+                <option value="active">Ativo</option>
+                <option value="pending">Em análise</option>
+                <option value="inactive">Inativo</option>
+                <option value="draft">Rascunho</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="organizer-admin-field">
+            <label for="organizerDescription">Descrição</label>
+            <textarea id="organizerDescription" name="description" placeholder="Explique quem é o organizador, quais comunidades atende e que tipo de evento publica."></textarea>
+          </div>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerGames">Jogos/tags de atuação</label>
+              <input id="organizerGames" name="games" type="text" placeholder="Ex: FGC, Street Fighter, Comunidade">
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerAliases">Apelidos/nomes de busca</label>
+              <input id="organizerAliases" name="aliases" type="text" placeholder="Ex: Rinha, Rinha Online">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="organizer-admin-fieldset">
+          <legend>Imagens</legend>
+          <small>Nesta etapa use URLs de imagem para simular banner e logo. O upload real via Supabase Storage fica para uma próxima fase.</small>
+
+          <div class="organizer-admin-field">
+            <label for="organizerBannerUrl">URL do banner</label>
+            <input id="organizerBannerUrl" name="bannerUrl" type="url" placeholder="https://.../banner.png">
+          </div>
+
+          <div class="organizer-admin-field">
+            <label for="organizerLogoUrl">URL da logo/avatar</label>
+            <input id="organizerLogoUrl" name="logoUrl" type="url" placeholder="https://.../logo.png">
+          </div>
+        </fieldset>
+
+        <fieldset class="organizer-admin-fieldset">
+          <legend>Cores da identidade</legend>
+          <small>As cores alteram glow, bordas, botões, badges e fundo do perfil público.</small>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerThemePrimary">Cor primária</label>
+              <input id="organizerThemePrimary" name="themePrimary" type="color" value="#38bdf8">
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerThemeSecondary">Cor secundária</label>
+              <input id="organizerThemeSecondary" name="themeSecondary" type="color" value="#7c3cff">
+            </div>
+          </div>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerThemeAccent">Cor de destaque</label>
+              <input id="organizerThemeAccent" name="themeAccent" type="color" value="#facc15">
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerThemeText">Texto claro</label>
+              <input id="organizerThemeText" name="themeText" type="color" value="#f8fafc">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="organizer-admin-fieldset">
+          <legend>Links públicos</legend>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerWebsite">Site</label>
+              <input id="organizerWebsite" name="website" type="url" placeholder="https://...">
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerDiscord">Discord</label>
+              <input id="organizerDiscord" name="discord" type="url" placeholder="https://discord.gg/...">
+            </div>
+          </div>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerInstagram">Instagram</label>
+              <input id="organizerInstagram" name="instagram" type="url" placeholder="https://instagram.com/...">
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerYoutube">YouTube</label>
+              <input id="organizerYoutube" name="youtube" type="url" placeholder="https://youtube.com/...">
+            </div>
+          </div>
+
+          <div class="organizer-admin-row">
+            <div class="organizer-admin-field">
+              <label for="organizerTwitch">Twitch</label>
+              <input id="organizerTwitch" name="twitch" type="url" placeholder="https://twitch.tv/...">
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerX">X/Twitter</label>
+              <input id="organizerX" name="x" type="url" placeholder="https://x.com/...">
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="organizer-admin-actions">
+          <button class="organizer-admin-btn" type="submit">
+            <i class="fa-solid fa-floppy-disk"></i>
+            Salvar teste local
+          </button>
+
+          <button id="organizerResetLocal" class="organizer-admin-btn danger" type="button">
+            Limpar alterações locais
+          </button>
+
+          <a id="organizerOpenPublic" class="organizer-admin-btn secondary" href="torneios.html">
+            Abrir perfil público
+          </a>
+        </div>
+
+        <p class="organizer-admin-note">
+          Observação: este painel já prepara os campos para Supabase, mas nesta versão o salvamento fica local para validação visual e segurança.
+        </p>
+
+      </form>
+
+    </article>
+
+    <aside id="organizerPreview" class="organizer-admin-preview"></aside>
+
+  </section>
+
+</main>
+
+<footer>
+
+  <div class="footer-content">
+
+    <h2>SaberWolf</h2>
+
+    <p>
+      Ecossistema brasileiro de esports,
+      creators, campeonatos e comunidade.
+    </p>
+
+    <div class="footer-links">
+
+      <a href="../index.html">Home</a>
+      <a href="../pages/sobre.html">Sobre</a>
+      <a href="../equipes/equipes.html">Equipes</a>
+      <a href="../creators/creators.html">Creators</a>
+      <a href="../comunidades/comunidades.html">Comunidades</a>
+      <a href="torneios.html">Torneios</a>
+      <a href="../pages/loja.html">Loja</a>
+
+    </div>
+
+    <p class="footer-copy">
+      -SBW- © 2026 — Todos os direitos reservados.
+    </p>
+
+  </div>
+
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase/supabase-config.js"></script>
+<script src="../js/supabase/supabase-client.js"></script>
+<script src="../js/auth/auth-service.js"></script>
+<script src="../js/auth/auth-header.js"></script>
+
+<script src="../js/menu.js"></script>
+
+<script src="../js/tournaments/tournaments-config.js"></script>
+<script src="../js/tournaments/tournaments-demo-data.js"></script>
+<script src="../js/tournaments/tournaments-utils.js"></script>
+<script src="../js/tournaments/tournaments-models.js"></script>
+<script src="../js/tournaments/tournaments-storage.js"></script>
+<script src="../js/tournaments/tournament-organizer-admin-page.js"></script>
+
+</body>
+</html>

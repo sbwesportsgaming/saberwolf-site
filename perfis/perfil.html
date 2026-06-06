@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>SaberWolf | Perfil</title>
+
+  <link rel="stylesheet" href="../css/profiles.css" />
+</head>
+<body>
+  <header>
+    <h1>SaberWolf</h1>
+
+    <div class="menu-toggle">
+      ☰
+    </div>
+
+<nav class="main-nav">
+  <a href="../index.html">Home</a>
+  <a href="../blog/noticias.html">Notícias</a>
+  <a href="../pages/sobre.html">Sobre</a>
+  <a href="../creators/creators.html">Creators</a>
+  <a href="../perfis/perfis.html">Perfis</a>
+  <a href="../equipes/equipes.html">Equipes</a>
+  <a href="../torneios/torneios.html">Torneios</a>
+  <a href="../comunidades/comunidades.html">Comunidades</a>
+  <a href="../rankings/rankings.html">Rankings</a>
+  <a href="../transferencias/transferencias.html">Transferências</a>
+  <a href="../pages/loja.html">Loja</a>
+</nav>
+  </header>
+
+  <main class="sbw-profile-page">
+    <section data-profile-public-root>
+      <div class="sbw-empty-state">
+        Carregando perfil...
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase/supabase-config.js"></script>
+<script src="../js/supabase/supabase-client.js"></script>
+
+<script src="../js/profiles/profiles-config.js"></script>
+<script src="../js/profiles/profiles-models.js"></script>
+<script src="../js/profiles/profiles-storage.js"></script>
+<script src="../js/profiles/profile-public-page.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const header = document.querySelector("body > header");
+      const toggle = document.querySelector("body > header .menu-toggle");
+
+      if (!header || !toggle) return;
+
+      toggle.addEventListener("click", function () {
+        header.classList.toggle("is-open");
+      });
+    });
+  </script>
+</body>
+</html>

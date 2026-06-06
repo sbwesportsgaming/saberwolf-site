@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Transferências | SaberWolf</title>
+
+  <link rel="stylesheet" href="../css/transfers/transfers.css" />
+</head>
+<body>
+  <header class="sbw-header">
+    <a class="sbw-brand" href="../index.html">
+      <span class="sbw-brand-mark">SBW</span>
+      <span class="sbw-brand-text">SaberWolf</span>
+    </a>
+
+    <nav class="main-nav">
+<a href="../index.html">Home</a>
+<a href="../blog/noticias.html">Notícias</a>
+<a href="../pages/sobre.html">Sobre</a>
+<a href="../creators/creators.html">Creators</a>
+<a href="../perfis/perfis.html">Perfis</a>
+<a href="../equipes/equipes.html">Equipes</a>
+<a href="../torneios/torneios.html">Torneios</a>
+<a href="../comunidades/comunidades.html">Comunidades</a>
+<a href="../rankings/rankings.html">Rankings</a>
+<a href="../transferencias/transferencias.html">Transferências</a>
+<a href="../pages/loja.html">Loja</a>
+</nav>
+  </header>
+
+  <main class="sbw-transfers-page">
+    <section class="sbw-transfers-hero">
+      <div>
+        <span class="sbw-kicker">Mercado competitivo SaberWolf</span>
+        <h1>Transferências</h1>
+        <p>
+          Acompanhe movimentações concluídas de jogadores entre equipes,
+          contratações de jogadores livres e saídas para sem clube.
+        </p>
+      </div>
+
+      <div class="sbw-hero-card">
+        <strong>Temporada 2026</strong>
+        <span>Histórico público de movimentações</span>
+      </div>
+    </section>
+
+    <section class="sbw-transfer-stats" id="transferStats"></section>
+
+    <section class="sbw-transfer-filters">
+      <div class="sbw-filter-field sbw-filter-search">
+        <label for="transferSearch">Pesquisar</label>
+        <input
+          id="transferSearch"
+          type="search"
+          placeholder="Jogador, equipe ou data..."
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="sbw-filter-field">
+        <label for="transferTypeFilter">Tipo</label>
+        <select id="transferTypeFilter">
+          <option value="all">Todos</option>
+          <option value="signing">Contratações</option>
+          <option value="transfer">Transferências</option>
+          <option value="release">Saídas</option>
+          <option value="internal">Movimentação interna</option>
+        </select>
+      </div>
+
+      <div class="sbw-filter-field">
+        <label for="transferGameFilter">Jogo</label>
+        <select id="transferGameFilter">
+          <option value="all">Todos</option>
+        </select>
+      </div>
+
+      <button class="sbw-clear-button" id="clearTransferFilters" type="button">
+        Limpar filtros
+      </button>
+    </section>
+
+    <section class="sbw-transfer-list" id="transferList"></section>
+
+    <section class="sbw-transfer-empty" id="transferEmpty" hidden>
+      <strong>Nenhuma transferência encontrada.</strong>
+      <span>Tente buscar por outro jogador, equipe, data ou tipo.</span>
+    </section>
+  </main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase/supabase-config.js"></script>
+<script src="../js/supabase/supabase-client.js"></script>
+<script src="../js/auth/auth-service.js"></script>
+<script src="../js/auth/auth-header.js"></script>
+
+<script src="../js/transfers/transfers-demo-data.js"></script>
+<script src="../js/transfers/transfers-page.js"></script>
+
+</body>
+</html>
