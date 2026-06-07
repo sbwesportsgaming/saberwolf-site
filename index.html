@@ -1,455 +1,243 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>SaberWolf | -SBW-</title>
+  <title>SaberWolf eSports | Ecossistema Gamer</title>
+  <meta
+    name="description"
+    content="SaberWolf eSports é um ecossistema gamer com torneios, rankings, equipes, perfis, comunidades, transferências e conteúdo."
+  />
 
-  <meta name="description" content="SaberWolf eSports é um ecossistema gamer brasileiro com torneios, comunidades, creators, equipes, notícias e projetos competitivos.">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
 
-  <link rel="icon" href="assets/images/logo-sbw.jpg" type="image/jpeg">
-  
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/layout/sbw-sidebar.css" />
+  <link rel="stylesheet" href="css/home/home-landing.css" />
 
-  <link rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script defer src="js/supabase/supabase-config.js"></script>
+  <script defer src="js/auth/auth-service.js"></script>
 
-  <link rel="stylesheet" href="css/home.css">
+  <script defer src="js/layout/sbw-sidebar.js"></script>
+  <script defer src="js/home/home-page.js"></script>
 </head>
 
-<body>
+<body class="sbw-home-page" data-sbw-active-page="home">
+  <div id="sbwSidebarMount"></div>
 
-<header>
-
-  <h1>SaberWolf</h1>
-
-  <div class="menu-toggle">
+  <button
+    class="sbw-sidebar-toggle"
+    type="button"
+    aria-label="Abrir menu"
+    data-sbw-sidebar-toggle
+  >
     ☰
-  </div>
+  </button>
 
-<nav class="main-nav">
-  <a href="index.html">Home</a>
-  <a href="blog/noticias.html">Notícias</a>
-  <a href="pages/sobre.html">Sobre</a>
-  <a href="creators/creators.html">Creators</a>
-  <a href="perfis/perfis.html">Perfis</a>
-  <a href="equipes/equipes.html">Equipes</a>
-  <a href="torneios/torneios.html">Torneios</a>
-  <a href="comunidades/comunidades.html">Comunidades</a>
-  <a href="rankings/rankings.html">Rankings</a>
-  <a href="transferencias/transferencias.html">Transferências</a>
-  <a href="pages/loja.html">Loja</a>
-</nav>
+  <div class="sbw-sidebar-backdrop" data-sbw-sidebar-close></div>
 
-</header>
+  <main class="sbw-home-shell">
+    <section class="sbw-home-hero" aria-labelledby="sbwHomeTitle">
+      <div class="sbw-home-hero__banner" aria-hidden="true"></div>
+      <div class="sbw-home-hero__banner-overlay" aria-hidden="true"></div>
+      <div class="sbw-home-hero__ambient" aria-hidden="true"></div>
 
-<main class="home-main">
+      <div class="sbw-home-hero__content sbw-reveal">
+        <span class="sbw-kicker">
+          <span></span>
+          Ecossistema Gamer
+        </span>
 
-  <!-- HERO -->
-
-  <section class="home-hero">
-
-    <div class="home-hero-content">
-
-      <span class="home-label">
-        <i class="fa-solid fa-shield-halved"></i>
-        Organização eSports
-      </span>
-
-      <h2>
-        SaberWolf eSports
-      </h2>
-
-      <p class="home-hero-subtitle">
-        Um ecossistema gamer criado para conectar jogadores,
-        torneios, creators, comunidades, notícias e torcedores
-        em torno da identidade -SBW-.
-      </p>
-
-      <div class="home-hero-buttons">
-
-        <a href="pages/sobre.html" class="btn">
-          Conhecer a Organização
-        </a>
-
-        <a href="torneios/torneios.html" class="btn btn-secondary">
-          Ver Torneios
-        </a>
-
-      </div>
-
-    </div>
-
-    <div class="home-identity-card">
-
-      <div class="identity-emblem">
-        <i class="fa-brands fa-wolf-pack-battalion"></i>
-      </div>
-
-      <span>
-        -SBW-
-      </span>
-
-      <h3>
-        Competição, comunidade e conteúdo.
-      </h3>
-
-      <p>
-        A SaberWolf nasce para fortalecer o cenário gamer,
-        aproximando quem joga, quem organiza, quem cria
-        e quem torce.
-      </p>
-
-    </div>
-
-  </section>
-
-  <!-- PILARES -->
-
-  <section class="home-section">
-
-    <div class="home-section-heading">
-
-      <span class="home-label">
-        Pilares
-      </span>
-
-      <h2>
-        A base da SaberWolf
-      </h2>
-
-      <p>
-        A organização se estrutura em três frentes principais:
-        competir, conectar e comunicar.
-      </p>
-
-    </div>
-
-    <div class="home-pillars-grid">
-
-      <div class="home-pillar-card">
-
-        <i class="fa-solid fa-trophy"></i>
-
-        <h3>
-          Competição
-        </h3>
+        <h1 id="sbwHomeTitle">
+          SaberWolf
+          <strong>eSports</strong>
+        </h1>
 
         <p>
-          Torneios, ligas, eventos competitivos e oportunidades
-          para jogadores mostrarem sua evolução.
+          Um ecossistema gamer criado para conectar jogadores, equipes,
+          organizadores e comunidades através de torneios, rankings,
+          perfis competitivos e conteúdo.
         </p>
 
+        <div class="sbw-home-hero__actions">
+          <a class="sbw-btn sbw-btn--ghost" href="#organizacao-saberwolf">
+            -SBW-
+            <span>→</span>
+          </a>
+        </div>
       </div>
+    </section>
 
-      <div class="home-pillar-card">
+    <section class="sbw-section sbw-org-section" id="organizacao-saberwolf">
+  <div class="sbw-section-heading sbw-reveal">
+    <span class="sbw-kicker">Destaque SBW</span>
 
-        <i class="fa-solid fa-users"></i>
-
-        <h3>
-          Comunidade
-        </h3>
-
-        <p>
-          Um espaço para jogadores, torcedores, creators
-          e comunidades se conectarem dentro do ecossistema -SBW-.
-        </p>
-
-      </div>
-
-      <div class="home-pillar-card">
-
-        <i class="fa-solid fa-newspaper"></i>
-
-        <h3>
-          Conteúdo
-        </h3>
-
-        <p>
-          Notícias, mídia gamer, cobertura de eventos,
-          creators e informações relevantes do cenário.
-        </p>
-
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- ACESSOS -->
-
-  <section class="home-section">
-
-    <div class="home-section-heading">
-
-      <span class="home-label">
-        Ecossistema
-      </span>
-
-      <h2>
-        O que você encontra no site
-      </h2>
-
-      <p>
-        A Home conecta o visitante às principais áreas da plataforma,
-        sem perder o foco na identidade da organização.
-      </p>
-
-    </div>
-
-    <div class="home-access-grid">
-
-      <a href="torneios/torneios.html" class="home-access-card">
-
-        <div class="access-icon">
-          <i class="fa-solid fa-trophy"></i>
-        </div>
-
-        <div>
-
-          <h3>
-            Torneios
-          </h3>
-
-          <p>
-            Acesse competições, eventos publicados,
-            categorias e torneios em destaque.
-          </p>
-
-        </div>
-
-        <span>
-          Ver
-          <i class="fa-solid fa-arrow-right"></i>
-        </span>
-
-      </a>
-
-      <a href="comunidades/comunidades.html" class="home-access-card">
-
-        <div class="access-icon">
-          <i class="fa-solid fa-people-group"></i>
-        </div>
-
-        <div>
-
-          <h3>
-            Comunidades
-          </h3>
-
-          <p>
-            Conheça hubs, grupos, projetos parceiros
-            e espaços de conexão gamer.
-          </p>
-
-        </div>
-
-        <span>
-          Ver
-          <i class="fa-solid fa-arrow-right"></i>
-        </span>
-
-      </a>
-
-      <a href="creators/creators.html" class="home-access-card">
-
-        <div class="access-icon">
-          <i class="fa-solid fa-video"></i>
-        </div>
-
-        <div>
-
-          <h3>
-            Creators
-          </h3>
-
-          <p>
-            Acompanhe criadores de conteúdo ligados
-            ao universo SaberWolf.
-          </p>
-
-        </div>
-
-        <span>
-          Ver
-          <i class="fa-solid fa-arrow-right"></i>
-        </span>
-
-      </a>
-
-      <a href="blog/noticias.html" class="home-access-card">
-
-        <div class="access-icon">
-          <i class="fa-solid fa-newspaper"></i>
-        </div>
-
-        <div>
-
-          <h3>
-            Notícias
-          </h3>
-
-          <p>
-            Leia novidades, atualizações, coberturas
-            e conteúdos do mundo gamer.
-          </p>
-
-        </div>
-
-        <span>
-          Ver
-          <i class="fa-solid fa-arrow-right"></i>
-        </span>
-
-      </a>
-
-    </div>
-
-  </section>
-
-  <!-- IDENTIDADE -->
-
-  <section class="home-section">
-
-    <div class="home-statement-card">
-
-      <div>
-
-        <span class="home-label">
-          Identidade
-        </span>
-
-        <h2>
-          Mais que uma plataforma, uma organização.
-        </h2>
-
-        <p>
-          A SaberWolf eSports foi pensada para representar uma comunidade
-          competitiva, criativa e conectada. O site é o ponto central onde
-          jogadores podem competir, torcedores podem acompanhar, creators
-          podem se apresentar e comunidades podem crescer.
-        </p>
-
-      </div>
-
-      <div class="statement-mark">
-
-        <strong>
-          -SBW-
-        </strong>
-
-        <span>
-          SaberWolf eSports
-        </span>
-
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- CHAMADA FINAL -->
-
-  <section class="home-section">
-
-    <div class="home-final-cta">
-
-      <span class="home-label">
-        Faça parte
-      </span>
-
-      <h2>
-        Entre no ecossistema SaberWolf.
-      </h2>
-
-      <p>
-        Conheça a organização, participe dos torneios,
-        acompanhe as comunidades e faça parte da torcida -SBW-.
-      </p>
-
-      <div class="home-hero-buttons">
-
-        <a href="pages/sobre.html" class="btn">
-          Sobre a SaberWolf
-        </a>
-
-        <a href="comunidades/comunidades.html" class="btn btn-secondary">
-          Entrar na Comunidade
-        </a>
-
-      </div>
-
-    </div>
-
-  </section>
-
-</main>
-
-<footer>
-
-  <div class="footer-content">
-
-    <h2>SaberWolf</h2>
+    <h2>-SBW- | EliTz</h2>
 
     <p>
-      Ecossistema brasileiro de esports,
-      creators, campeonatos e comunidade.
+      Gabriel Batista, conhecido como EliTz, é jogador profissional de Call of Duty,
+      creator e representante da SaberWolf, com mais de uma década de experiência
+      competitiva e vivência internacional.
     </p>
-
-    <div class="footer-links">
-
-      <a href="index.html">
-        Home
-      </a>
-
-      <a href="blog/noticias.html">
-        Notícias
-      </a>
-
-      <a href="pages/sobre.html">
-        Sobre
-      </a>
-
-      <a href="equipes/equipes.html">
-        Equipes
-      </a>
-
-      <a href="creators/creators.html">
-        Creators
-      </a>
-
-      <a href="comunidades/comunidades.html">
-        Comunidades
-      </a>
-
-      <a href="torneios/torneios.html">
-        Torneios
-      </a>
-
-      <a href="pages/loja.html">
-        Loja
-      </a>
-
-    </div>
-
-    <p class="footer-copy">
-      -SBW- © 2026 — Todos os direitos reservados.
-    </p>
-
   </div>
 
-</footer>
+  <a
+  class="sbw-feature-member sbw-feature-member--link sbw-reveal"
+  href="/creators/elitz.html"
+  aria-label="Abrir perfil Creator de EliTz -SBW-"
+>
+    <div class="sbw-feature-member__photo">
+      <img src="assets/home/elitz.jpg.jpeg" alt="EliTz -SBW-" />
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase/supabase-config.js"></script>
-<script src="js/supabase/supabase-client.js"></script>
-<script src="js/auth/auth-service.js"></script>
-<script src="js/auth/auth-header.js"></script>
+    <div class="sbw-feature-member__content">
+      <span class="sbw-feature-member__tag">Membro em destaque</span>
 
-<script src="js/menu.js"></script>
+      <h3>-SBW- | EliTz</h3>
 
+      <p>
+        Gabriel Batista, mais conhecido como EliTz, tem 28 anos e reside em
+        Nilópolis, RJ. Jogador profissional de Call of Duty, ele acumula mais
+        de uma década de experiência no game e uma ampla vivência internacional.
+      </p>
 
+      <p>
+        Ao longo da carreira, Gabriel morou nos Estados Unidos em duas ocasiões,
+        somando quatro meses no país. Nesse período, participou de 2 Majors e
+        também competiu em um Mundial em outra oportunidade.
+      </p>
+
+      <p>
+        Com trajetória marcada por alto rendimento, EliTz soma conquistas como
+        10x MVP 🥇 e 5x LAN Champion 🏆. Hoje, segue competindo ativamente e
+        também se dedica à criação de conteúdo, ajudando seu público a evoluir
+        dentro do jogo. Hoje no cenário de Fighting games, vem evoluindo com as personagens Juri e Mai Shiranui, buscando se destacar em ambos os cenários competitivos.
+      </p>
+
+      <strong class="sbw-feature-member__cta">
+        Ver perfil Creator →
+      </strong>
+    </div>
+  </a>
+  <a
+  class="sbw-feature-member sbw-feature-member--link sbw-reveal"
+  href="https://www.start.gg/user/267d7096"
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label="Abrir perfil start.gg de TigerFurious"
+>
+  <div class="sbw-feature-member__photo">
+    <img src="assets/home/tigerfurious.jpg.jpeg" alt="TigerFurious" />
+  </div>
+
+  <div class="sbw-feature-member__content">
+    <span class="sbw-feature-member__tag">FGC em destaque</span>
+
+     <h3>-SBW- | TigerFurious</h3>
+
+  <p>
+    Lorena Kathleen, conhecida como TigerFurious, tem 30 anos, mora em
+    Brasília/DF e joga desde os 3 ou 4 anos de idade. Com uma trajetória
+    marcada por paixão pelos games, já competiu semi profissionalmente em
+    The King of Fighters e Street Fighter V.
+  </p>
+
+  <p>
+    No Street Fighter V, alcançou o rank Diamond usando Cammy e Sagat. No KOF,
+    seu trio principal conta com Iori e Chris, enquanto o terceiro personagem
+    varia conforme o momento e o estilo de jogo.
+  </p>
+
+  <p>
+    Além dos fighting games, Lorena também teve passagem pelo Dota 2, e ja atuou
+    como offlaner pelo time Hateful Queens. Começou calibrando com 1k MMR e
+    chegou ao pico de 5.1k MMR entre 2017 e 2018.
+  </p>
+
+  <p>
+    Fora dos controles, é formada como professora de química, física e pedagogia,
+    trazendo uma mistura única de experiência competitiva, didática e presença
+    ativa dentro da comunidade gamer.
+  </p>
+    <strong class="sbw-feature-member__cta">
+      Ver perfil start.gg →
+    </strong>
+  </div>
+</a>
+</section>
+
+    <section class="sbw-section sbw-ecosystem-section">
+      <div class="sbw-section-heading sbw-reveal">
+        <span class="sbw-kicker">Ecossistema</span>
+
+        <h2>O que você encontra no site</h2>
+
+        <p>
+          A SaberWolf conecta competição, identidade, histórico competitivo e
+          comunidade em uma única plataforma.
+        </p>
+      </div>
+
+      <div class="sbw-ecosystem-grid">
+        <a href="/torneios/torneios.html" class="sbw-module-card sbw-reveal">
+          <span>🏆</span>
+          <h3>Torneios</h3>
+          <p>Acompanhe, participe e organize competições.</p>
+        </a>
+
+        <a href="/perfis/perfis.html" class="sbw-module-card sbw-reveal">
+          <span>👤</span>
+          <h3>Perfis</h3>
+          <p>Seu histórico competitivo, conquistas e medalhas.</p>
+        </a>
+
+        <a href="/equipes/equipes.html" class="sbw-module-card sbw-reveal">
+          <span>🛡️</span>
+          <h3>Equipes</h3>
+          <p>Conheça organizações, elencos e comunidades competitivas.</p>
+        </a>
+
+        <a href="/rankings/rankings.html" class="sbw-module-card sbw-reveal">
+          <span>📊</span>
+          <h3>Rankings</h3>
+          <p>Veja destaques por temporada, jogo e organizador.</p>
+        </a>
+
+        <a href="/comunidades/comunidades.html" class="sbw-module-card sbw-reveal">
+          <span>🌐</span>
+          <h3>Comunidades</h3>
+          <p>Encontre grupos, clans, eventos e iniciativas parceiras.</p>
+        </a>
+
+        <a href="/transferencias/transferencias.html" class="sbw-module-card sbw-reveal">
+          <span>⇄</span>
+          <h3>Transferências</h3>
+          <p>Fique por dentro das movimentações do cenário.</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="sbw-section sbw-home-cta sbw-reveal">
+      <div>
+        <span class="sbw-kicker">Beta SaberWolf</span>
+
+        <h2>Entre no ecossistema SBW</h2>
+
+        <p>
+          Crie seu perfil, acompanhe torneios, participe da comunidade e ajude
+          a construir a próxima fase da SaberWolf.
+        </p>
+      </div>
+
+      <a class="sbw-btn sbw-btn--primary" href="/auth/login.html">
+        Entrar / Criar conta
+      </a>
+    </section>
+  </main>
 </body>
 </html>
