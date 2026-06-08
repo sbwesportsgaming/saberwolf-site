@@ -1,40 +1,28 @@
 (function () {
-  const config = window.SBW_TEAMS_CONFIG;
+  "use strict";
+
+  const config = window.SBW_TEAMS_CONFIG || {};
   const storage = window.SBWTeamsStorage;
-  const models = window.SBWTeamsModels;
+  const models = window.SBWTeamsModels || {};
 
   const state = {
-    currentUser: null,
+    authUser: null,
+    profile: null,
+    account: null,
+    selectedGames: new Set(),
     tagStatus: null,
-    selectedGames: new Set()
+    existingTeam: null,
+    existingMembership: null
   };
 
   const defaultGames = [
-    {
-      id: "sf6",
-      name: "Street Fighter 6",
-      category: "Fighting Games"
-    },
-    {
-      id: "fatal-fury",
-      name: "Fatal Fury",
-      category: "Fighting Games"
-    },
-    {
-      id: "tekken-8",
-      name: "Tekken 8",
-      category: "Fighting Games"
-    },
-    {
-      id: "overwatch",
-      name: "Overwatch",
-      category: "FPS / Hero Shooter"
-    },
-    {
-      id: "call-of-duty",
-      name: "Call of Duty",
-      category: "FPS"
-    }
+    { id: "sf6", name: "Street Fighter 6", category: "Fighting Games" },
+    { id: "fatal-fury", name: "Fatal Fury", category: "Fighting Games" },
+    { id: "tekken-8", name: "Tekken 8", category: "Fighting Games" },
+    { id: "mortal-kombat-1", name: "Mortal Kombat 1", category: "Fighting Games" },
+    { id: "valorant", name: "Valorant", category: "FPS" },
+    { id: "league-of-legends", name: "League of Legends", category: "MOBA" },
+    { id: "call-of-duty", name: "Call of Duty", category: "FPS" }
   ];
 
   function escapeHtml(value) {
@@ -49,10 +37,9 @@
   function readJson(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
-      if (!raw) return fallback;
-      return JSON.parse(raw);
+      return raw ? JSON.parse(raw) : fallback;
     } catch (error) {
-      console.warn("Erro ao ler storage:", key, error);
+      console.warn("[SBW Create Team] Erro ao ler storage:", key, error);
       return fallback;
     }
   }
@@ -62,116 +49,312 @@
       localStorage.setItem(key, JSON.stringify(value));
       return true;
     } catch (error) {
-      console.warn("Erro ao salvar storage:", key, error);
+      console.warn("[SBW Create Team] Erro ao salvar storage:", key, error);
       return false;
     }
   }
 
-  function getDefaultUser() {
-    return {
-      id: "user-demo-common",
-      name: "Usuário Demo",
-      nickname: "UsuarioDemo",
-      roles: ["user"],
-      permissions: {
-        can_create_team: false
-      }
-    };
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function getAuthorizedDemoUser() {
-    return {
-      id: "user-demo-team-creator",
-      name: "Capitão Demo",
-      nickname: "CapitaoDemo",
-      roles: ["user", "team_creator"],
-      permissions: {
-        can_create_team: true
-      }
-    };
-  }
+  async function waitForSupabaseClient() {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const client = window.SBWSupabase?.client;
 
-  function getCurrentUser() {
-    return readJson(config.storageKeys.currentUser, getDefaultUser());
-  }
+      if (client?.auth) return client;
 
-  function saveCurrentUser(user) {
-    writeJson(config.storageKeys.currentUser, user);
-    state.currentUser = user;
-  }
+      await wait(100);
+    }
 
-  function canCreateTeam(user) {
-    if (!user) return false;
-
-    const roles = Array.isArray(user.roles) ? user.roles : [];
-    const permissions = user.permissions || {};
-
-    return (
-      permissions.can_create_team === true ||
-      roles.includes("team_creator") ||
-      roles.includes("admin_sbw")
-    );
+    return null;
   }
 
   function getRoot() {
     return document.querySelector("[data-team-create-root]");
   }
 
-  function getTagHelpClass(status) {
-    if (!status) return "";
+  function normalizeTag(tag) {
+    if (typeof models.normalizeTag === "function") {
+      return models.normalizeTag(tag);
+    }
 
-    return status.available
-      ? "sbw-form-help-success"
-      : "sbw-form-help-error";
+    return String(tag || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
   }
 
-  async function getUserMainTeam(user) {
+  function createSlug(value) {
+    if (typeof models.createSlug === "function") {
+      return models.createSlug(value);
+    }
+
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function getProfileDisplayName(profile, user) {
+    const metadata = user?.user_metadata || {};
+
+    return (
+      profile?.display_name ||
+      profile?.displayName ||
+      profile?.nickname ||
+      profile?.username ||
+      metadata.display_name ||
+      metadata.full_name ||
+      metadata.name ||
+      metadata.nickname ||
+      user?.email?.split("@")[0] ||
+      "Usuário SBW"
+    );
+  }
+
+  function getProfileSlug(profile, user) {
+    return (
+      profile?.slug ||
+      profile?.username ||
+      profile?.profile_slug ||
+      profile?.id ||
+      user?.id ||
+      ""
+    );
+  }
+
+  function getProfileAvatar(profile, user) {
+    const metadata = user?.user_metadata || {};
+
+    return (
+      profile?.avatar_url ||
+      profile?.avatarUrl ||
+      metadata.avatar_url ||
+      metadata.picture ||
+      ""
+    );
+  }
+
+  async function getCurrentAuthUser() {
+    try {
+      const client = await waitForSupabaseClient();
+
+      if (client?.auth?.getSession) {
+        const sessionResult = await client.auth.getSession();
+        const sessionUser = sessionResult?.data?.session?.user;
+
+        if (sessionUser) return sessionUser;
+      }
+
+      if (client?.auth?.getUser) {
+        const userResult = await client.auth.getUser();
+        const user = userResult?.data?.user;
+
+        if (user) return user;
+      }
+    } catch (error) {
+      console.warn("[SBW Create Team] Não foi possível carregar usuário:", error);
+    }
+
+    return null;
+  }
+
+  async function getCurrentProfile(user) {
     if (!user) return null;
 
+    try {
+      if (window.SBWAuth?.ensureCurrentUserProfile) {
+        const ensured = await window.SBWAuth.ensureCurrentUserProfile();
+        if (ensured) return ensured;
+      }
+    } catch (error) {
+      console.warn("[SBW Create Team] ensureCurrentUserProfile falhou:", error);
+    }
+
+    try {
+      const client = await waitForSupabaseClient();
+      if (!client) return null;
+
+      const byAuthUserId = await client
+        .from("profiles")
+        .select("*")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+
+      if (!byAuthUserId.error && byAuthUserId.data) {
+        return byAuthUserId.data;
+      }
+
+      const byId = await client
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!byId.error && byId.data) {
+        return byId.data;
+      }
+    } catch (error) {
+      console.warn("[SBW Create Team] Não foi possível buscar profile:", error);
+    }
+
+    return null;
+  }
+
+  async function getCurrentAccount() {
+    const authUser = await getCurrentAuthUser();
+
+    if (!authUser) {
+      return null;
+    }
+
+    const profile = await getCurrentProfile(authUser);
+    const profileSlug = getProfileSlug(profile, authUser);
+    const displayName = getProfileDisplayName(profile, authUser);
+    const avatarUrl = getProfileAvatar(profile, authUser);
+
+    return {
+      authUser,
+      profile,
+      profileSlug,
+      displayName,
+      avatarUrl,
+      email: authUser.email || ""
+    };
+  }
+
+  function isMainTeam(team) {
+    const mainType = config.teamTypes?.mainTeam || "main_team";
+    return !team?.parentTeamId && !team?.parentTeamSlug && String(team?.teamType || mainType) === String(mainType);
+  }
+
+  async function getExistingMainTeam(account) {
+    if (!account || !storage?.getAllTeams) return null;
+
     const teams = await storage.getAllTeams();
+    const profileSlug = String(account.profileSlug || "");
+    const userId = String(account.authUser?.id || "");
 
     return (
       teams.find((team) => {
+        if (!isMainTeam(team)) return false;
+
         return (
-          team.captainUserId === user.id &&
-          team.teamType === config.teamTypes.mainTeam
+          String(team.captainUserId || "") === userId ||
+          String(team.captainProfileSlug || "") === profileSlug ||
+          String(team.metadata?.createdByAuthUserId || "") === userId ||
+          String(team.metadata?.createdByProfileSlug || "") === profileSlug
         );
       }) || null
     );
   }
 
-  function renderAlreadyHasTeamState(team) {
+  async function getExistingActiveMembership(account) {
+    if (!account || !storage?.getAllTeams || !storage?.getTeamMembers) return null;
+
+    const teams = await storage.getAllTeams();
+    const profileSlug = String(account.profileSlug || "");
+    const userId = String(account.authUser?.id || "");
+
+    for (const team of teams) {
+      const teamKey = team.slug || team.id;
+      const members = await storage.getTeamMembers(teamKey);
+
+      const found = members.find((member) => {
+        const status = String(member.status || "active");
+        if (status !== "active") return false;
+
+        return (
+          String(member.profileSlug || "") === profileSlug ||
+          String(member.profileId || "") === profileSlug ||
+          String(member.userId || "") === profileSlug ||
+          String(member.userId || "") === userId ||
+          String(member.authUserId || "") === userId
+        );
+      });
+
+      if (found) {
+        return {
+          team,
+          member: found
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function renderLoginRequiredState() {
     const root = getRoot();
     if (!root) return;
 
-    const canCreateSubteam = storage.canCreateSubteam(team);
-
     root.innerHTML = `
-      <section class="sbw-create-layout">
-        <article class="sbw-create-panel">
-          <div class="sbw-create-panel-kicker">Equipe principal já criada</div>
+      <section class="sbw-create-layout-v2">
+        <article class="sbw-create-panel-v2 sbw-create-panel-v2--blocked">
+          <div class="sbw-create-panel-kicker-v2">Login necessário</div>
 
-          <h2>Você já possui uma equipe principal</h2>
+          <h2>Entre para criar sua equipe</h2>
 
           <p>
-            Cada perfil autorizado pode criar apenas uma equipe principal dentro da SaberWolf.
-            Para continuar, gerencie sua equipe atual.
+            A criação de equipe agora é aberta para usuários logados. Entre com sua conta -SBW- para criar uma equipe principal e gerenciar seu elenco.
           </p>
 
-          <div class="sbw-permission-box">
-            <strong>${escapeHtml(team.name)}</strong>
+          <div class="sbw-create-info-box-v2">
+            <strong>Regra atual da plataforma</strong>
+            <span>Cada conta pode criar apenas uma equipe principal e participar de uma equipe ativa.</span>
+          </div>
+
+          <div class="sbw-create-actions-v2">
+            <a class="sbw-team-btn sbw-team-btn-primary" href="../auth/login.html">
+              Entrar / Criar conta
+            </a>
+
+            <a class="sbw-team-btn" href="equipes.html">
+              Ver equipes
+            </a>
+          </div>
+        </article>
+      </section>
+    `;
+  }
+
+  function renderAlreadyHasTeamState(team, membership) {
+    const root = getRoot();
+    if (!root) return;
+
+    const activeTeam = team || membership?.team;
+    const teamId = activeTeam?.slug || activeTeam?.id || "";
+    const title = team ? "Você já criou uma equipe principal" : "Você já participa de uma equipe";
+    const description = team
+      ? "Cada usuário pode criar apenas uma equipe principal. Para continuar, gerencie sua equipe atual."
+      : "Cada usuário pode participar de apenas uma equipe ativa. Para criar outra equipe, primeiro será necessário sair da equipe atual.";
+
+    root.innerHTML = `
+      <section class="sbw-create-layout-v2">
+        <article class="sbw-create-panel-v2">
+          <div class="sbw-create-panel-kicker-v2">Limite de equipe atingido</div>
+
+          <h2>${escapeHtml(title)}</h2>
+
+          <p>${escapeHtml(description)}</p>
+
+          <div class="sbw-create-info-box-v2">
+            <strong>${escapeHtml(activeTeam?.name || "Equipe atual")}</strong>
             <span>
-              Tag: ${escapeHtml(team.tag)} · Status:
-              ${escapeHtml(team.verificationStatus)}
+              Tag: ${escapeHtml(activeTeam?.tag || "-")} · Status:
+              ${escapeHtml(activeTeam?.verificationStatus || "not_verified")}
             </span>
           </div>
 
-          <div class="sbw-create-actions">
-            <a class="sbw-team-btn sbw-team-btn-primary" href="minha-equipe.html?id=${encodeURIComponent(team.id)}">
+          <div class="sbw-create-actions-v2">
+            <a class="sbw-team-btn sbw-team-btn-primary" href="minha-equipe.html?id=${encodeURIComponent(teamId)}">
               Gerenciar minha equipe
             </a>
 
-            <a class="sbw-team-btn" href="equipe.html?id=${encodeURIComponent(team.id)}">
+            <a class="sbw-team-btn" href="equipe.html?id=${encodeURIComponent(teamId)}">
               Ver perfil público
             </a>
 
@@ -181,121 +364,46 @@
           </div>
         </article>
 
-        <aside class="sbw-create-side-card">
-          <h3>Subequipes</h3>
-
+        <aside class="sbw-create-side-card-v2">
+          <h3>Subequipes e verificação</h3>
           <p>
-            Subequipes serão liberadas apenas para equipes verificadas.
-            Elas não serão criadas por esta página de criação comum.
+            Subequipes são liberadas para equipes verificadas. A verificação depende de aprovação da administração -SBW-.
           </p>
-
-          <div class="sbw-permission-box">
-            <strong>${canCreateSubteam ? "Subequipe liberada" : "Subequipe bloqueada"}</strong>
-            <span>
-              ${
-                canCreateSubteam
-                  ? "Esta equipe está verificada e poderá criar subequipes pelo painel."
-                  : "Solicite verificação da equipe para liberar criação de subequipe."
-              }
-            </span>
-          </div>
         </aside>
       </section>
     `;
   }
 
-  function renderBlockedState() {
-    const root = getRoot();
-    if (!root) return;
-
-    root.innerHTML = `
-      <section class="sbw-create-layout">
-        <article class="sbw-create-panel sbw-create-blocked">
-          <div class="sbw-create-panel-kicker">Permissão necessária</div>
-
-          <h2>Solicite autorização para criar uma equipe</h2>
-
-          <p>
-            Qualquer usuário pode ter perfil e participar de torneios, mas a criação
-            de equipes é liberada apenas para contas autorizadas pela SaberWolf.
-          </p>
-
-          <div class="sbw-permission-box">
-            <strong>Fluxo futuro com Supabase</strong>
-
-            <span>
-              A SBW libera a permissão <code>can_create_team</code> para usuários aprovados.
-              Depois disso, o botão de criação fica disponível no painel.
-            </span>
-          </div>
-
-          <div class="sbw-create-actions">
-            <button class="sbw-team-btn sbw-team-btn-primary" type="button" data-request-permission>
-              Solicitar pelo Discord
-            </button>
-
-            <a class="sbw-team-btn" href="equipes.html">
-              Ver equipes
-            </a>
-          </div>
-        </article>
-
-        <aside class="sbw-create-side-card">
-          <h3>Simulação local</h3>
-
-          <p>
-            Enquanto não conectamos Supabase/Auth, use os botões abaixo para testar
-            o comportamento de usuário comum e usuário autorizado.
-          </p>
-
-          <div class="sbw-create-actions sbw-create-actions-column">
-            <button class="sbw-team-btn sbw-team-btn-primary" type="button" data-demo-authorize>
-              Simular usuário autorizado
-            </button>
-
-            <button class="sbw-team-btn" type="button" data-demo-common>
-              Simular usuário comum
-            </button>
-          </div>
-        </aside>
-      </section>
-    `;
-
-    bindCommonActions();
+  function getTagHelpClass(status) {
+    if (!status) return "";
+    return status.available ? "sbw-form-help-success" : "sbw-form-help-error";
   }
 
   function renderCreateForm() {
     const root = getRoot();
     if (!root) return;
 
-    const user = state.currentUser || getDefaultUser();
+    const account = state.account;
 
     state.selectedGames.clear();
     state.tagStatus = null;
 
     root.innerHTML = `
-      <section class="sbw-create-layout">
-        <article class="sbw-create-panel">
-          <div class="sbw-create-panel-kicker">Usuário autorizado</div>
+      <section class="sbw-create-layout-v2">
+        <article class="sbw-create-panel-v2">
+          <div class="sbw-create-panel-kicker-v2">Criação liberada</div>
 
           <h2>Dados principais da equipe</h2>
 
           <p>
-            Esta criação salva a equipe na demo local. Futuramente, o mesmo fluxo
-            será enviado para o Supabase com validação por RLS.
+            Preencha as informações públicas da sua equipe. Ela começará como equipe comum e poderá solicitar verificação futuramente.
           </p>
 
-          <form class="sbw-team-form" data-team-create-form>
+          <form class="sbw-team-form sbw-team-form-v2" data-team-create-form>
             <div class="sbw-form-grid">
               <label class="sbw-form-field">
                 <span>Nome da equipe *</span>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Ex: Fighting Wolves Gaming"
-                  maxlength="50"
-                  required
-                />
+                <input type="text" name="name" placeholder="Ex: Fighting Wolves Gaming" maxlength="60" required />
               </label>
 
               <label class="sbw-form-field">
@@ -304,52 +412,39 @@
                   type="text"
                   name="tag"
                   placeholder="Ex: FWG"
-                  maxlength="${config.tagRules.extendedMaxLength}"
+                  maxlength="${Number(config.tagRules?.extendedMaxLength || 12)}"
                   required
                   data-team-tag-input
                 />
 
                 <small class="sbw-form-help" data-tag-help>
-                  Use de ${config.tagRules.minLength} a ${config.tagRules.maxLength} caracteres.
-                  Tags iguais não são permitidas.
+                  Use de ${Number(config.tagRules?.minLength || 2)} a ${Number(config.tagRules?.extendedMaxLength || 12)} caracteres. Tags iguais não são permitidas.
                 </small>
               </label>
             </div>
 
             <label class="sbw-form-field">
               <span>Descrição pública</span>
-              <textarea
-                name="description"
-                rows="4"
-                maxlength="260"
-                placeholder="Conte um resumo sobre a equipe, jogos principais e identidade competitiva."
-              ></textarea>
+              <textarea name="description" rows="4" maxlength="360" placeholder="Conte um resumo sobre a equipe, jogos principais, foco competitivo e identidade."></textarea>
             </label>
 
             <div class="sbw-form-section">
               <div class="sbw-form-section-heading">
-                <strong>Modalidades iniciais</strong>
+                <strong>Modalidades iniciais *</strong>
                 <span>Escolha os jogos em que a equipe atua.</span>
               </div>
 
-              <div class="sbw-game-picker">
+              <div class="sbw-game-picker sbw-game-picker-v2">
                 ${defaultGames
-                  .map((game) => {
-                    return `
-                      <label class="sbw-game-option">
-                        <input
-                          type="checkbox"
-                          value="${escapeHtml(game.id)}"
-                          data-game-option
-                        />
-
-                        <span>
-                          <strong>${escapeHtml(game.name)}</strong>
-                          <small>${escapeHtml(game.category)}</small>
-                        </span>
-                      </label>
-                    `;
-                  })
+                  .map((game) => `
+                    <label class="sbw-game-option">
+                      <input type="checkbox" value="${escapeHtml(game.id)}" data-game-option />
+                      <span>
+                        <strong>${escapeHtml(game.name)}</strong>
+                        <small>${escapeHtml(game.category)}</small>
+                      </span>
+                    </label>
+                  `)
                   .join("")}
               </div>
             </div>
@@ -357,10 +452,7 @@
             <div class="sbw-form-section">
               <div class="sbw-form-section-heading">
                 <strong>Identidade visual</strong>
-                <span>
-                  Nesta versão local, vamos salvar cores manuais. Depois, podemos extrair
-                  cores do banner/logo enviado.
-                </span>
+                <span>As cores entram no perfil público. Upload real de logo/banner pode ser refinado depois com Storage.</span>
               </div>
 
               <div class="sbw-form-grid">
@@ -373,18 +465,6 @@
                   <span>Cor secundária</span>
                   <input type="color" name="secondaryColor" value="#7c3cff" />
                 </label>
-              </div>
-
-              <div class="sbw-upload-rules">
-                <div>
-                  <strong>Logo</strong>
-                  <span>PNG, JPG ou WebP · recomendado 512x512 · até 2MB</span>
-                </div>
-
-                <div>
-                  <strong>Banner</strong>
-                  <span>PNG, JPG ou WebP · recomendado 1600x500 ou 1920x600 · até 5MB</span>
-                </div>
               </div>
             </div>
 
@@ -417,9 +497,9 @@
               </div>
             </div>
 
-            <div class="sbw-create-actions">
+            <div class="sbw-create-actions-v2">
               <button class="sbw-team-btn sbw-team-btn-primary" type="submit">
-                Criar equipe demo
+                Criar equipe
               </button>
 
               <a class="sbw-team-btn" href="equipes.html">
@@ -431,75 +511,56 @@
           </form>
         </article>
 
-        <aside class="sbw-create-side-card">
+        <aside class="sbw-create-side-card-v2">
           <h3>Conta atual</h3>
 
-          <div class="sbw-current-user-card">
-            <strong>${escapeHtml(user.name || user.nickname || "Usuário")}</strong>
-            <span>Permissão: <b>can_create_team</b></span>
+          <div class="sbw-current-user-card-v2">
+            <strong>${escapeHtml(account?.displayName || "Usuário SBW")}</strong>
+            <span>${escapeHtml(account?.email || "Conta logada")}</span>
           </div>
 
-          <p>
-            Ao criar a equipe, este usuário será salvo como capitão/dono principal.
-          </p>
-
-          <div class="sbw-create-actions sbw-create-actions-column">
-            <button class="sbw-team-btn" type="button" data-demo-common>
-              Simular usuário comum
-            </button>
-          </div>
+          <ul class="sbw-create-rule-list-v2">
+            <li>Equipe comum: limite padrão de membros.</li>
+            <li>Equipe verificada: até 100 membros.</li>
+            <li>Subequipes: apenas para equipes verificadas.</li>
+            <li>Verificação: aprovada pela administração -SBW-.</li>
+          </ul>
         </aside>
       </section>
     `;
 
     bindFormActions();
-    bindCommonActions();
   }
 
   async function render() {
-    const user = state.currentUser || getDefaultUser();
+    const root = getRoot();
+    if (!root) return;
 
-    if (!canCreateTeam(user)) {
-      renderBlockedState();
+    if (!storage || !models) {
+      root.innerHTML = `
+        <div class="sbw-empty-state">
+          Não foi possível carregar os módulos de equipes.
+        </div>
+      `;
       return;
     }
 
-    const existingMainTeam = await getUserMainTeam(user);
+    state.account = await getCurrentAccount();
 
-    if (existingMainTeam) {
-      renderAlreadyHasTeamState(existingMainTeam);
+    if (!state.account) {
+      renderLoginRequiredState();
+      return;
+    }
+
+    state.existingTeam = await getExistingMainTeam(state.account);
+    state.existingMembership = await getExistingActiveMembership(state.account);
+
+    if (state.existingTeam || state.existingMembership) {
+      renderAlreadyHasTeamState(state.existingTeam, state.existingMembership);
       return;
     }
 
     renderCreateForm();
-  }
-
-  function bindCommonActions() {
-    const authorizeButton = document.querySelector("[data-demo-authorize]");
-    const commonButton = document.querySelector("[data-demo-common]");
-    const requestButton = document.querySelector("[data-request-permission]");
-
-    if (authorizeButton) {
-      authorizeButton.addEventListener("click", async function () {
-        saveCurrentUser(getAuthorizedDemoUser());
-        await render();
-      });
-    }
-
-    if (commonButton) {
-      commonButton.addEventListener("click", async function () {
-        saveCurrentUser(getDefaultUser());
-        await render();
-      });
-    }
-
-    if (requestButton) {
-      requestButton.addEventListener("click", function () {
-        alert(
-          "Fluxo futuro: este botão levará ao canal oficial da SaberWolf no Discord para solicitar permissão de criação de equipe."
-        );
-      });
-    }
   }
 
   function bindFormActions() {
@@ -509,16 +570,14 @@
 
     if (tagInput) {
       tagInput.addEventListener("input", async function () {
-        const tag = models.normalizeTag(tagInput.value);
+        const tag = normalizeTag(tagInput.value);
         tagInput.value = tag;
-
         await validateTag(tag);
       });
 
       tagInput.addEventListener("blur", async function () {
-        const tag = models.normalizeTag(tagInput.value);
+        const tag = normalizeTag(tagInput.value);
         tagInput.value = tag;
-
         await validateTag(tag);
       });
     }
@@ -540,38 +599,42 @@
 
   async function validateTag(tag) {
     const help = document.querySelector("[data-tag-help]");
-
     if (!help) return false;
 
-    const normalized = models.normalizeTag(tag);
+    const normalized = normalizeTag(tag);
+    const minLength = Number(config.tagRules?.minLength || 2);
+    const extendedMaxLength = Number(config.tagRules?.extendedMaxLength || 12);
+    const maxLength = Number(config.tagRules?.maxLength || 6);
 
     if (!normalized) {
       state.tagStatus = null;
       help.className = "sbw-form-help";
-      help.textContent = `Use de ${config.tagRules.minLength} a ${config.tagRules.maxLength} caracteres. Tags iguais não são permitidas.`;
+      help.textContent = `Use de ${minLength} a ${extendedMaxLength} caracteres. Tags iguais não são permitidas.`;
       return false;
     }
 
-    if (normalized.length < config.tagRules.minLength) {
+    if (normalized.length < minLength) {
       state.tagStatus = {
         available: false,
-        reason: `A tag precisa ter pelo menos ${config.tagRules.minLength} caracteres.`
+        reason: `A tag precisa ter pelo menos ${minLength} caracteres.`
       };
-    } else if (normalized.length > config.tagRules.extendedMaxLength) {
+    } else if (normalized.length > extendedMaxLength) {
       state.tagStatus = {
         available: false,
-        reason: `A tag pode ter no máximo ${config.tagRules.extendedMaxLength} caracteres.`
+        reason: `A tag pode ter no máximo ${extendedMaxLength} caracteres.`
       };
-    } else if (
-      !config.tagRules.allowExtendedTag &&
-      normalized.length > config.tagRules.maxLength
-    ) {
+    } else if (!config.tagRules?.allowExtendedTag && normalized.length > maxLength) {
       state.tagStatus = {
         available: false,
-        reason: `A tag pode ter no máximo ${config.tagRules.maxLength} caracteres.`
+        reason: `A tag pode ter no máximo ${maxLength} caracteres.`
       };
-    } else {
+    } else if (storage?.isTagAvailable) {
       state.tagStatus = await storage.isTagAvailable(normalized);
+    } else {
+      state.tagStatus = {
+        available: true,
+        reason: "Tag disponível."
+      };
     }
 
     help.className = `sbw-form-help ${getTagHelpClass(state.tagStatus)}`;
@@ -587,8 +650,97 @@
         id: game.id,
         name: game.name,
         category: game.category,
-        active: true
+        active: true,
+        status: "active"
       }));
+  }
+
+  async function saveCaptainMembership(savedTeam, account, games) {
+    const teamSlug = savedTeam?.slug || savedTeam?.id;
+    if (!teamSlug || !account) return false;
+
+    const memberPayload = {
+      id: `member-${teamSlug}-${account.profileSlug}`,
+      teamId: teamSlug,
+      teamSlug: teamSlug,
+      userId: account.profileSlug,
+      authUserId: account.authUser?.id || "",
+      profileId: account.profileSlug,
+      profileSlug: account.profileSlug,
+      nickname: account.displayName,
+      displayName: account.displayName,
+      avatarUrl: account.avatarUrl || "",
+      role: config.memberRoles?.captain || "captain",
+      function: "Captain",
+      functionName: "Captain",
+      publicTitle: "Capitão",
+      games: games,
+      status: "active",
+      joinedAt: new Date().toISOString(),
+      metadata: {
+        source: savedTeam.source === "supabase" ? "supabase-write" : "local-create",
+        createdBy: "team-create-page"
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    let supabaseOk = false;
+
+    try {
+      const client = await waitForSupabaseClient();
+      const supabaseEnabled = window.SBWSupabase?.isEnabled?.() === true;
+      const tableName = window.SBWSupabaseConfig?.tables?.teamMembers || "team_members";
+
+      if (client && supabaseEnabled && savedTeam.source === "supabase") {
+        const result = await client
+          .from(tableName)
+          .upsert({
+            team_slug: teamSlug,
+            profile_slug: account.profileSlug,
+            display_name: account.displayName,
+            nickname: account.displayName,
+            avatar_url: account.avatarUrl || "",
+            role: config.memberRoles?.captain || "captain",
+            function_name: "Captain",
+            public_title: "Capitão",
+            games: games,
+            status: "active",
+            joined_at: new Date().toISOString(),
+            approved_by_profile_slug: account.profileSlug,
+            metadata: memberPayload.metadata
+          }, {
+            onConflict: "team_slug,profile_slug"
+          });
+
+        if (result.error) {
+          console.warn("[SBW Create Team] Vínculo do capitão não foi salvo no Supabase:", result.error);
+        } else {
+          supabaseOk = true;
+        }
+      }
+    } catch (error) {
+      console.warn("[SBW Create Team] Erro ao salvar membro capitão no Supabase:", error);
+    }
+
+    const key = config.storageKeys?.teamMembers || "sbw_team_members_v1_3_9";
+    const localMembers = readJson(key, []);
+    const index = localMembers.findIndex((member) => {
+      return (
+        String(member.teamId || member.teamSlug || "") === teamSlug &&
+        String(member.profileSlug || member.profileId || member.userId || "") === account.profileSlug
+      );
+    });
+
+    if (index >= 0) {
+      localMembers[index] = memberPayload;
+    } else {
+      localMembers.push(memberPayload);
+    }
+
+    writeJson(key, localMembers);
+
+    return supabaseOk || savedTeam.source !== "supabase";
   }
 
   async function handleSubmit(event) {
@@ -598,29 +750,31 @@
     const result = document.querySelector("[data-form-result]");
     const formData = new FormData(form);
 
-    const user = state.currentUser || getDefaultUser();
+    if (result) {
+      result.innerHTML = `
+        <div class="sbw-form-message">
+          Criando equipe...
+        </div>
+      `;
+    }
 
-    if (!canCreateTeam(user)) {
-      if (result) {
-        result.innerHTML = `
-          <div class="sbw-form-message sbw-form-message-error">
-            Este usuário não tem permissão para criar equipe.
-          </div>
-        `;
-      }
+    const account = await getCurrentAccount();
 
+    if (!account) {
+      renderLoginRequiredState();
       return;
     }
 
-    const existingMainTeam = await getUserMainTeam(user);
+    const existingTeam = await getExistingMainTeam(account);
+    const existingMembership = await getExistingActiveMembership(account);
 
-    if (existingMainTeam) {
-      renderAlreadyHasTeamState(existingMainTeam);
+    if (existingTeam || existingMembership) {
+      renderAlreadyHasTeamState(existingTeam, existingMembership);
       return;
     }
 
     const name = String(formData.get("name") || "").trim();
-    const tag = models.normalizeTag(formData.get("tag"));
+    const tag = normalizeTag(formData.get("tag"));
 
     if (!name || !tag) {
       if (result) {
@@ -630,7 +784,6 @@
           </div>
         `;
       }
-
       return;
     }
 
@@ -644,7 +797,6 @@
           </div>
         `;
       }
-
       return;
     }
 
@@ -658,22 +810,25 @@
           </div>
         `;
       }
-
       return;
     }
 
-    const slug = models.createSlug(name);
     const timestamp = Date.now();
+    const slugBase = createSlug(tag || name) || "equipe";
+    const slug = `${slugBase}-${timestamp}`;
+    const commonLimit = Number(config.limits?.commonTeamMembers || 50);
 
     const newTeam = {
-      id: `team-${slug}-${timestamp}`,
+      id: `team-${slug}`,
       name,
       tag,
-      slug: `${slug}-${timestamp}`,
-      teamType: config.teamTypes.mainTeam,
+      slug,
+      teamType: config.teamTypes?.mainTeam || "main_team",
       parentTeamId: null,
+      parentTeamSlug: null,
 
       description: String(formData.get("description") || "").trim(),
+      bio: String(formData.get("description") || "").trim(),
 
       logoUrl: "",
       bannerUrl: "",
@@ -683,15 +838,19 @@
         secondaryColor: String(formData.get("secondaryColor") || "#7c3cff"),
         accentColor: "#ffffff",
         backgroundMode: "dark",
-        source: "manual-demo"
+        source: "team-create"
       },
 
-      verificationStatus: config.verificationStatus.notVerified,
-      verificationType: config.teamTypes.mainTeam,
-      memberLimit: config.limits.commonTeamMembers,
+      verificationStatus: config.verificationStatus?.notVerified || "not_verified",
+      verificationType: config.teamTypes?.mainTeam || "main_team",
+      memberLimit: commonLimit,
+      isVerified: false,
+      isPublic: true,
+      status: "active",
 
-      captainUserId: user.id,
-      captainName: user.nickname || user.name || "Capitão",
+      captainUserId: account.authUser.id,
+      captainProfileSlug: account.profileSlug,
+      captainName: account.displayName,
 
       games,
 
@@ -702,13 +861,34 @@
         x: String(formData.get("x") || "").trim()
       },
 
+      rosterSummary: {
+        totalMembers: 1,
+        activePlayers: 1,
+        staff: 0
+      },
+
       stats: {
         tournamentsPlayed: 0,
         titles: 0,
         podiums: 0,
         prizeAmount: 0,
         prizeCurrency: "BRL"
-      }
+      },
+
+      achievements: [],
+      subteams: [],
+
+      metadata: {
+        source: "team-create-page",
+        version: "1.6.10",
+        createdByAuthUserId: account.authUser.id,
+        createdByProfileSlug: account.profileSlug,
+        verificationFlow: "not_requested",
+        externalIntegrationsReady: true
+      },
+
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     const savedTeam = await storage.saveTeam(newTeam);
@@ -717,23 +897,40 @@
       if (result) {
         result.innerHTML = `
           <div class="sbw-form-message sbw-form-message-error">
-            Não foi possível salvar a equipe.
+            Não foi possível salvar a equipe. Verifique as permissões do Supabase ou tente novamente.
           </div>
         `;
       }
-
       return;
     }
+
+    const captainLinked = await saveCaptainMembership(savedTeam, account, games);
+    const savedTeamId = savedTeam.slug || savedTeam.id || newTeam.slug;
+    const isSupabase = savedTeam.source === "supabase";
 
     if (result) {
       result.innerHTML = `
         <div class="sbw-form-message sbw-form-message-success">
           <strong>Equipe criada com sucesso.</strong>
-          <span>Você já pode visualizar o perfil público demo.</span>
+          <span>
+            ${isSupabase
+              ? "A equipe foi salva na plataforma e já pode aparecer publicamente."
+              : "A equipe foi salva no modo local/fallback deste navegador. Para ficar pública para todos, confirme as permissões de gravação no Supabase."}
+          </span>
 
-          <div class="sbw-create-actions">
-            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(savedTeam.id)}">
+          ${captainLinked ? "" : `
+            <span class="sbw-form-warning">
+              A equipe foi criada, mas o vínculo de capitão pode precisar ser revisado no Supabase.
+            </span>
+          `}
+
+          <div class="sbw-create-actions-v2">
+            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(savedTeamId)}">
               Ver equipe criada
+            </a>
+
+            <a class="sbw-team-btn" href="minha-equipe.html?id=${encodeURIComponent(savedTeamId)}">
+              Gerenciar minha equipe
             </a>
 
             <a class="sbw-team-btn" href="equipes.html">
@@ -749,10 +946,5 @@
     state.tagStatus = null;
   }
 
-  async function init() {
-    state.currentUser = getCurrentUser();
-    await render();
-  }
-
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", render);
 })();

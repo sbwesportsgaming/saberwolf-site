@@ -1,9 +1,10 @@
 (function () {
   const SBW_TEAMS_CONFIG = {
-    version: "1.3.9",
+    version: "1.6.10",
     featureName: "Equipes",
 
-    storageMode: "local-demo", 
+    storageMode: "hybrid",
+    allowSupabaseWrites: true,
     // Futuro:
     // "local-demo" = usa dados demo + localStorage
     // "supabase" = usa banco real
