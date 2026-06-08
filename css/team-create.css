@@ -372,3 +372,60 @@ body.sbw-sidebar-no-transition .sbw-sidebar-toggle {
     justify-content: center;
   }
 }
+
+/* v1.6.11 — Ajustes de alinhamento e modalidades opcionais */
+body.sbw-team-create-body {
+  overflow-x: hidden;
+}
+
+.sbw-team-create-page-v2 {
+  width: min(1120px, calc(100% - 56px));
+  padding-top: 28px;
+}
+
+.sbw-team-create-rules-v2,
+.sbw-create-layout-v2 {
+  width: 100%;
+}
+
+.sbw-create-layout-v2 {
+  grid-template-columns: minmax(0, 760px) minmax(260px, 320px);
+  justify-content: center;
+}
+
+.sbw-create-panel-v2,
+.sbw-create-side-card-v2,
+.sbw-team-create-rules-v2 article {
+  min-width: 0;
+}
+
+.sbw-game-picker-v2 {
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.sbw-game-picker-v2 .sbw-game-option {
+  min-height: 58px;
+}
+
+.sbw-game-picker-v2 .sbw-game-option input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: #37c8ff;
+}
+
+.sbw-team-form-v2 input[type="color"] {
+  padding: 4px;
+  min-height: 46px;
+}
+
+@media (max-width: 1180px) {
+  .sbw-create-layout-v2 {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-create-side-card-v2 {
+    order: -1;
+  }
+}

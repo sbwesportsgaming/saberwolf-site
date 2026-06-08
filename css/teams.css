@@ -3849,3 +3849,140 @@ body.sbw-team-list-body::before {
     width: 100%;
   }
 }
+
+/* v1.6.11 — Painel de equipe com sidebar e edição ampliada */
+body.sbw-team-admin-body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 72% 0%, rgba(0, 196, 255, 0.14), transparent 38rem),
+    radial-gradient(circle at 20% 15%, rgba(45, 120, 255, 0.10), transparent 34rem),
+    linear-gradient(180deg, #020712 0%, #06111f 48%, #030813 100%);
+  color: var(--sbw-text);
+  overflow-x: hidden;
+}
+
+body.sbw-team-admin-body .sbw-team-admin-page {
+  width: min(1180px, calc(100% - 56px));
+  padding-top: 34px;
+}
+
+.sbw-team-admin-hero-v2 {
+  margin-bottom: 18px;
+}
+
+.sbw-admin-layout {
+  align-items: start;
+}
+
+.sbw-admin-sidebar,
+.sbw-admin-content,
+.sbw-admin-card,
+.sbw-admin-panel {
+  min-width: 0;
+}
+
+.sbw-admin-checkline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(244, 248, 255, 0.86);
+  cursor: pointer;
+}
+
+.sbw-admin-checkline input {
+  width: 17px;
+  height: 17px;
+  accent-color: #37c8ff;
+}
+
+.sbw-admin-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.sbw-admin-search-row input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 14px;
+  color: #ffffff;
+  background: rgba(2, 9, 20, 0.72);
+  outline: none;
+  padding: 11px 13px;
+  font: inherit;
+}
+
+.sbw-admin-player-results {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.sbw-admin-player-results > span {
+  display: block;
+  color: rgba(199, 216, 231, 0.68);
+  font-size: 13px;
+}
+
+.sbw-admin-player-result {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sbw-admin-player-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #02101d;
+  font-weight: 950;
+  background: linear-gradient(135deg, #37c8ff, #1267ff);
+}
+
+.sbw-admin-player-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sbw-admin-player-result strong,
+.sbw-admin-player-result span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sbw-admin-player-result span {
+  color: rgba(199, 216, 231, 0.66);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+@media (max-width: 760px) {
+  body.sbw-team-admin-body .sbw-team-admin-page {
+    width: min(100% - 24px, 1180px);
+    padding-top: 76px;
+  }
+
+  .sbw-admin-search-row,
+  .sbw-admin-player-result {
+    grid-template-columns: 1fr;
+  }
+}
