@@ -715,3 +715,15 @@ body.sbw-sidebar-no-transition .sbw-sidebar-toggle {
   transition: none !important;
   animation: none !important;
 }
+
+/* v1.6.8.1 — Marca correta -SBW- na sidebar */
+
+.sbw-sidebar__brand-mark {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
