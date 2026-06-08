@@ -437,3 +437,16 @@ body.sbw-has-sidebar {
     padding-bottom: 7px;
   }
 }
+
+/* v1.6.1.1 — Evita pisca/animação inicial da sidebar */
+
+body.sbw-sidebar-no-transition .sbw-sidebar,
+body.sbw-sidebar-no-transition .sbw-sidebar-backdrop,
+body.sbw-sidebar-no-transition .sbw-sidebar-toggle {
+  transition: none !important;
+  animation: none !important;
+}
+
+body.sbw-profile-admin-body > header.sbw-legacy-header {
+  display: none;
+}
