@@ -450,3 +450,268 @@ body.sbw-sidebar-no-transition .sbw-sidebar-toggle {
 body.sbw-profile-admin-body > header.sbw-legacy-header {
   display: none;
 }
+
+/* v1.6.2 — Conta recolhida pelo nome */
+
+.sbw-account-compact {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sbw-account-compact__button {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 1px solid rgba(76, 202, 255, 0.22);
+  border-radius: 14px;
+  color: var(--sbw-text);
+  background:
+    linear-gradient(135deg, rgba(55, 200, 255, 0.13), rgba(18, 103, 255, 0.06)),
+    rgba(255, 255, 255, 0.035);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sbw-account-compact__button:hover {
+  border-color: rgba(76, 202, 255, 0.42);
+  background:
+    linear-gradient(135deg, rgba(55, 200, 255, 0.19), rgba(18, 103, 255, 0.09)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sbw-account-compact__button .sbw-account-card__avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
+.sbw-account-compact__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.sbw-account-compact__chevron {
+  color: var(--sbw-cyan);
+  font-size: 13px;
+  transition: transform 0.18s ease;
+}
+
+.sbw-account-compact__button[aria-expanded="true"] .sbw-account-compact__chevron {
+  transform: rotate(180deg);
+}
+
+.sbw-account-dropdown {
+  display: grid;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.sbw-account-dropdown[hidden] {
+  display: none;
+}
+
+.sbw-account-dropdown__item {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 12px;
+  color: rgba(244, 248, 255, 0.86);
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sbw-account-dropdown__item:hover {
+  color: #ffffff;
+  background: rgba(55, 200, 255, 0.09);
+  border-color: rgba(76, 202, 255, 0.30);
+}
+
+.sbw-account-dropdown__item span:first-child {
+  width: 23px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--sbw-cyan);
+  font-size: 13px;
+}
+
+.sbw-account-dropdown__item strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  line-height: 1.1;
+}
+
+.sbw-account-dropdown__item--primary {
+  color: #ffffff;
+  background:
+    linear-gradient(90deg, rgba(55, 200, 255, 0.20), rgba(18, 103, 255, 0.08));
+  border-color: rgba(76, 202, 255, 0.32);
+}
+
+.sbw-account-dropdown__item--danger {
+  color: rgba(255, 210, 218, 0.94);
+}
+
+.sbw-account-dropdown__item--danger span:first-child {
+  color: var(--sbw-danger);
+}
+
+/* v1.6.2.1 — Menu de conta recolhido sem esconder a sidebar */
+
+.sbw-sidebar {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sbw-account-compact {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sbw-account-compact__button {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 1px solid rgba(76, 202, 255, 0.22);
+  border-radius: 14px;
+  color: var(--sbw-text);
+  background:
+    linear-gradient(135deg, rgba(55, 200, 255, 0.13), rgba(18, 103, 255, 0.06)),
+    rgba(255, 255, 255, 0.035);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sbw-account-compact__button:hover {
+  border-color: rgba(76, 202, 255, 0.42);
+  background:
+    linear-gradient(135deg, rgba(55, 200, 255, 0.19), rgba(18, 103, 255, 0.09)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sbw-account-compact__button .sbw-account-card__avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+  flex: 0 0 34px;
+}
+
+.sbw-account-compact__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.sbw-account-compact__chevron {
+  color: var(--sbw-cyan);
+  font-size: 13px;
+  transition: transform 0.18s ease;
+}
+
+.sbw-account-compact__button[aria-expanded="true"] .sbw-account-compact__chevron {
+  transform: rotate(180deg);
+}
+
+.sbw-account-dropdown {
+  display: grid;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.sbw-account-dropdown[hidden] {
+  display: none !important;
+}
+
+.sbw-account-dropdown__item {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 12px;
+  color: rgba(244, 248, 255, 0.86);
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sbw-account-dropdown__item:hover {
+  color: #ffffff;
+  background: rgba(55, 200, 255, 0.09);
+  border-color: rgba(76, 202, 255, 0.30);
+}
+
+.sbw-account-dropdown__item span:first-child {
+  width: 23px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--sbw-cyan);
+  font-size: 13px;
+}
+
+.sbw-account-dropdown__item strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  line-height: 1.1;
+}
+
+.sbw-account-dropdown__item--primary {
+  color: #ffffff;
+  background:
+    linear-gradient(90deg, rgba(55, 200, 255, 0.20), rgba(18, 103, 255, 0.08));
+  border-color: rgba(76, 202, 255, 0.32);
+}
+
+.sbw-account-dropdown__item--danger {
+  color: rgba(255, 210, 218, 0.94);
+}
+
+.sbw-account-dropdown__item--danger span:first-child {
+  color: var(--sbw-danger);
+}
+
+body.sbw-sidebar-no-transition .sbw-sidebar,
+body.sbw-sidebar-no-transition .sbw-sidebar-backdrop,
+body.sbw-sidebar-no-transition .sbw-sidebar-toggle {
+  transition: none !important;
+  animation: none !important;
+}
