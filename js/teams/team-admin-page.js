@@ -5,6 +5,7 @@
 
    const state = {
     currentUser: null,
+    currentAccount: null,
     teams: [],
     activeTeam: null,
     members: [],
@@ -14,36 +15,26 @@
   };
 
   const defaultGames = [
-    {
-      id: "sf6",
-      name: "Street Fighter 6",
-      category: "Fighting Games"
-    },
-    {
-      id: "fatal-fury",
-      name: "Fatal Fury",
-      category: "Fighting Games"
-    },
-    {
-      id: "tekken-8",
-      name: "Tekken 8",
-      category: "Fighting Games"
-    },
-    {
-      id: "overwatch",
-      name: "Overwatch",
-      category: "FPS / Hero Shooter"
-    },
-    {
-      id: "call-of-duty",
-      name: "Call of Duty",
-      category: "FPS"
-    },
-    {
-      id: "valorant",
-      name: "Valorant",
-      category: "FPS"
-    }
+    { id: "sf6", name: "Street Fighter 6", category: "Competitivo · Fighting Games" },
+    { id: "fatal-fury", name: "Fatal Fury", category: "Competitivo · Fighting Games" },
+    { id: "tekken-8", name: "Tekken 8", category: "Competitivo · Fighting Games" },
+    { id: "mortal-kombat-1", name: "Mortal Kombat 1", category: "Competitivo · Fighting Games" },
+    { id: "guilty-gear-strive", name: "Guilty Gear -Strive-", category: "Competitivo · Fighting Games" },
+    { id: "valorant", name: "Valorant", category: "Competitivo · FPS" },
+    { id: "counter-strike-2", name: "Counter-Strike 2", category: "Competitivo · FPS" },
+    { id: "call-of-duty", name: "Call of Duty", category: "Competitivo · FPS" },
+    { id: "apex-legends", name: "Apex Legends", category: "Competitivo · Battle Royale" },
+    { id: "fortnite", name: "Fortnite", category: "Competitivo / Casual · Battle Royale" },
+    { id: "league-of-legends", name: "League of Legends", category: "Competitivo · MOBA" },
+    { id: "dota-2", name: "Dota 2", category: "Competitivo · MOBA" },
+    { id: "overwatch-2", name: "Overwatch 2", category: "Competitivo · Hero Shooter" },
+    { id: "rocket-league", name: "Rocket League", category: "Competitivo · Esportes" },
+    { id: "ea-sports-fc", name: "EA Sports FC", category: "Competitivo · Esportes" },
+    { id: "pokemon", name: "Pokémon", category: "Competitivo / Comunidade" },
+    { id: "minecraft", name: "Minecraft", category: "Casual / Comunidade" },
+    { id: "roblox", name: "Roblox", category: "Casual / Comunidade" },
+    { id: "gta-rp", name: "GTA RP", category: "Casual / RP" },
+    { id: "variety", name: "Variedade / Outros jogos", category: "Casual / Multigaming" }
   ];
 
   const publicTitleOptions = [
@@ -124,6 +115,136 @@
       console.warn("Erro ao salvar storage:", key, error);
       return false;
     }
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function waitForSupabaseClient() {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const client = window.SBWSupabase?.client;
+
+      if (client?.auth) return client;
+
+      await wait(100);
+    }
+
+    return null;
+  }
+
+  async function getCurrentAuthUser() {
+    try {
+      const client = await waitForSupabaseClient();
+
+      if (client?.auth?.getSession) {
+        const sessionResult = await client.auth.getSession();
+        const sessionUser = sessionResult?.data?.session?.user;
+        if (sessionUser) return sessionUser;
+      }
+
+      if (client?.auth?.getUser) {
+        const userResult = await client.auth.getUser();
+        const user = userResult?.data?.user;
+        if (user) return user;
+      }
+    } catch (error) {
+      console.warn("[SBW Team Admin] Não foi possível carregar usuário autenticado:", error);
+    }
+
+    return null;
+  }
+
+  async function getCurrentProfile(user) {
+    if (!user) return null;
+
+    try {
+      if (window.SBWAuth?.ensureCurrentUserProfile) {
+        const ensured = await window.SBWAuth.ensureCurrentUserProfile();
+        if (ensured) return ensured;
+      }
+    } catch (error) {
+      console.warn("[SBW Team Admin] ensureCurrentUserProfile falhou:", error);
+    }
+
+    try {
+      const client = await waitForSupabaseClient();
+      if (!client) return null;
+
+      const byAuthUserId = await client
+        .from("profiles")
+        .select("*")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+
+      if (!byAuthUserId.error && byAuthUserId.data) return byAuthUserId.data;
+
+      const byId = await client
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!byId.error && byId.data) return byId.data;
+    } catch (error) {
+      console.warn("[SBW Team Admin] Não foi possível buscar profile:", error);
+    }
+
+    return null;
+  }
+
+  function getProfileDisplayName(profile, user) {
+    const metadata = user?.user_metadata || {};
+
+    return (
+      profile?.display_name ||
+      profile?.displayName ||
+      profile?.nickname ||
+      profile?.username ||
+      metadata.display_name ||
+      metadata.full_name ||
+      metadata.name ||
+      metadata.nickname ||
+      user?.email?.split("@")[0] ||
+      "Usuário SBW"
+    );
+  }
+
+  function getProfileSlug(profile, user) {
+    return (
+      profile?.slug ||
+      profile?.username ||
+      profile?.profile_slug ||
+      profile?.id ||
+      user?.id ||
+      ""
+    );
+  }
+
+  async function getCurrentAccount() {
+    const authUser = await getCurrentAuthUser();
+
+    if (!authUser) {
+      return {
+        authUser: null,
+        profile: null,
+        profileSlug: "",
+        displayName: "Usuário SBW",
+        email: "",
+        fallbackUser: getCurrentUser()
+      };
+    }
+
+    const profile = await getCurrentProfile(authUser);
+
+    return {
+      authUser,
+      profile,
+      profileSlug: getProfileSlug(profile, authUser),
+      displayName: getProfileDisplayName(profile, authUser),
+      email: authUser.email || "",
+      fallbackUser: getCurrentUser()
+    };
   }
 
   function getParam(name) {
@@ -235,7 +356,16 @@
 
     if (isAdminSbw(user)) return true;
 
-    return team.captainUserId === user.id;
+    const userId = String(user.id || "");
+    const profileSlug = String(user.profileSlug || user.profileId || user.userId || "");
+
+    return (
+      String(team.captainUserId || "") === userId ||
+      String(team.captainUserId || "") === profileSlug ||
+      String(team.captainProfileSlug || "") === profileSlug ||
+      String(team.metadata?.createdByAuthUserId || "") === userId ||
+      String(team.metadata?.createdByProfileSlug || "") === profileSlug
+    );
   }
 
   function getRoot() {
@@ -402,7 +532,7 @@
   async function loadMembersForTeam(team) {
     if (!team) return [];
 
-    let members = await storage.getTeamMembers(team.id);
+    let members = await storage.getTeamMembers(team.slug || team.id);
     members = getActiveMembers(members);
 
     const hasCaptain = members.some((member) => {
@@ -411,8 +541,9 @@
 
     if (!hasCaptain) {
       const captainMember = saveLocalMember({
-        id: `member-${team.id}-${team.captainUserId || "captain"}`,
-        teamId: team.id,
+        id: `member-${team.slug || team.id}-${team.captainUserId || "captain"}`,
+        teamId: team.slug || team.id,
+        teamSlug: team.slug || team.id,
         userId: team.captainUserId || "captain",
         nickname: team.captainName || "Capitão",
         displayName: `${team.tag || ""} | ${team.captainName || "Capitão"}`.trim(),
@@ -440,9 +571,9 @@
           <h2>Você ainda não possui equipe para gerenciar</h2>
 
           <p>
-            Para acessar este painel, o usuário atual precisa ser capitão/dono de uma equipe
-            ou administrador SBW. Na demo local, isso acontece depois de criar uma equipe
-            usando o usuário autorizado.
+            Para acessar este painel, você precisa estar logado e ser capitão/dono de uma equipe ativa.
+            Se acabou de criar uma equipe e ela não aparecer aqui, atualize a página ou confira se o vínculo
+            de capitão foi salvo em <strong>team_members</strong>.
           </p>
 
           <div class="sbw-admin-actions">
@@ -450,9 +581,6 @@
               Criar equipe
             </a>
 
-            <button class="sbw-team-btn" type="button" data-demo-authorize>
-              Simular usuário autorizado
-            </button>
 
             <a class="sbw-team-btn" href="equipes.html">
               Ver equipes
@@ -614,7 +742,7 @@
               return `
                 <a 
                   class="sbw-admin-team-switch ${activeClass}" 
-                  href="minha-equipe.html?id=${encodeURIComponent(team.id)}"
+                  href="minha-equipe.html?id=${encodeURIComponent(team.slug || team.id)}"
                 >
                   <strong>${escapeHtml(team.name)}</strong>
                   <span>${escapeHtml(team.tag)} | ${escapeHtml(models.getTeamTypeLabel(team))}</span>
@@ -914,6 +1042,33 @@ function renderMembersCard(team, members) {
     `;
   }
 
+  function renderInvitePlayerCard(team) {
+    return `
+      <div class="sbw-admin-card sbw-admin-invite-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Convites</span>
+            <h3>Pesquisar e convidar jogador</h3>
+          </div>
+        </div>
+
+        <p class="sbw-admin-note">
+          Busque um perfil público pelo nome ou nickname. Nesta etapa, o convite fica preparado no localStorage;
+          depois conectamos esse fluxo à tabela de convites do Supabase.
+        </p>
+
+        <div class="sbw-admin-search-row">
+          <input type="search" data-player-search-input placeholder="Digite o nome ou nickname do jogador..." />
+          <button class="sbw-team-btn" type="button" data-player-search-button>Pesquisar</button>
+        </div>
+
+        <div class="sbw-admin-player-results" data-player-search-results>
+          <span>Digite pelo menos 2 caracteres para pesquisar jogadores.</span>
+        </div>
+      </div>
+    `;
+  }
+
   function renderGamesCard(team) {
     const selectedGameIds = getGameIds(team);
     const gameOptions = getMergedGameOptions(team);
@@ -994,7 +1149,7 @@ function renderMembersCard(team, members) {
           </div>
 
           <div class="sbw-admin-side-links">
-            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(team.id)}">
+            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(team.slug || team.id)}">
               Ver perfil público
             </a>
 
@@ -1051,11 +1206,23 @@ function renderMembersCard(team, members) {
               <div class="sbw-admin-card-heading">
                 <div>
                   <span>Identidade visual</span>
-                  <h3>Cores do perfil</h3>
+                  <h3>Logo, banner e cores</h3>
                 </div>
               </div>
 
               <div class="sbw-form-grid">
+                <label class="sbw-form-field">
+                  <span>Logo da equipe</span>
+                  <input type="url" name="logoUrl" value="${escapeHtml(team.logoUrl || "")}" placeholder="https://.../logo.png" />
+                  <small class="sbw-form-help">Por enquanto use uma URL pública. Upload via Storage será conectado depois.</small>
+                </label>
+
+                <label class="sbw-form-field">
+                  <span>Banner da equipe</span>
+                  <input type="url" name="bannerUrl" value="${escapeHtml(team.bannerUrl || "")}" placeholder="https://.../banner.jpg" />
+                  <small class="sbw-form-help">Imagem larga recomendada para o topo do perfil público.</small>
+                </label>
+
                 <label class="sbw-form-field">
                   <span>Cor principal</span>
                   <input type="color" name="primaryColor" value="${escapeHtml(primary)}" />
@@ -1069,13 +1236,8 @@ function renderMembersCard(team, members) {
 
               <div class="sbw-upload-rules">
                 <div>
-                  <strong>Logo da equipe</strong>
-                  <span>Upload real será conectado ao Supabase Storage futuramente.</span>
-                </div>
-
-                <div>
-                  <strong>Banner da equipe</strong>
-                  <span>Depois vamos extrair cores automaticamente do banner/logo.</span>
+                  <strong>Upload real em etapa futura</strong>
+                  <span>O painel já aceita URL de logo/banner. O upload direto será ligado ao Supabase Storage depois.</span>
                 </div>
               </div>
             </div>
@@ -1113,6 +1275,32 @@ function renderMembersCard(team, members) {
 
             ${renderGamesCard(team)}
 
+            <div class="sbw-admin-card">
+              <div class="sbw-admin-card-heading">
+                <div>
+                  <span>Recrutamento</span>
+                  <h3>Status de recrutamento</h3>
+                </div>
+              </div>
+
+              <label class="sbw-admin-checkline">
+                <input type="checkbox" name="recruitmentOpen" ${(team.recruitment?.isOpen || team.metadata?.recruitmentOpen) ? "checked" : ""} />
+                <span>Equipe aberta para receber novos jogadores</span>
+              </label>
+
+              <div class="sbw-form-grid">
+                <label class="sbw-form-field">
+                  <span>Modalidades com vagas</span>
+                  <input type="text" name="recruitmentGames" value="${escapeHtml(arrayToCsv(team.recruitment?.games || team.metadata?.recruitmentGames || []))}" placeholder="Street Fighter 6, Tekken 8, Valorant" />
+                </label>
+
+                <label class="sbw-form-field">
+                  <span>Requisitos / observação</span>
+                  <input type="text" name="recruitmentDescription" value="${escapeHtml(team.recruitment?.description || team.metadata?.recruitmentDescription || "")}" placeholder="Ex: jogadores ativos, treino semanal, Discord obrigatório" />
+                </label>
+              </div>
+            </div>
+
             <div class="sbw-admin-save-bar">
               <button class="sbw-team-btn sbw-team-btn-primary" type="submit">
                 Salvar alterações
@@ -1123,6 +1311,8 @@ function renderMembersCard(team, members) {
           </form>
 
           ${renderVerificationCard(team)}
+
+          ${renderInvitePlayerCard(team)}
 
           ${renderMembersCard(team, state.members)}
 
@@ -1271,19 +1461,14 @@ function renderMembersCard(team, members) {
 
     const games = getSelectedGamesFromForm(team);
 
-    if (!games.length) {
-      if (result) {
-        result.innerHTML = `<span class="sbw-admin-result-error">Selecione pelo menos uma modalidade.</span>`;
-      }
-
-      return;
-    }
 
     const updatedTeam = {
       ...team,
       name,
       tag,
       description: String(formData.get("description") || "").trim(),
+      logoUrl: String(formData.get("logoUrl") || "").trim(),
+      bannerUrl: String(formData.get("bannerUrl") || "").trim(),
 
       theme: {
         ...(team.theme || {}),
@@ -1299,6 +1484,21 @@ function renderMembersCard(team, members) {
         youtube: String(formData.get("youtube") || "").trim(),
         instagram: String(formData.get("instagram") || "").trim(),
         x: String(formData.get("x") || "").trim()
+      },
+
+      recruitment: {
+        isOpen: formData.get("recruitmentOpen") === "on",
+        games: csvToArray(formData.get("recruitmentGames")),
+        description: String(formData.get("recruitmentDescription") || "").trim(),
+        updatedAt: new Date().toISOString()
+      },
+
+      metadata: {
+        ...(team.metadata || {}),
+        recruitmentOpen: formData.get("recruitmentOpen") === "on",
+        recruitmentGames: csvToArray(formData.get("recruitmentGames")),
+        recruitmentDescription: String(formData.get("recruitmentDescription") || "").trim(),
+        visualEditedFromAdmin: true
       },
 
       games
@@ -1455,6 +1655,178 @@ function renderMembersCard(team, members) {
     renderAdminPanel();
   }
 
+  function getProfileName(profile) {
+    return (
+      profile?.displayName ||
+      profile?.display_name ||
+      profile?.nickname ||
+      profile?.username ||
+      profile?.slug ||
+      profile?.id ||
+      "Perfil SBW"
+    );
+  }
+
+  function getProfileId(profile) {
+    return profile?.slug || profile?.username || profile?.userId || profile?.user_id || profile?.id || "";
+  }
+
+  async function getSearchableProfiles() {
+    try {
+      const profilesStorage = window.SBWProfilesStorage;
+
+      if (profilesStorage?.getAllProfilesAsync) {
+        return await profilesStorage.getAllProfilesAsync();
+      }
+
+      if (profilesStorage?.getProfilesAsync) {
+        return await profilesStorage.getProfilesAsync();
+      }
+
+      if (profilesStorage?.getAllProfiles) {
+        return profilesStorage.getAllProfiles();
+      }
+
+      if (profilesStorage?.getProfiles) {
+        return profilesStorage.getProfiles();
+      }
+    } catch (error) {
+      console.warn("[SBW Team Admin] Erro ao buscar perfis:", error);
+    }
+
+    return [];
+  }
+
+  async function handleSearchPlayer() {
+    const input = document.querySelector("[data-player-search-input]");
+    const results = document.querySelector("[data-player-search-results]");
+
+    if (!input || !results || !state.activeTeam) return;
+
+    const query = String(input.value || "").trim().toLowerCase();
+
+    if (query.length < 2) {
+      results.innerHTML = `<span>Digite pelo menos 2 caracteres para pesquisar jogadores.</span>`;
+      return;
+    }
+
+    results.innerHTML = `<span>Pesquisando perfis...</span>`;
+
+    const profiles = await getSearchableProfiles();
+    const members = getActiveMembers(state.members);
+    const memberProfileIds = new Set(members.map((member) => String(member.profileSlug || member.profileId || member.userId || "")));
+
+    const matches = profiles
+      .filter((profile) => {
+        const text = [
+          getProfileName(profile),
+          profile?.nickname,
+          profile?.username,
+          profile?.displayName,
+          profile?.display_name,
+          profile?.email
+        ].join(" ").toLowerCase();
+
+        return text.includes(query);
+      })
+      .slice(0, 8);
+
+    if (!matches.length) {
+      results.innerHTML = `<span>Nenhum perfil encontrado para essa busca.</span>`;
+      return;
+    }
+
+    results.innerHTML = matches
+      .map((profile) => {
+        const profileId = getProfileId(profile);
+        const alreadyMember = memberProfileIds.has(String(profileId));
+        const name = getProfileName(profile);
+        const avatar = profile?.avatarUrl || profile?.avatar_url || "";
+
+        return `
+          <div class="sbw-admin-player-result">
+            <div class="sbw-admin-player-avatar">
+              ${avatar ? `<img src="${escapeHtml(avatar)}" alt="" />` : escapeHtml(String(name).charAt(0).toUpperCase() || "P")}
+            </div>
+
+            <div>
+              <strong>${escapeHtml(name)}</strong>
+              <span>${escapeHtml(profile?.headline || profile?.profileType || profile?.status || "Perfil público")}</span>
+            </div>
+
+            <button
+              class="sbw-team-btn"
+              type="button"
+              data-invite-player
+              data-profile-id="${escapeHtml(profileId)}"
+              data-profile-name="${escapeHtml(name)}"
+              ${alreadyMember ? "disabled" : ""}
+            >
+              ${alreadyMember ? "Já é membro" : "Convidar"}
+            </button>
+          </div>
+        `;
+      })
+      .join("");
+
+    bindInviteButtons();
+  }
+
+  function saveLocalInvite(profileId, profileName) {
+    if (!state.activeTeam || !profileId) return null;
+
+    const key = config.storageKeys?.teamJoinRequests || "sbw_team_join_requests_v1_3_9";
+    const invites = readJson(key, []);
+    const teamKey = state.activeTeam.slug || state.activeTeam.id;
+
+    const existing = invites.find((invite) => {
+      return (
+        String(invite.teamId || invite.teamSlug || "") === String(teamKey) &&
+        String(invite.userId || invite.profileSlug || "") === String(profileId) &&
+        String(invite.status || "pending") === "pending"
+      );
+    });
+
+    if (existing) return existing;
+
+    const invite = {
+      id: `invite-${teamKey}-${profileId}-${Date.now()}`,
+      teamId: teamKey,
+      teamSlug: teamKey,
+      teamName: state.activeTeam.name,
+      teamTag: state.activeTeam.tag,
+      userId: profileId,
+      profileSlug: profileId,
+      displayName: profileName,
+      roleOffered: "Membro",
+      status: "pending",
+      inviteType: "team_to_player",
+      source: "team-admin-local",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    invites.push(invite);
+    writeJson(key, invites);
+
+    return invite;
+  }
+
+  function bindInviteButtons() {
+    document.querySelectorAll("[data-invite-player]").forEach((button) => {
+      button.addEventListener("click", function () {
+        const profileId = button.dataset.profileId || "";
+        const profileName = button.dataset.profileName || "Jogador";
+        const invite = saveLocalInvite(profileId, profileName);
+
+        if (invite) {
+          button.textContent = "Convite criado";
+          button.disabled = true;
+        }
+      });
+    });
+  }
+
   function bindDemoUserButtons() {
     const authorizeButton = document.querySelector("[data-demo-authorize]");
 
@@ -1472,6 +1844,8 @@ function renderMembersCard(team, members) {
     const requestVerificationButton = document.querySelector("[data-request-verification]");
     const createSubteamButton = document.querySelector("[data-create-subteam]");
     const addDemoMemberButton = document.querySelector("[data-add-demo-member]");
+    const playerSearchButton = document.querySelector("[data-player-search-button]");
+    const playerSearchInput = document.querySelector("[data-player-search-input]");
 
     if (form) {
       form.addEventListener("submit", handleSaveTeam);
@@ -1497,6 +1871,19 @@ function renderMembersCard(team, members) {
       addDemoMemberButton.addEventListener("click", handleAddDemoMember);
     }
 
+    if (playerSearchButton) {
+      playerSearchButton.addEventListener("click", handleSearchPlayer);
+    }
+
+    if (playerSearchInput) {
+      playerSearchInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          handleSearchPlayer();
+        }
+      });
+    }
+
     document.querySelectorAll("[data-member-role-select]").forEach((select) => {
       select.addEventListener("change", handleMemberRoleChange);
     });
@@ -1510,20 +1897,57 @@ function renderMembersCard(team, members) {
     });
   }
 
+  function findTeamByAnyId(teamId) {
+    const key = String(teamId || "");
+
+    if (!key) return null;
+
+    return (
+      state.teams.find((team) => {
+        return (
+          String(team.id || "") === key ||
+          String(team.slug || "") === key ||
+          String(team.teamId || "") === key ||
+          String(team.supabaseId || "") === key
+        );
+      }) || null
+    );
+  }
+
+  function buildCurrentManagerUser(account) {
+    const fallbackUser = account?.fallbackUser || getCurrentUser();
+    const authUser = account?.authUser || null;
+
+    return {
+      ...(fallbackUser || {}),
+      id: authUser?.id || fallbackUser?.id || "",
+      userId: authUser?.id || fallbackUser?.userId || fallbackUser?.id || "",
+      profileSlug: account?.profileSlug || fallbackUser?.profileSlug || fallbackUser?.id || "",
+      profileId: account?.profileSlug || fallbackUser?.profileId || fallbackUser?.id || "",
+      name: account?.displayName || fallbackUser?.name || "Usuário SBW",
+      nickname: account?.displayName || fallbackUser?.nickname || "Usuário SBW",
+      email: account?.email || fallbackUser?.email || "",
+      roles: fallbackUser?.roles || [],
+      permissions: fallbackUser?.permissions || {}
+    };
+  }
+
   async function reloadState(activeTeamId) {
-    state.currentUser = getCurrentUser();
+    state.currentAccount = await getCurrentAccount();
+    state.currentUser = buildCurrentManagerUser(state.currentAccount);
     state.teams = await storage.getAllTeams();
 
-    const team = state.teams.find((item) => item.id === activeTeamId) || null;
+    const team = findTeamByAnyId(activeTeamId);
 
     state.activeTeam = team;
     state.members = team ? await loadMembersForTeam(team) : [];
-    state.subteams = team ? await storage.getSubteams(team.id) : [];
+    state.subteams = team ? await storage.getSubteams(team.slug || team.id) : [];
     state.teamType = team ? getTeamPublicType(team) : null;
   }
 
   async function init() {
-    state.currentUser = getCurrentUser();
+    state.currentAccount = await getCurrentAccount();
+    state.currentUser = buildCurrentManagerUser(state.currentAccount);
     state.teams = await storage.getAllTeams();
 
     const requestedTeamId = getParam("id");
@@ -1537,7 +1961,7 @@ function renderMembersCard(team, members) {
     let activeTeam = null;
 
     if (requestedTeamId) {
-      activeTeam = state.teams.find((team) => team.id === requestedTeamId) || null;
+      activeTeam = findTeamByAnyId(requestedTeamId);
 
       if (activeTeam && !canManageTeam(state.currentUser, activeTeam)) {
         renderAccessDenied(activeTeam);
@@ -1551,7 +1975,7 @@ function renderMembersCard(team, members) {
 
     state.activeTeam = activeTeam;
     state.members = await loadMembersForTeam(activeTeam);
-    state.subteams = await storage.getSubteams(activeTeam.id);
+    state.subteams = await storage.getSubteams(activeTeam.slug || activeTeam.id);
     state.teamType = getTeamPublicType(activeTeam);
 
     renderAdminPanel();

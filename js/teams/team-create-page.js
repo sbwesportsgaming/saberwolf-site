@@ -16,13 +16,31 @@
   };
 
   const defaultGames = [
-    { id: "sf6", name: "Street Fighter 6", category: "Fighting Games" },
-    { id: "fatal-fury", name: "Fatal Fury", category: "Fighting Games" },
-    { id: "tekken-8", name: "Tekken 8", category: "Fighting Games" },
-    { id: "mortal-kombat-1", name: "Mortal Kombat 1", category: "Fighting Games" },
-    { id: "valorant", name: "Valorant", category: "FPS" },
-    { id: "league-of-legends", name: "League of Legends", category: "MOBA" },
-    { id: "call-of-duty", name: "Call of Duty", category: "FPS" }
+    { id: "sf6", name: "Street Fighter 6", category: "Competitivo · Fighting Games" },
+    { id: "fatal-fury", name: "Fatal Fury", category: "Competitivo · Fighting Games" },
+    { id: "tekken-8", name: "Tekken 8", category: "Competitivo · Fighting Games" },
+    { id: "mortal-kombat-1", name: "Mortal Kombat 1", category: "Competitivo · Fighting Games" },
+    { id: "guilty-gear-strive", name: "Guilty Gear -Strive-", category: "Competitivo · Fighting Games" },
+    { id: "granblue-versus", name: "Granblue Fantasy Versus", category: "Competitivo · Fighting Games" },
+    { id: "dragon-ball-fighterz", name: "Dragon Ball FighterZ", category: "Competitivo · Fighting Games" },
+    { id: "valorant", name: "Valorant", category: "Competitivo · FPS" },
+    { id: "counter-strike-2", name: "Counter-Strike 2", category: "Competitivo · FPS" },
+    { id: "call-of-duty", name: "Call of Duty", category: "Competitivo · FPS" },
+    { id: "apex-legends", name: "Apex Legends", category: "Competitivo · Battle Royale" },
+    { id: "fortnite", name: "Fortnite", category: "Competitivo / Casual · Battle Royale" },
+    { id: "rainbow-six-siege", name: "Rainbow Six Siege", category: "Competitivo · FPS" },
+    { id: "league-of-legends", name: "League of Legends", category: "Competitivo · MOBA" },
+    { id: "dota-2", name: "Dota 2", category: "Competitivo · MOBA" },
+    { id: "overwatch-2", name: "Overwatch 2", category: "Competitivo · Hero Shooter" },
+    { id: "rocket-league", name: "Rocket League", category: "Competitivo · Esportes" },
+    { id: "ea-sports-fc", name: "EA Sports FC", category: "Competitivo · Esportes" },
+    { id: "efootball", name: "eFootball", category: "Competitivo · Esportes" },
+    { id: "nba-2k", name: "NBA 2K", category: "Competitivo · Esportes" },
+    { id: "pokemon", name: "Pokémon", category: "Competitivo / Comunidade" },
+    { id: "minecraft", name: "Minecraft", category: "Casual / Comunidade" },
+    { id: "roblox", name: "Roblox", category: "Casual / Comunidade" },
+    { id: "gta-rp", name: "GTA RP", category: "Casual / RP" },
+    { id: "variety", name: "Variedade / Outros jogos", category: "Casual / Multigaming" }
   ];
 
   function escapeHtml(value) {
@@ -430,8 +448,8 @@
 
             <div class="sbw-form-section">
               <div class="sbw-form-section-heading">
-                <strong>Modalidades iniciais *</strong>
-                <span>Escolha os jogos em que a equipe atua.</span>
+                <strong>Modalidades iniciais</strong>
+                <span>Opcional. Escolha jogos competitivos ou casuais em que a equipe atua. Você pode editar depois no painel.</span>
               </div>
 
               <div class="sbw-game-picker sbw-game-picker-v2">
@@ -802,17 +820,6 @@
 
     const games = getSelectedGames();
 
-    if (!games.length) {
-      if (result) {
-        result.innerHTML = `
-          <div class="sbw-form-message sbw-form-message-error">
-            Selecione pelo menos uma modalidade inicial.
-          </div>
-        `;
-      }
-      return;
-    }
-
     const timestamp = Date.now();
     const slugBase = createSlug(tag || name) || "equipe";
     const slug = `${slugBase}-${timestamp}`;
@@ -880,7 +887,7 @@
 
       metadata: {
         source: "team-create-page",
-        version: "1.6.10",
+        version: "1.6.11",
         createdByAuthUserId: account.authUser.id,
         createdByProfileSlug: account.profileSlug,
         verificationFlow: "not_requested",
