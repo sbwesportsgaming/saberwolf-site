@@ -73,18 +73,18 @@
           </label>
 
           <label class="sbw-auth-field">
-            <span>Senha</span>
-            <input type="password" name="password" autocomplete="new-password" minlength="8" required />
-          </label>
+  <span>Senha</span>
+  <input type="password" name="password" autocomplete="new-password" minlength="8" required />
+</label>
 
-          <label class="sbw-auth-field">
-            <span>Confirmar senha</span>
-            <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required />
-          </label>
+<label class="sbw-auth-field">
+  <span>Confirmar senha</span>
+  <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required />
+</label>
 
-          <button class="sbw-auth-button" type="submit">
-            Criar conta -SBW-
-          </button>
+<button class="sbw-auth-button" type="submit">
+  Criar conta -SBW-
+</button>
         </form>
 
         <div class="sbw-auth-socials">
@@ -182,15 +182,10 @@
           const password = String(formData.get("password") || "");
           const confirmPassword = String(formData.get("confirmPassword") || "");
 
-          if (password.length < 8) {
-            setMessage("A senha precisa ter pelo menos 8 caracteres.", true);
-            return;
-          }
-
           if (password !== confirmPassword) {
-            setMessage("As senhas não conferem. Digite a mesma senha nos dois campos.", true);
-            return;
-          }
+          setMessage("As senhas não conferem. Digite a mesma senha nos dois campos.", true);
+          return;
+       }
 
           try {
             setMessage("Criando conta...");
