@@ -71,6 +71,146 @@
     );
   }
 
+  function getProfileDisplayName(profile, user) {
+  const metadata = user?.user_metadata || {};
+
+  return (
+    profile?.display_name ||
+    profile?.displayName ||
+    profile?.nickname ||
+    profile?.username ||
+    metadata.display_name ||
+    metadata.full_name ||
+    metadata.name ||
+    metadata.nickname ||
+    user?.email?.split("@")[0] ||
+    "Usuário SBW"
+  );
+}
+
+function getProfileKey(profile, user) {
+  return (
+    profile?.slug ||
+    profile?.username ||
+    profile?.userId ||
+    profile?.user_id ||
+    profile?.id ||
+    user?.id ||
+    ""
+  );
+}
+
+function getProfilePermissions(profile) {
+  const rawPermissions =
+    profile?.permissions ||
+    profile?.metadata?.permissions ||
+    {};
+
+  const organizerPermission =
+    profile?.organizerPermission ||
+    profile?.organizer_permission ||
+    null;
+
+  const isApprovedOrganizer =
+    organizerPermission &&
+    organizerPermission.status === "approved" &&
+    organizerPermission.can_create_tournaments === true;
+
+  return {
+    canCreateTournament: Boolean(
+      rawPermissions.canCreateTournament ||
+      rawPermissions.can_create_tournament ||
+      rawPermissions.can_create_tournaments ||
+      rawPermissions.isAdmin ||
+      rawPermissions.is_admin ||
+      isApprovedOrganizer
+    ),
+
+    isAdmin: Boolean(
+      rawPermissions.isAdmin ||
+      rawPermissions.is_admin
+    )
+  };
+}
+
+async function getCurrentProfileSafely(user) {
+  if (!user) return null;
+
+  try {
+    if (
+      window.SBWAuth &&
+      typeof window.SBWAuth.ensureCurrentUserProfile === "function"
+    ) {
+      const profile = await window.SBWAuth.ensureCurrentUserProfile();
+
+      if (profile) {
+        return profile;
+      }
+    }
+
+    const client = await waitForSupabaseClient();
+
+    if (!client) return null;
+
+    const result = await client
+      .from("profiles")
+      .select("*")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (result.error) {
+      console.warn("[SBW Sidebar] Não foi possível buscar profile:", result.error);
+      return null;
+    }
+
+    return result.data || null;
+  } catch (error) {
+    console.warn("[SBW Sidebar] Erro ao carregar profile:", error);
+    return null;
+  }
+}
+
+async function getCurrentTeamForProfile(profile, user) {
+  const profileKey = getProfileKey(profile, user);
+
+  if (!profileKey) return null;
+
+  try {
+    const client = await waitForSupabaseClient();
+
+    if (!client) return null;
+
+    const tableName =
+      window.SBWSupabaseConfig?.tables?.teamMembers ||
+      "team_members";
+
+    const result = await client
+      .from(tableName)
+      .select("team_slug, role, status")
+      .eq("profile_slug", profileKey)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+
+    if (result.error) {
+      console.warn("[SBW Sidebar] Não foi possível buscar equipe atual:", result.error);
+      return null;
+    }
+
+    if (!result.data || !result.data.team_slug) {
+      return null;
+    }
+
+    return {
+      teamSlug: result.data.team_slug,
+      role: result.data.role || "member"
+    };
+  } catch (error) {
+    console.warn("[SBW Sidebar] Erro ao buscar equipe atual:", error);
+    return null;
+  }
+}
+
   async function getCurrentUserSafely() {
     try {
       const client = await waitForSupabaseClient();
@@ -141,74 +281,120 @@
   }
 
   function renderLoggedOutAccount() {
-    return `
-      <div class="sbw-account-card">
-        <div class="sbw-account-card__top">
-          <div class="sbw-account-card__avatar">S</div>
+  return `
+    <div class="sbw-account-card">
+      <div class="sbw-account-card__top">
+        <div class="sbw-account-card__avatar">S</div>
 
-          <div>
-            <strong>Bem-vindo à SBW</strong>
-            <small>Entre na central para acessar seu perfil e recursos da plataforma.</small>
-          </div>
-        </div>
-
-        <div class="sbw-account-card__actions">
-          <a class="sbw-sidebar-button" href="/auth/login.html">
-            Entrar / Criar conta
-          </a>
+        <div>
+          <strong>Conta -SBW-</strong>
+          <small>Entre para acessar perfil, inscrições e torneios.</small>
         </div>
       </div>
-    `;
-  }
 
-  function renderLoggedInAccount(user) {
-    const name = escapeHtml(getDisplayNameFromUser(user));
-    const initial = escapeHtml(getInitialFromUser(user));
-    const email = escapeHtml(user?.email || "");
+      <nav class="sbw-account-menu" aria-label="Conta SaberWolf">
+        <a class="sbw-account-menu__item sbw-account-menu__item--primary" href="/auth/login.html">
+          <span>↪</span>
+          <strong>Entrar / Criar conta</strong>
+        </a>
+      </nav>
+    </div>
+  `;
+}
 
-    return `
-      <div class="sbw-account-card">
-        <div class="sbw-account-card__top">
-          <div class="sbw-account-card__avatar">${initial}</div>
+  function renderLoggedInAccount(user, accountData = {}) {
+  const profile = accountData.profile || null;
+  const currentTeam = accountData.currentTeam || null;
+  const permissions = getProfilePermissions(profile);
 
-          <div>
-            <strong>${name}</strong>
-            <small>${email || "Conta SaberWolf"}</small>
-          </div>
-        </div>
+  const name = escapeHtml(getProfileDisplayName(profile, user));
+  const initial = escapeHtml(getInitialFromUser(user));
+  const email = escapeHtml(user?.email || "");
 
-        <div class="sbw-account-card__actions">
-          <a class="sbw-sidebar-button" href="/perfis/meu-perfil.html">
-            Meu Perfil
-          </a>
+  const teamItem = currentTeam?.teamSlug
+    ? `
+      <a class="sbw-account-menu__item" href="/equipes/minha-equipe.html">
+        <span>🛡️</span>
+        <strong>Minha equipe</strong>
+      </a>
+    `
+    : "";
 
-          <button class="sbw-sidebar-button sbw-sidebar-button--ghost" type="button" data-sbw-logout>
-            Sair
-          </button>
+  const organizerItem = permissions.canCreateTournament
+    ? `
+      <a class="sbw-account-menu__item" href="/torneios/create-tournament/criar-torneio.html">
+        <span>🏆</span>
+        <strong>Criar torneio</strong>
+      </a>
+    `
+    : "";
+
+  return `
+    <div class="sbw-account-card sbw-account-card--logged">
+      <div class="sbw-account-card__top">
+        <div class="sbw-account-card__avatar">${initial}</div>
+
+        <div>
+          <strong>${name}</strong>
+          <small>${email || "Conta SaberWolf"}</small>
         </div>
       </div>
-    `;
-  }
+
+      <nav class="sbw-account-menu" aria-label="Menu da conta">
+        <a class="sbw-account-menu__item sbw-account-menu__item--primary" href="/perfis/meu-perfil.html">
+          <span>👤</span>
+          <strong>Meu perfil</strong>
+        </a>
+
+        ${teamItem}
+
+        <span class="sbw-account-menu__item sbw-account-menu__item--muted">
+          <span>🎟️</span>
+          <strong>Minhas inscrições</strong>
+          <small>Em breve</small>
+        </span>
+
+        <a class="sbw-account-menu__item" href="/perfis/meu-perfil.html#convites">
+          <span>✉️</span>
+          <strong>Convites</strong>
+        </a>
+
+        ${organizerItem}
+
+        <button class="sbw-account-menu__item sbw-account-menu__item--danger" type="button" data-sbw-logout>
+          <span>⏻</span>
+          <strong>Sair</strong>
+        </button>
+      </nav>
+    </div>
+  `;
+}
 
   async function updateAccountArea(sidebarElement) {
-    const accountArea = sidebarElement.querySelector("[data-sbw-sidebar-account]");
+  const accountArea = sidebarElement.querySelector("[data-sbw-sidebar-account]");
 
-    if (!accountArea) return;
+  if (!accountArea) return;
 
-    accountArea.innerHTML = renderLoggedOutAccount();
+  accountArea.innerHTML = renderLoggedOutAccount();
 
-    const user = await getCurrentUserSafely();
+  const user = await getCurrentUserSafely();
 
-    if (!user) return;
+  if (!user) return;
 
-    accountArea.innerHTML = renderLoggedInAccount(user);
+  const profile = await getCurrentProfileSafely(user);
+  const currentTeam = await getCurrentTeamForProfile(profile, user);
 
-    const logoutButton = accountArea.querySelector("[data-sbw-logout]");
+  accountArea.innerHTML = renderLoggedInAccount(user, {
+    profile,
+    currentTeam
+  });
 
-    if (logoutButton) {
-      logoutButton.addEventListener("click", signOutSafely);
-    }
+  const logoutButton = accountArea.querySelector("[data-sbw-logout]");
+
+  if (logoutButton) {
+    logoutButton.addEventListener("click", signOutSafely);
   }
+}
 
   function closeMobileSidebar() {
     document.body.classList.remove("sbw-sidebar-open");
