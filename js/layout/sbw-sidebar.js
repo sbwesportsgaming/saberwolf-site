@@ -2,18 +2,18 @@
   "use strict";
 
   const sidebarLinks = [
-    { id: "home", label: "Início", href: "/index.html", icon: "⌂" },
-    { id: "news", label: "Notícias", href: "/noticias/noticias.html", icon: "▤" },
-    { id: "about", label: "Sobre", href: "/sobre.html", icon: "ⓘ" },
-    { id: "creators", label: "Creators", href: "/creators/creators.html", icon: "✦" },
-    { id: "profiles", label: "Perfis", href: "/perfis/perfis.html", icon: "♙" },
-    { id: "teams", label: "Equipes", href: "/equipes/equipes.html", icon: "♟" },
-    { id: "tournaments", label: "Torneios", href: "/torneios/torneios.html", icon: "🏆" },
-    { id: "communities", label: "Comunidades", href: "/comunidades/comunidades.html", icon: "◎" },
-    { id: "rankings", label: "Rankings", href: "/rankings/rankings.html", icon: "▥" },
-    { id: "transfers", label: "Transferências", href: "/transferencias/transferencias.html", icon: "⇄" },
-    { id: "shop", label: "Loja", href: "/loja/loja.html", icon: "🛒" }
-  ];
+  { id: "home", label: "Início", href: "/index.html", icon: "⌂" },
+  { id: "news", label: "Notícias", href: "/blog/noticias.html", icon: "▤" },
+  { id: "about", label: "Sobre", href: "/pages/sobre.html", icon: "ⓘ" },
+  { id: "creators", label: "Creators", href: "/creators/creators.html", icon: "✦" },
+  { id: "profiles", label: "Perfis", href: "/perfis/perfis.html", icon: "♙" },
+  { id: "teams", label: "Equipes", href: "/equipes/equipes.html", icon: "♟" },
+  { id: "tournaments", label: "Torneios", href: "/torneios/torneios.html", icon: "🏆" },
+  { id: "communities", label: "Comunidades", href: "/comunidades/comunidades.html", icon: "◎" },
+  { id: "rankings", label: "Rankings", href: "/rankings/rankings.html", icon: "▥" },
+  { id: "transfers", label: "Transferências", href: "/transferencias/transferencias.html", icon: "⇄" },
+  { id: "shop", label: "Loja", href: "/pages/loja.html", icon: "🛒" }
+];
 
   function escapeHtml(value) {
     return String(value || "")
