@@ -301,7 +301,7 @@
     mount.innerHTML = `
       <aside class="sbw-sidebar" aria-label="Menu principal SaberWolf">
         <a class="sbw-sidebar__brand" href="/index.html" aria-label="SaberWolf eSports">
-          <div class="sbw-sidebar__brand-mark">SW</div>
+          <div class="sbw-sidebar__brand-mark">-SBW-</div>
 
           <div class="sbw-sidebar__brand-text">
             <strong>SaberWolf</strong>
