@@ -571,3 +571,44 @@ body.sbw-home-page {
 .sbw-feature-member__photo span {
   display: none;
 }
+
+/* ================================
+   HOTFIX v1.6.0 - Conteúdo visível
+   ================================ */
+
+.sbw-home-shell {
+  position: relative;
+  z-index: 1;
+}
+
+.sbw-home-hero__content,
+.sbw-section,
+.sbw-home-cta,
+.sbw-section-heading,
+.sbw-feature-member,
+.sbw-module-card {
+  position: relative;
+  z-index: 10;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+.sbw-reveal {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+.sbw-home-hero__banner {
+  z-index: 0;
+}
+
+.sbw-home-hero__overlay,
+.sbw-home-hero__banner-overlay {
+  z-index: 1;
+}
+
+.sbw-home-hero__content {
+  z-index: 5;
+}
