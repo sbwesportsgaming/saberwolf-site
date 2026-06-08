@@ -6,10 +6,24 @@
 
   <title>SaberWolf | Meu perfil</title>
 
-  <link rel="stylesheet" href="../css/profiles.css" />
+  <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
+<link rel="stylesheet" href="../css/profiles.css" />
 </head>
-<body>
-  <header>
+<body class="sbw-profile-admin-body" data-sbw-active-page="profiles">
+  <div id="sbwSidebarMount"></div>
+
+  <button
+    class="sbw-sidebar-toggle"
+    type="button"
+    aria-label="Abrir menu"
+    data-sbw-sidebar-toggle
+  >
+    ☰
+  </button>
+
+  <div class="sbw-sidebar-backdrop" data-sbw-sidebar-close></div>
+
+  <header class="sbw-legacy-header">
     <h1>SaberWolf</h1>
 
     <div class="menu-toggle">
@@ -64,6 +78,7 @@
 <script src="../js/supabase/supabase-config.js"></script>
 <script src="../js/supabase/supabase-client.js"></script>
 <script src="../js/auth/auth-service.js"></script>
+<script src="../js/layout/sbw-sidebar.js"></script>
 <script src="../js/auth/auth-header.js"></script>
 
 <script src="../js/profiles/profiles-config.js"></script>
