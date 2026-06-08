@@ -470,6 +470,10 @@ async function getCurrentTeamForProfile(profile, user) {
     initSidebarControls();
     await updateAccountArea(sidebarElement);
     listenToAuthChanges(sidebarElement);
+
+    requestAnimationFrame(() => {
+    document.body.classList.remove("sbw-sidebar-no-transition");
+   });
   }
 
   document.addEventListener("DOMContentLoaded", initSidebar);
