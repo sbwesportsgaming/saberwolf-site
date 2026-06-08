@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+
   function getConfig() {
     return window.SBW_TEAMS_CONFIG || {};
   }
@@ -12,12 +14,30 @@
   }
 
   function escapeHtml(value) {
-    return String(value || "")
+    return String(value ?? "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
+      .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+
+  function safeUrl(value) {
+    const raw = String(value || "").trim();
+
+    if (!raw) return "";
+
+    if (/^(javascript|data:text\/html)/i.test(raw)) return "";
+
+    if (/^https?:\/\//i.test(raw) || raw.startsWith("/") || raw.startsWith("../")) {
+      return raw;
+    }
+
+    if (raw.startsWith("assets/")) {
+      return "../" + raw;
+    }
+
+    return raw;
   }
 
   function getParam(name) {
@@ -36,7 +56,7 @@
 
   function getMainTeamType() {
     const config = getConfig();
-    return config.teamTypes?.mainTeam || "main";
+    return config.teamTypes?.mainTeam || "main_team";
   }
 
   function getSubteamType() {
@@ -49,15 +69,34 @@
     return Number(config.limits?.commonTeamMembers || 50);
   }
 
+  function getVerifiedTeamLimit() {
+    const config = getConfig();
+    return Number(config.limits?.verifiedTeamMembers || 100);
+  }
+
   function getTeamId(team) {
     return team?.slug || team?.id || team?.teamId || "";
   }
 
+  function getTeamInitials(team) {
+    if (team?.tag) return String(team.tag).slice(0, 5).toUpperCase();
+
+    return String(team?.name || "Equipe")
+      .split(" ")
+      .map((part) => part.charAt(0))
+      .join("")
+      .slice(0, 4)
+      .toUpperCase();
+  }
+
   function getRoleLabel(role) {
     const labels = {
+      owner: "Dono",
       captain: "Capitão",
       vice_captain: "Vice-capitão",
       manager: "Manager",
+      coach: "Coach",
+      staff: "Staff",
       member: "Membro",
       pending: "Pendente"
     };
@@ -67,10 +106,11 @@
 
   function getPublicTitleLabel(value) {
     const labels = {
-      pro_player: "Player Pro",
+      pro_player: "Player profissional",
       coach: "Coach",
+      manager: "Manager",
       staff: "Staff",
-      academy_player: "Academy Player",
+      academy_player: "Academy",
       creator: "Creator",
       analyst: "Analista",
       social_media: "Social Media"
@@ -86,11 +126,17 @@
       return models.getTeamTypeLabel(team);
     }
 
-    if (team?.teamType === getSubteamType()) {
-      return "Subequipe";
-    }
+    const type = String(team?.teamType || team?.type || "").toLowerCase();
 
-    return "Equipe principal";
+    if (type === getSubteamType() || type.includes("sub")) return "Subequipe / Academy";
+    if (type.includes("community")) return "Comunidade";
+    if (type.includes("academy")) return "Academy";
+    if (type.includes("casual")) return "Casual";
+    if (type.includes("creator")) return "Creators";
+    if (type.includes("competitive")) return "Competitiva";
+    if (type.includes("organization") || type.includes("main")) return "Organização competitiva";
+
+    return "Equipe";
   }
 
   function getVerificationLabel(team) {
@@ -100,16 +146,57 @@
       return models.getVerificationLabel(team);
     }
 
-    if (team?.verificationStatus === getVerifiedStatus() || team?.isVerified) {
-      return "Equipe verificada";
-    }
+    if (isTeamVerified(team)) return "Equipe verificada pela -SBW-";
 
     return "Equipe não verificada";
   }
 
+  function isTeamVerified(team) {
+    return team?.verificationStatus === getVerifiedStatus() || team?.isVerified === true;
+  }
+
+  function isSubteam(team) {
+    const type = String(team?.teamType || "").toLowerCase();
+
+    return type === getSubteamType() || type.includes("sub") || Boolean(team?.parentTeamId || team?.parentTeamSlug);
+  }
+
+  function asArray(value) {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== "object") return [];
+    if (Array.isArray(value.items)) return value.items;
+    if (Array.isArray(value.data)) return value.data;
+    return [];
+  }
+
+  function asObject(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return value;
+  }
+
+  function getMeta(team) {
+    return asObject(team?.metadata);
+  }
+
+  function formatDate(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+  }
+
   function formatPrize(stats) {
-    const amount = Number(stats?.prizeAmount || 0);
-    const currency = stats?.prizeCurrency || "BRL";
+    const amount = Number(stats?.prizeAmount || stats?.prize_amount || 0);
+    const currency = stats?.prizeCurrency || stats?.prize_currency || "BRL";
+
+    if (!amount) return "R$ 0";
 
     if (currency === "BRL") {
       return amount.toLocaleString("pt-BR", {
@@ -120,193 +207,6 @@
 
     return `${amount} ${currency}`;
   }
-
-  function getTeamInitials(team) {
-    if (team?.tag) {
-      return team.tag;
-    }
-
-    return String(team?.name || "?")
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 4)
-      .toUpperCase();
-  }
-
-  function getMemberName(member) {
-    return member?.displayName || member?.nickname || member?.name || "Membro";
-  }
-
-  function getMemberNickname(member) {
-    return member?.nickname || member?.displayName || member?.name || "Membro";
-  }
-
-  function getMemberInitials(member) {
-    return String(getMemberNickname(member))
-      .slice(0, 2)
-      .toUpperCase();
-  }
-
-  function getMemberAvatarHtml(member) {
-    if (member?.avatarUrl) {
-      return `
-        <img src="${escapeHtml(member.avatarUrl)}" alt="${escapeHtml(getMemberName(member))}" />
-      `;
-    }
-
-    return escapeHtml(getMemberInitials(member));
-  }
-
-  function getMemberProfileUrl(member) {
-    if (!member?.userId) {
-      return "";
-    }
-
-    return `../perfis/perfil.html?id=${encodeURIComponent(member.userId)}`;
-  }
-
-  function getActiveMembers(members) {
-    return members.filter((member) => {
-      return (member.status || "active") === "active";
-    });
-  }
-
-  function getGameNameMap(team) {
-    const map = new Map();
-
-    (team.games || []).forEach((game) => {
-      if (typeof game === "string") {
-        map.set(game, game);
-        return;
-      }
-
-      map.set(game.id, game.name);
-    });
-
-    return map;
-  }
-
-  function getMemberGamesLabel(member, team) {
-    const gameMap = getGameNameMap(team);
-    const games = Array.isArray(member.games) ? member.games : [];
-
-    if (!games.length) {
-      return "—";
-    }
-
-    return games
-      .map((game) => {
-        if (typeof game === "string") {
-          return gameMap.get(game) || game;
-        }
-
-        return game.name || gameMap.get(game.id) || game.id || "Jogo";
-      })
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  function getMembersByGame(members, gameId) {
-    return members.filter((member) => {
-      if (!Array.isArray(member.games)) {
-        return false;
-      }
-
-      return member.games.some((game) => {
-        if (typeof game === "string") {
-          return game === gameId;
-        }
-
-        return game.id === gameId;
-      });
-    });
-  }
-
-  function renderPublicTitle(member) {
-    const directLabel = member.publicTitleLabel || "";
-    const mappedLabel = getPublicTitleLabel(member.publicTitle || "");
-    const label = directLabel || mappedLabel;
-
-    if (!label) {
-      return `<span class="sbw-rank-empty">—</span>`;
-    }
-
-    return `
-      <span class="sbw-rank-badge">
-        ${escapeHtml(label)}
-      </span>
-    `;
-  }
-
-  function renderSocialLinks(team) {
-    const links = team.socialLinks || {};
-
-    const socialItems = [
-      {
-        key: "discord",
-        label: "Discord",
-        url: links.discord
-      },
-      {
-        key: "youtube",
-        label: "YouTube",
-        url: links.youtube
-      },
-      {
-        key: "instagram",
-        label: "Instagram",
-        url: links.instagram
-      },
-      {
-        key: "x",
-        label: "X / Twitter",
-        url: links.x || links.twitter
-      }
-    ].filter((item) => item.url);
-
-    if (!socialItems.length) {
-      return `
-        <p class="sbw-team-muted">
-          Nenhuma rede pública cadastrada.
-        </p>
-      `;
-    }
-
-    return `
-      <div class="sbw-team-social-list">
-        ${socialItems
-          .map((item) => {
-            return `
-              <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
-                ${escapeHtml(item.label)}
-              </a>
-            `;
-          })
-          .join("")}
-      </div>
-    `;
-  }
-
-  function renderParentTeamBox(parentTeam) {
-    if (!parentTeam) {
-      return "";
-    }
-
-    return `
-      <div class="sbw-parent-team-box">
-        <span>Subequipe oficial vinculada a</span>
-
-        <a href="equipe.html?id=${encodeURIComponent(getTeamId(parentTeam))}">
-          ${escapeHtml(parentTeam.name)}
-        </a>
-      </div>
-    `;
-  }
-
-    /* =========================================================
-     SaberWolf v1.5.4 - Tipo público da equipe
-     ========================================================= */
 
   function getTeamPublicType(team) {
     const storage = getStorage();
@@ -326,175 +226,290 @@
     for (const identifier of identifiers) {
       const found = storage.getTeamTypeByTeamId(identifier);
 
-      if (found && found.source !== "default") {
-        return found;
-      }
+      if (found && found.source !== "default") return found;
     }
 
     return storage.getTeamTypeByTeamId(getTeamId(team));
   }
 
-  function renderTeamPublicTypeBadge(team) {
+  function getPublicTypeLabel(team) {
     const teamType = getTeamPublicType(team);
+    return teamType?.label || getTeamTypeLabel(team);
+  }
 
-    if (!teamType) {
-      return "";
+  function getFocusTags(team) {
+    const teamType = getTeamPublicType(team);
+    const meta = getMeta(team);
+    const fromType = Array.isArray(teamType?.focusTags) ? teamType.focusTags : [];
+    const fromTeam = Array.isArray(team?.focusTags) ? team.focusTags : [];
+    const fromMeta = Array.isArray(meta.focusTags) ? meta.focusTags : [];
+    const fromGames = (team?.games || [])
+      .map((game) => (typeof game === "string" ? game : game.category || game.name || game.id))
+      .filter(Boolean);
+
+    return Array.from(new Set([...fromType, ...fromTeam, ...fromMeta, ...fromGames])).slice(0, 7);
+  }
+
+  function getLocationLabel(team) {
+    const meta = getMeta(team);
+    const parts = [
+      team?.city || meta.city,
+      team?.state || meta.state,
+      team?.country || meta.country
+    ].filter(Boolean);
+
+    if (parts.length) return parts.join(" · ");
+
+    return team?.location || meta.location || "Região não informada";
+  }
+
+  function getMemberName(member) {
+    return member?.displayName || member?.display_name || member?.nickname || member?.name || "Membro";
+  }
+
+  function getMemberNickname(member) {
+    return member?.nickname || member?.displayName || member?.display_name || member?.name || "Membro";
+  }
+
+  function getMemberInitials(member) {
+    return String(getMemberNickname(member)).slice(0, 2).toUpperCase();
+  }
+
+  function getMemberProfileUrl(member) {
+    const id = member?.userId || member?.profileSlug || member?.profileId || member?.profile_slug;
+
+    if (!id) return "";
+
+    return `../perfis/perfil.html?id=${encodeURIComponent(id)}`;
+  }
+
+  function getMemberAvatarHtml(member) {
+    const url = safeUrl(member?.avatarUrl || member?.avatar_url || "");
+
+    if (url) {
+      return `<img src="${escapeHtml(url)}" alt="${escapeHtml(getMemberName(member))}" loading="lazy" />`;
     }
 
-    return `
-      <span class="sbw-team-public-type-badge sbw-team-public-type-${escapeHtml(teamType.type)}">
-        ${escapeHtml(teamType.label)}
-      </span>
-    `;
+    return escapeHtml(getMemberInitials(member));
   }
 
-  function renderTeamPublicTypePanel(team) {
-    const teamType = getTeamPublicType(team);
-
-    if (!teamType) {
-      return "";
-    }
-
-    const focusTags = Array.isArray(teamType.focusTags) ? teamType.focusTags : [];
-
-    return `
-      <div class="sbw-profile-panel sbw-team-public-type-panel">
-        <div class="sbw-profile-panel-heading">
-          <div>
-            <span>Identidade</span>
-            <h2>${escapeHtml(teamType.label)}</h2>
-          </div>
-
-          <small>${escapeHtml(teamType.shortLabel || teamType.label)}</small>
-        </div>
-
-        <p class="sbw-team-muted">
-          ${escapeHtml(teamType.descriptionText || teamType.description || "Tipo público da equipe na plataforma SaberWolf.")}
-        </p>
-
-        ${
-          focusTags.length
-            ? `
-              <div class="sbw-team-public-type-tags">
-                ${focusTags
-                  .map(function (tag) {
-                    return `<span>${escapeHtml(tag)}</span>`;
-                  })
-                  .join("")}
-              </div>
-            `
-            : ""
-        }
-      </div>
-    `;
+  function getActiveMembers(members) {
+    return (members || []).filter((member) => (member.status || "active") === "active");
   }
 
-  function renderStats(team) {
-    return `
-      <div class="sbw-team-profile-stats">
-        <div>
-          <strong>${Number(team.stats?.tournamentsPlayed || 0)}</strong>
-          <span>Torneios</span>
-        </div>
+  function getGameNameMap(team) {
+    const map = new Map();
 
-        <div>
-          <strong>${Number(team.stats?.titles || 0)}</strong>
-          <span>Títulos</span>
-        </div>
+    (team.games || []).forEach((game) => {
+      if (typeof game === "string") {
+        map.set(game, game);
+        return;
+      }
 
-        <div>
-          <strong>${Number(team.stats?.podiums || 0)}</strong>
-          <span>Pódios</span>
-        </div>
+      map.set(game.id, game.name || game.id);
+    });
 
-        <div>
-          <strong>${formatPrize(team.stats)}</strong>
-          <span>Premiação</span>
-        </div>
-      </div>
-    `;
+    return map;
   }
 
-  function renderGamesSummary(team, members) {
-    const games = Array.isArray(team.games) ? team.games : [];
-    const activeMembers = getActiveMembers(members);
+  function getMemberGamesLabel(member, team) {
+    const gameMap = getGameNameMap(team);
+    const games = Array.isArray(member.games) ? member.games : [];
 
-    if (!games.length) {
+    if (!games.length) return "—";
+
+    return games
+      .map((game) => {
+        if (typeof game === "string") return gameMap.get(game) || game;
+        return game.name || gameMap.get(game.id) || game.id || "Jogo";
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function getMembersByGame(members, gameId) {
+    return members.filter((member) => {
+      if (!Array.isArray(member.games)) return false;
+
+      return member.games.some((game) => {
+        if (typeof game === "string") return game === gameId;
+        return game.id === gameId;
+      });
+    });
+  }
+
+  function getPlayerMembers(members) {
+    return getActiveMembers(members).filter((member) => {
+      const role = String(member.role || "").toLowerCase();
+      const title = String(member.publicTitle || member.publicTitleLabel || member.functionName || member.function || "").toLowerCase();
+
+      return !["manager", "coach", "staff", "social_media", "analyst"].includes(role) && !title.includes("coach") && !title.includes("manager") && !title.includes("staff");
+    });
+  }
+
+  function renderLogo(team, className) {
+    const url = safeUrl(team?.logoUrl || team?.logo_url || "");
+
+    if (url) {
       return `
-        <div class="sbw-profile-panel">
-          <div class="sbw-profile-panel-heading">
-            <div>
-              <span>Modalidades</span>
-              <h2>Elencos por jogo</h2>
-            </div>
-          </div>
-
-          <div class="sbw-empty-state">
-            Nenhuma modalidade cadastrada.
-          </div>
+        <div class="${className}">
+          <img src="${escapeHtml(url)}" alt="Logo ${escapeHtml(team?.name || "Equipe")}" loading="lazy" onerror="this.closest('.${className}')?.classList.add('is-logo-error'); this.remove();" />
+          <span>${escapeHtml(getTeamInitials(team))}</span>
         </div>
       `;
     }
 
     return `
-      <div class="sbw-profile-panel">
-        <div class="sbw-profile-panel-heading">
-          <div>
-            <span>Modalidades</span>
-            <h2>Elencos por jogo</h2>
-          </div>
-        </div>
-
-        <div class="sbw-simple-game-list">
-          ${games
-            .map((game) => {
-              const gameId = typeof game === "string" ? game : game.id;
-              const gameName = typeof game === "string" ? game : game.name;
-              const gameCategory = typeof game === "string" ? "Modalidade" : game.category || "Modalidade";
-              const gameMembers = getMembersByGame(activeMembers, gameId);
-
-              return `
-                <div class="sbw-simple-game-row">
-                  <div>
-                    <strong>${escapeHtml(gameName || "Jogo")}</strong>
-                    <span>${escapeHtml(gameCategory)}</span>
-                  </div>
-
-                  <b>${gameMembers.length} membro${gameMembers.length === 1 ? "" : "s"}</b>
-                </div>
-              `;
-            })
-            .join("")}
-        </div>
+      <div class="${className} is-logo-fallback">
+        <span>${escapeHtml(getTeamInitials(team))}</span>
       </div>
     `;
   }
 
-  function renderMembersList(team, members) {
-    const activeMembers = getActiveMembers(members);
-    const memberLimit = Number(team.memberLimit || getCommonTeamLimit());
+  function renderVerifiedBadge(team, label) {
+    if (!isTeamVerified(team)) return "";
+
+    return `<span class="sbw-team-v2-badge sbw-team-v2-badge-verified" title="${escapeHtml(label || getVerificationLabel(team))}">✓ Verificada</span>`;
+  }
+
+  function renderPill(value, modifier) {
+    if (!value) return "";
+
+    return `<span class="sbw-team-v2-pill ${modifier || ""}">${escapeHtml(value)}</span>`;
+  }
+
+  function renderPublicTitle(member) {
+    const directLabel = member.publicTitleLabel || "";
+    const mappedLabel = getPublicTitleLabel(member.publicTitle || "");
+    const label = directLabel || mappedLabel || member.functionName || member.function || "Player";
+
+    return `<span class="sbw-team-v2-role-badge">${escapeHtml(label)}</span>`;
+  }
+
+  function renderParentTeamBox(parentTeam) {
+    if (!parentTeam) return "";
 
     return `
-      <div class="sbw-profile-panel sbw-members-panel">
-        <div class="sbw-profile-panel-heading">
-          <div>
-            <span>Equipe</span>
-            <h2>Membros</h2>
+      <div class="sbw-team-v2-parent">
+        <span>Subequipe oficial vinculada a</span>
+        <a href="equipe.html?id=${encodeURIComponent(getTeamId(parentTeam))}">${escapeHtml(parentTeam.name)}</a>
+      </div>
+    `;
+  }
+
+  function renderHero(team, members, parentTeam) {
+    const meta = getMeta(team);
+    const bannerUrl = safeUrl(team.bannerUrl || team.banner_url || "");
+    const verified = isTeamVerified(team);
+    const memberLimit = Number(team.memberLimit || (verified ? getVerifiedTeamLimit() : getCommonTeamLimit()));
+    const activeMembers = getActiveMembers(members);
+    const focusTags = getFocusTags(team);
+    const website = safeUrl(team.website || meta.website || team.socialLinks?.website || "");
+    const recruitmentOpen = Boolean(team.recruitment?.isOpen || meta.recruitment?.isOpen || team.recruiting === true || meta.recruiting === true);
+
+    return `
+      <section class="sbw-team-v2-hero" ${bannerUrl ? `style="--team-banner-image: url('${escapeHtml(bannerUrl)}');"` : ""}>
+        <div class="sbw-team-v2-hero-bg"></div>
+        <div class="sbw-team-v2-hero-inner">
+          ${renderLogo(team, "sbw-team-v2-logo")}
+
+          <div class="sbw-team-v2-hero-content">
+            <div class="sbw-team-v2-kicker-row">
+              ${renderVerifiedBadge(team)}
+              ${renderPill(getPublicTypeLabel(team), "")}
+              ${renderPill(isSubteam(team) ? "Subequipe" : "Equipe principal", "")}
+              ${recruitmentOpen ? renderPill("Recrutamento aberto", "sbw-team-v2-pill-success") : ""}
+            </div>
+
+            <h1>
+              ${escapeHtml(team.name || "Equipe SaberWolf")}
+              ${verified ? `<span class="sbw-verified-badge" title="${escapeHtml(getVerificationLabel(team))}">✓</span>` : ""}
+            </h1>
+
+            <p class="sbw-team-v2-tagline">
+              ${escapeHtml(team.description || team.bio || "Perfil público da equipe dentro do ecossistema competitivo -SBW-.")}
+            </p>
+
+            <div class="sbw-team-v2-meta-line">
+              <span>${escapeHtml(team.tag || "TAG")}</span>
+              <span>${escapeHtml(getLocationLabel(team))}</span>
+              <span>${activeMembers.length}/${memberLimit} membros</span>
+            </div>
+
+            ${
+              focusTags.length
+                ? `
+                  <div class="sbw-team-v2-tags">
+                    ${focusTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
+                  </div>
+                `
+                : ""
+            }
+
+            <div class="sbw-team-v2-actions">
+              ${website ? `<a class="sbw-team-v2-button sbw-team-v2-button-primary" href="${escapeHtml(website)}" target="_blank" rel="noopener noreferrer">Site oficial</a>` : ""}
+              <a class="sbw-team-v2-button" href="equipes.html">Ver equipes</a>
+            </div>
+
+            ${renderParentTeamBox(parentTeam)}
           </div>
-
-          <small>${activeMembers.length}/${memberLimit} membros</small>
         </div>
+      </section>
+    `;
+  }
 
-        <p class="sbw-team-muted">
-          Clique em um jogador para abrir o perfil pessoal público dele.
-        </p>
+  function renderMetric(icon, label, value, hint) {
+    return `
+      <article class="sbw-team-v2-metric">
+        <span class="sbw-team-v2-metric-icon">${escapeHtml(icon)}</span>
+        <div>
+          <strong>${escapeHtml(value)}</strong>
+          <span>${escapeHtml(label)}</span>
+          ${hint ? `<small>${escapeHtml(hint)}</small>` : ""}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderMetrics(team, members) {
+    const stats = team.stats || {};
+    const activeMembers = getActiveMembers(members);
+    const players = getPlayerMembers(members);
+    const games = Array.isArray(team.games) ? team.games : [];
+    const verified = isTeamVerified(team);
+    const limit = Number(team.memberLimit || (verified ? getVerifiedTeamLimit() : getCommonTeamLimit()));
+    const rank = stats.rankPosition || stats.rankingPosition || stats.globalRank || team.rankingPosition || "—";
+
+    return `
+      <section class="sbw-team-v2-metrics" aria-label="Métricas da equipe">
+        ${renderMetric("👥", "Membros", activeMembers.length, `limite ${limit}`)}
+        ${renderMetric("🎮", "Jogadores ativos", players.length, "roster atual")}
+        ${renderMetric("▦", "Jogos / divisões", games.length, "modalidades")}
+        ${renderMetric("🏆", "Títulos -SBW-", Number(stats.titles || 0), `${Number(stats.podiums || 0)} pódios`)}
+        ${renderMetric("📅", "Torneios", Number(stats.tournamentsPlayed || 0), "histórico interno")}
+        ${renderMetric("#", "Ranking", rank === "—" ? "—" : `#${rank}`, "global/equipe")}
+      </section>
+    `;
+  }
+
+  function renderRoster(team, members) {
+    const activeMembers = getActiveMembers(members);
+
+    return `
+      <section class="sbw-team-v2-panel sbw-team-v2-roster-panel">
+        <header class="sbw-team-v2-panel-head">
+          <div>
+            <span>Roster principal</span>
+            <h2>Membros da equipe</h2>
+          </div>
+          <small>${activeMembers.length} ativo${activeMembers.length === 1 ? "" : "s"}</small>
+        </header>
 
         ${
           activeMembers.length
             ? `
-              <div class="sbw-rank-list">
-                <div class="sbw-rank-list-head">
-                  <span>#</span>
+              <div class="sbw-team-v2-roster-table">
+                <div class="sbw-team-v2-roster-head">
                   <span>Membro</span>
                   <span>Cargo</span>
                   <span>Função</span>
@@ -502,52 +517,74 @@
                 </div>
 
                 ${activeMembers
-                  .map((member, index) => {
+                  .map((member) => {
                     const profileUrl = getMemberProfileUrl(member);
-                    const memberName = getMemberName(member);
-                    const nickname = getMemberNickname(member);
-
-                    const memberIdentity = `
-                      <div class="sbw-rank-avatar">
-                        ${getMemberAvatarHtml(member)}
-                      </div>
-
-                      <div class="sbw-rank-member-info">
-                        <strong>${escapeHtml(memberName)}</strong>
-                        <span>@${escapeHtml(nickname)}</span>
+                    const identity = `
+                      <div class="sbw-team-v2-member-avatar">${getMemberAvatarHtml(member)}</div>
+                      <div class="sbw-team-v2-member-name">
+                        <strong>${escapeHtml(getMemberName(member))}</strong>
+                        <span>@${escapeHtml(getMemberNickname(member))}</span>
                       </div>
                     `;
 
                     return `
-                      <article class="sbw-rank-list-row">
-                        <div class="sbw-rank-position">
-                          ${index + 1}
-                        </div>
-
+                      <article class="sbw-team-v2-roster-row ${member.role === "captain" ? "is-captain" : ""}">
                         ${
                           profileUrl
-                            ? `
-                              <a class="sbw-rank-member sbw-rank-member-link" href="${profileUrl}">
-                                ${memberIdentity}
-                              </a>
-                            `
-                            : `
-                              <div class="sbw-rank-member">
-                                ${memberIdentity}
-                              </div>
-                            `
+                            ? `<a class="sbw-team-v2-member" href="${profileUrl}">${identity}</a>`
+                            : `<div class="sbw-team-v2-member">${identity}</div>`
                         }
+                        <div class="sbw-team-v2-cell">${escapeHtml(getRoleLabel(member.role))}</div>
+                        <div class="sbw-team-v2-cell">${renderPublicTitle(member)}</div>
+                        <div class="sbw-team-v2-cell">${escapeHtml(getMemberGamesLabel(member, team))}</div>
+                      </article>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `
+            : `<div class="sbw-team-v2-empty">Nenhum membro ativo cadastrado publicamente.</div>`
+        }
+      </section>
+    `;
+  }
 
-                        <div class="sbw-rank-cell">
-                          ${escapeHtml(getRoleLabel(member.role))}
+  function renderDivisions(team, members) {
+    const games = Array.isArray(team.games) ? team.games : [];
+    const activeMembers = getActiveMembers(members);
+
+    return `
+      <section class="sbw-team-v2-panel">
+        <header class="sbw-team-v2-panel-head">
+          <div>
+            <span>Jogos / divisões</span>
+            <h2>Modalidades competitivas</h2>
+          </div>
+        </header>
+
+        ${
+          games.length
+            ? `
+              <div class="sbw-team-v2-division-list">
+                ${games
+                  .map((game) => {
+                    const gameId = typeof game === "string" ? game : game.id;
+                    const name = typeof game === "string" ? game : game.name || game.id || "Jogo";
+                    const category = typeof game === "string" ? "Modalidade" : game.category || game.division || "Divisão";
+                    const status = typeof game === "string" ? "Ativa" : game.status || (game.active === false ? "Em formação" : "Ativa");
+                    const rank = typeof game === "string" ? "" : game.rank || game.ranking || game.rankPosition || "";
+                    const count = getMembersByGame(activeMembers, gameId).length;
+
+                    return `
+                      <article class="sbw-team-v2-division">
+                        <div>
+                          <strong>${escapeHtml(name)}</strong>
+                          <span>${escapeHtml(category)}</span>
                         </div>
-
-                        <div class="sbw-rank-cell">
-                          ${renderPublicTitle(member)}
-                        </div>
-
-                        <div class="sbw-rank-cell">
-                          ${escapeHtml(getMemberGamesLabel(member, team))}
+                        <div class="sbw-team-v2-division-meta">
+                          <b>${count} jogador${count === 1 ? "" : "es"}</b>
+                          ${rank ? `<b>#${escapeHtml(rank)}</b>` : ""}
+                          <em>${escapeHtml(status)}</em>
                         </div>
                       </article>
                     `;
@@ -555,72 +592,321 @@
                   .join("")}
               </div>
             `
+            : `<div class="sbw-team-v2-empty">Nenhuma modalidade cadastrada publicamente.</div>`
+        }
+      </section>
+    `;
+  }
+
+  function getInternalAchievements(team) {
+    const meta = getMeta(team);
+    const achievements = [
+      ...asArray(team.achievements),
+      ...asArray(meta.achievements),
+      ...asArray(team.internalAchievements),
+      ...asArray(meta.internalAchievements)
+    ];
+
+    return achievements.filter((item) => {
+      const source = String(item.source || item.origin || "sbw").toLowerCase();
+      return !source || source === "sbw" || source === "internal" || source === "saberwolf";
+    });
+  }
+
+  function getExternalAchievements(team) {
+    const meta = getMeta(team);
+
+    return [
+      ...asArray(team.externalAchievements),
+      ...asArray(meta.externalAchievements)
+    ];
+  }
+
+  function renderAchievementItem(item, index) {
+    const title = item.title || item.name || item.tournamentName || `Conquista #${index + 1}`;
+    const subtitle = [item.game, item.organizer, item.placement || item.position].filter(Boolean).join(" · ");
+
+    return `
+      <article class="sbw-team-v2-achievement">
+        <span>🏆</span>
+        <div>
+          <strong>${escapeHtml(title)}</strong>
+          <small>${escapeHtml(subtitle || "Conquista registrada")}</small>
+        </div>
+        <time>${escapeHtml(formatDate(item.date || item.finishedAt || item.createdAt))}</time>
+      </article>
+    `;
+  }
+
+  function renderInternalAchievements(team) {
+    const items = getInternalAchievements(team);
+
+    return `
+      <section class="sbw-team-v2-panel">
+        <header class="sbw-team-v2-panel-head">
+          <div>
+            <span>Conquistas -SBW-</span>
+            <h2>Títulos e pódios internos</h2>
+          </div>
+        </header>
+
+        ${
+          items.length
+            ? `<div class="sbw-team-v2-achievement-list">${items.slice(0, 6).map(renderAchievementItem).join("")}</div>`
             : `
-              <div class="sbw-empty-state">
-                Nenhum membro ativo cadastrado publicamente.
+              <div class="sbw-team-v2-empty">
+                Nenhuma conquista interna registrada ainda. Resultados de torneios da plataforma poderão aparecer aqui conforme forem finalizados.
               </div>
             `
         }
+      </section>
+    `;
+  }
+
+  function renderExternalAchievements(team) {
+    const items = getExternalAchievements(team);
+
+    return `
+      <section class="sbw-team-v2-panel sbw-team-v2-external-panel">
+        <header class="sbw-team-v2-panel-head">
+          <div>
+            <span>Conquistas externas</span>
+            <h2>Integrações futuras</h2>
+          </div>
+        </header>
+
+        ${
+          items.length
+            ? `<div class="sbw-team-v2-achievement-list">${items.slice(0, 5).map(renderAchievementItem).join("")}</div>`
+            : `
+              <div class="sbw-team-v2-empty">
+                Nenhuma conquista externa vinculada ainda. Futuras integrações poderão exibir resultados externos aqui sem misturar com o histórico interno da -SBW-.
+              </div>
+            `
+        }
+      </section>
+    `;
+  }
+
+  function getRecentResults(team) {
+    const meta = getMeta(team);
+
+    return [
+      ...asArray(team.recentResults),
+      ...asArray(team.recentTournaments),
+      ...asArray(team.results),
+      ...asArray(meta.recentResults),
+      ...asArray(meta.recentTournaments)
+    ];
+  }
+
+  function renderRecentResults(team) {
+    const results = getRecentResults(team);
+
+    return `
+      <section class="sbw-team-v2-panel">
+        <header class="sbw-team-v2-panel-head">
+          <div>
+            <span>Últimos torneios / resultados</span>
+            <h2>Histórico recente</h2>
+          </div>
+        </header>
+
+        ${
+          results.length
+            ? `
+              <div class="sbw-team-v2-result-list">
+                ${results
+                  .slice(0, 6)
+                  .map((result) => {
+                    const title = result.tournamentName || result.name || result.title || "Torneio";
+                    const meta = [result.game, result.organizer, result.participants ? `${result.participants} participantes` : ""].filter(Boolean).join(" · ");
+                    const placement = result.placement || result.position || result.rank || "—";
+                    const points = result.points || result.score || "";
+
+                    return `
+                      <article class="sbw-team-v2-result">
+                        <div>
+                          <strong>${escapeHtml(title)}</strong>
+                          <span>${escapeHtml(meta || "Resultado interno")}</span>
+                        </div>
+                        <div>
+                          <b>${escapeHtml(placement)}</b>
+                          ${points ? `<small>${escapeHtml(points)} pts</small>` : ""}
+                        </div>
+                        <time>${escapeHtml(formatDate(result.date || result.finishedAt || result.createdAt))}</time>
+                      </article>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `
+            : `<div class="sbw-team-v2-empty">Nenhum resultado recente vinculado ao perfil público desta equipe.</div>`
+        }
+      </section>
+    `;
+  }
+
+  function renderSubteams(subteams, parentTeam) {
+    const parentVerified = isTeamVerified(parentTeam);
+
+    return `
+      <section class="sbw-team-v2-panel">
+        <header class="sbw-team-v2-panel-head">
+          <div>
+            <span>Subequipes / Academy</span>
+            <h2>Estrutura vinculada</h2>
+          </div>
+        </header>
+
+        ${
+          subteams.length
+            ? `
+              <div class="sbw-team-v2-subteam-grid">
+                ${subteams
+                  .map((team) => {
+                    const verified = parentVerified || isTeamVerified(team);
+                    const games = Array.isArray(team.games) ? team.games : [];
+
+                    return `
+                      <a class="sbw-team-v2-subteam" href="equipe.html?id=${encodeURIComponent(getTeamId(team))}">
+                        ${renderLogo(team, "sbw-team-v2-subteam-logo")}
+                        <div>
+                          <strong>${escapeHtml(team.name)}</strong>
+                          <span>${escapeHtml(games[0]?.name || games[0] || getTeamTypeLabel(team))}</span>
+                          ${verified ? `<small>✓ Verificada</small>` : ""}
+                        </div>
+                      </a>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `
+            : `
+              <div class="sbw-team-v2-empty">
+                Nenhuma subequipe pública vinculada no momento. Equipes verificadas podem organizar Academy, base ou line secundária.
+              </div>
+            `
+        }
+      </section>
+    `;
+  }
+
+  function renderSocialLinks(team) {
+    const links = team.socialLinks || {};
+    const meta = getMeta(team);
+    const merged = Object.assign({}, links, meta.socialLinks || {});
+
+    const socialItems = [
+      ["discord", "Discord"],
+      ["x", "X / Twitter"],
+      ["twitter", "X / Twitter"],
+      ["instagram", "Instagram"],
+      ["youtube", "YouTube"],
+      ["twitch", "Twitch"],
+      ["tiktok", "TikTok"],
+      ["website", "Site"]
+    ]
+      .map(([key, label]) => ({ key, label, url: safeUrl(merged[key] || "") }))
+      .filter((item, index, list) => item.url && list.findIndex((other) => other.url === item.url) === index);
+
+    if (!socialItems.length) {
+      return `<div class="sbw-team-v2-empty">Nenhuma rede pública cadastrada.</div>`;
+    }
+
+    return `
+      <div class="sbw-team-v2-social-grid">
+        ${socialItems.map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)}</a>`).join("")}
       </div>
     `;
   }
 
-  function renderSubteams(subteams) {
-    if (!subteams.length) {
-      return "";
-    }
+  function renderAbout(team) {
+    const meta = getMeta(team);
+    const foundedAt = team.foundedAt || team.createdAt || meta.foundedAt || meta.foundationDate || "";
+    const type = getPublicTypeLabel(team);
+    const location = getLocationLabel(team);
 
     return `
-      <div class="sbw-profile-panel">
-        <div class="sbw-profile-panel-heading">
+      <section class="sbw-team-v2-panel">
+        <header class="sbw-team-v2-panel-head">
           <div>
-            <span>Estrutura</span>
-            <h2>Subequipes vinculadas</h2>
+            <span>Sobre a equipe</span>
+            <h2>Informações públicas</h2>
           </div>
-        </div>
+        </header>
 
-        <div class="sbw-linked-team-list">
-          ${subteams
-            .map((team) => {
-              return `
-                <a class="sbw-linked-team-card" href="equipe.html?id=${encodeURIComponent(getTeamId(team))}">
-                  <div class="sbw-linked-team-logo">
-                    ${escapeHtml(getTeamInitials(team))}
-                  </div>
+        <p class="sbw-team-v2-about-text">${escapeHtml(team.bio || team.description || "Esta equipe ainda não adicionou uma descrição institucional completa.")}</p>
 
-                  <div>
-                    <strong>${escapeHtml(team.name)}</strong>
-                    <span>${escapeHtml(team.tag)} · ${escapeHtml(getTeamTypeLabel(team))}</span>
-                  </div>
-                </a>
-              `;
-            })
-            .join("")}
-        </div>
-      </div>
+        <dl class="sbw-team-v2-info-list">
+          <div><dt>Fundada em</dt><dd>${escapeHtml(formatDate(foundedAt))}</dd></div>
+          <div><dt>Sede / região</dt><dd>${escapeHtml(location)}</dd></div>
+          <div><dt>Tipo</dt><dd>${escapeHtml(type)}</dd></div>
+          <div><dt>Status</dt><dd>${escapeHtml(getVerificationLabel(team))}</dd></div>
+        </dl>
+      </section>
+    `;
+  }
+
+  function renderRecruitment(team) {
+    const meta = getMeta(team);
+    const recruitment = asObject(team.recruitment || meta.recruitment);
+    const isOpen = Boolean(recruitment.isOpen || team.recruiting === true || meta.recruiting === true);
+    const games = asArray(recruitment.games || recruitment.openGames).map((item) => (typeof item === "string" ? item : item.name || item.id)).filter(Boolean);
+    const requirements = recruitment.requirements || recruitment.description || "Fluxo público de entrada será refinado nas próximas etapas.";
+
+    return `
+      <section class="sbw-team-v2-panel ${isOpen ? "sbw-team-v2-recruitment-open" : ""}">
+        <header class="sbw-team-v2-panel-head">
+          <div>
+            <span>Recrutamento</span>
+            <h2>${isOpen ? "Recrutamento aberto" : "Recrutamento fechado"}</h2>
+          </div>
+        </header>
+
+        <p class="sbw-team-v2-about-text">${escapeHtml(isOpen ? requirements : "Esta equipe não está com recrutamento público aberto no momento.")}</p>
+
+        ${games.length ? `<div class="sbw-team-v2-tags">${games.map((game) => `<span>${escapeHtml(game)}</span>`).join("")}</div>` : ""}
+
+        <button class="sbw-team-v2-button sbw-team-v2-button-wide" type="button" disabled>
+          ${isOpen ? "Solicitar entrada em breve" : "Indisponível no momento"}
+        </button>
+      </section>
+    `;
+  }
+
+  function renderSide(team, subteams, parentTeam) {
+    return `
+      <aside class="sbw-team-v2-side">
+        ${renderAbout(team)}
+
+        <section class="sbw-team-v2-panel">
+          <header class="sbw-team-v2-panel-head">
+            <div>
+              <span>Redes sociais</span>
+              <h2>Comunidade</h2>
+            </div>
+          </header>
+          ${renderSocialLinks(team)}
+        </section>
+
+        ${renderRecruitment(team)}
+
+        ${renderSubteams(subteams, team)}
+      </aside>
     `;
   }
 
   function renderLoading() {
     const root = getRoot();
+    if (!root) return;
 
-    if (!root) {
-      return;
-    }
-
-    root.innerHTML = `
-      <div class="sbw-empty-state">
-        Carregando equipe...
-      </div>
-    `;
+    root.innerHTML = `<div class="sbw-empty-state">Carregando equipe...</div>`;
   }
 
   function renderError(message) {
     const root = getRoot();
-
-    if (!root) {
-      return;
-    }
+    if (!root) return;
 
     root.innerHTML = `
       <div class="sbw-empty-state">
@@ -631,182 +917,31 @@
 
   function renderProfile(team, members, subteams, parentTeam) {
     const root = getRoot();
-
-    if (!root) {
-      return;
-    }
+    if (!root) return;
 
     const primary = team.theme?.primaryColor || "#00e5ff";
     const secondary = team.theme?.secondaryColor || "#7c3cff";
-    const isVerified =
-      team.verificationStatus === getVerifiedStatus() ||
-      team.isVerified === true;
-
-    const activeMembers = getActiveMembers(members);
-    const teamId = getTeamId(team);
 
     document.title = `${team.name || "Equipe"} | SaberWolf`;
 
     root.innerHTML = `
-      <section
-        class="sbw-team-profile"
-        style="--team-primary: ${escapeHtml(primary)}; --team-secondary: ${escapeHtml(secondary)};"
-      >
-        <div class="sbw-team-cover">
-          <div class="sbw-team-profile-top">
-            <div class="sbw-team-profile-logo">
-              ${escapeHtml(getTeamInitials(team))}
-            </div>
+      <section class="sbw-team-profile-v2" style="--team-primary: ${escapeHtml(primary)}; --team-secondary: ${escapeHtml(secondary)};">
+        ${renderHero(team, members, parentTeam)}
+        ${renderMetrics(team, members)}
 
-            <div class="sbw-team-profile-main">
-              <span class="sbw-team-profile-kicker">
-                ${escapeHtml(getTeamTypeLabel(team))}
-                ${
-                  team.source === "supabase"
-                    ? " · Supabase"
-                    : ""
-                }
-              </span>
-
-              <div class="sbw-team-title-row">
-                <h1>
-                  ${escapeHtml(team.name || "Equipe SaberWolf")}
-                  ${
-                    isVerified
-                      ? `<span class="sbw-verified-badge" title="${escapeHtml(getVerificationLabel(team))}">✓</span>`
-                      : ""
-                  }
-                </h1>
-
-                ${renderTeamPublicTypeBadge(team)}
-              </div>
-
-              <p>
-                ${escapeHtml(team.tag || "TAG")} · ${escapeHtml(team.captainName || "Capitão não informado")}
-              </p>
-
-              ${renderParentTeamBox(parentTeam)}
-            </div>
-          </div>
-        </div>
-
-        <div class="sbw-team-profile-layout">
-          <aside class="sbw-profile-side">
-            <div class="sbw-profile-panel">
-              <div class="sbw-profile-panel-heading">
-                <div>
-                  <span>Resumo</span>
-                  <h2>Dados da equipe</h2>
-                </div>
-              </div>
-
-              ${renderStats(team)}
-
-              <p class="sbw-team-muted">
-                A premiação acumulada considera apenas torneios realizados dentro da plataforma SaberWolf.
-              </p>
-            </div>
-
-            <div class="sbw-profile-panel">
-              <div class="sbw-profile-panel-heading">
-                <div>
-                  <span>Contato</span>
-                  <h2>Redes públicas</h2>
-                </div>
-              </div>
-
-              ${renderSocialLinks(team)}
-            </div>
-
-            <div class="sbw-profile-panel">
-              <div class="sbw-profile-panel-heading">
-                <div>
-                  <span>Navegação</span>
-                  <h2>Perfil</h2>
-                </div>
-              </div>
-
-              <div class="sbw-public-profile-tabs">
-                <button class="sbw-public-profile-tab is-active" type="button" data-public-profile-tab="overview">
-                  <span>Visão geral</span>
-                </button>
-
-                <button class="sbw-public-profile-tab" type="button" data-public-profile-tab="members">
-                  <span>Membros</span>
-                  <b>${activeMembers.length}/${Number(team.memberLimit || getCommonTeamLimit())}</b>
-                </button>
-              </div>
-            </div>
-
-            <div class="sbw-profile-actions">
-              <a class="sbw-team-btn sbw-team-btn-primary" href="minha-equipe.html?id=${encodeURIComponent(teamId)}">
-                Gerenciar
-              </a>
-
-              <a class="sbw-team-btn" href="equipes.html">
-                Voltar
-              </a>
-            </div>
-          </aside>
-
-          <main class="sbw-profile-main">
-            <section class="sbw-public-profile-panel is-active" data-public-profile-panel="overview">
-              <div class="sbw-profile-panel">
-                <div class="sbw-profile-panel-heading">
-                  <div>
-                    <span>Sobre</span>
-                    <h2>Descrição</h2>
-                  </div>
-                </div>
-
-                <p class="sbw-profile-description">
-                  ${escapeHtml(team.description || team.bio || "Esta equipe ainda não adicionou uma descrição pública.")}
-                </p>
-              </div>
-
-              ${renderTeamPublicTypePanel(team)}
-
-              ${renderGamesSummary(team, members)}
-
-              ${renderSubteams(subteams)}
-            </section>
-
-            <section class="sbw-public-profile-panel" data-public-profile-panel="members" hidden>
-              ${renderMembersList(team, members)}
-            </section>
+        <div class="sbw-team-v2-layout">
+          <main class="sbw-team-v2-main">
+            ${renderRoster(team, members)}
+            ${renderDivisions(team, members)}
+            ${renderInternalAchievements(team)}
+            ${renderExternalAchievements(team)}
+            ${renderRecentResults(team)}
           </main>
+
+          ${renderSide(team, subteams, parentTeam)}
         </div>
       </section>
     `;
-
-    bindProfileTabs();
-  }
-
-  function bindProfileTabs() {
-    const buttons = document.querySelectorAll("[data-public-profile-tab]");
-    const panels = document.querySelectorAll("[data-public-profile-panel]");
-
-    buttons.forEach((button) => {
-      button.addEventListener("click", function () {
-        const target = button.dataset.publicProfileTab;
-
-        buttons.forEach((item) => {
-          item.classList.toggle("is-active", item === button);
-        });
-
-        panels.forEach((panel) => {
-          const isTarget = panel.dataset.publicProfilePanel === target;
-
-          panel.classList.toggle("is-active", isTarget);
-
-          if (isTarget) {
-            panel.removeAttribute("hidden");
-          } else {
-            panel.setAttribute("hidden", "");
-          }
-        });
-      });
-    });
   }
 
   async function loadTeam() {
@@ -841,7 +976,6 @@
     }
 
     const teamId = getTeamId(team);
-
     let members = [];
     let subteams = [];
     let parentTeam = null;
@@ -854,8 +988,8 @@
       subteams = await storage.getSubteams(teamId);
     }
 
-    if (team.parentTeamId && typeof storage.getTeamById === "function") {
-      parentTeam = await storage.getTeamById(team.parentTeamId);
+    if ((team.parentTeamId || team.parentTeamSlug) && typeof storage.getTeamById === "function") {
+      parentTeam = await storage.getTeamById(team.parentTeamId || team.parentTeamSlug);
     }
 
     renderProfile(team, members || [], subteams || [], parentTeam);
