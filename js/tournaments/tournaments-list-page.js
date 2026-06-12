@@ -20,6 +20,40 @@ const sbwTournamentPlayersCount = document.getElementById("tournamentPlayersCoun
 let sbwTournamentListRenderRequest = 0;
 let sbwTournamentListCache = [];
 
+
+function sbwTournamentPageLoading(target, title, message, rows = 4) {
+  if (window.SBWPageState?.renderLoading) {
+    window.SBWPageState.renderLoading(target, { title, message, rows });
+    return;
+  }
+
+  if (target) {
+    target.innerHTML = `<div class="empty-tournament-state">${sbwSafeEscape(message || title || "Carregando...")}</div>`;
+  }
+}
+
+function sbwTournamentPageEmpty(target, title, message) {
+  if (window.SBWPageState?.renderEmpty) {
+    window.SBWPageState.renderEmpty(target, { title, message });
+    return;
+  }
+
+  if (target) {
+    target.innerHTML = `<div class="empty-tournament-state">${sbwSafeEscape(message || title || "Nada encontrado.")}</div>`;
+  }
+}
+
+function sbwTournamentPageError(target, title, message, details = "") {
+  if (window.SBWPageState?.renderError) {
+    window.SBWPageState.renderError(target, { title, message, details });
+    return;
+  }
+
+  if (target) {
+    target.innerHTML = `<div class="empty-tournament-state">${sbwSafeEscape(message || title || "Erro ao carregar.")}</div>`;
+  }
+}
+
 function sbwNormalizeTournamentFormatValue(format) {
   return String(format || "")
     .trim()
@@ -67,7 +101,7 @@ function sbwGetTournamentPublicUrl(tournament) {
     ? sbwGetTournamentPublicId(tournament)
     : String(tournament?.slug || tournament?.id || tournament?.supabaseId || "");
 
-  return `/torneios/detalhe-torneio.html?id=${encodeURIComponent(publicId)}`;
+  return window.SBWRoutes?.tournament ? window.SBWRoutes.tournament(publicId) : `/torneios/detalhe-torneio.html?id=${encodeURIComponent(publicId)}`;
 }
 
 function sbwGetTournamentNameSafe(tournament) {
@@ -308,7 +342,7 @@ function sbwRenderTournamentOrganizerCard(organizer, tournaments = []) {
     ? sbwGetOrganizerStatusLabel(organizer?.status)
     : (organizer?.statusLabel || "Ativo");
   const organizerSlug = organizer?.slug || organizer?.id || name;
-  const organizerUrl = `/torneios/organizador.html?slug=${encodeURIComponent(organizerSlug)}`;
+  const organizerUrl = window.SBWRoutes?.organizer ? window.SBWRoutes.organizer(organizerSlug) : `/torneios/organizador.html?slug=${encodeURIComponent(organizerSlug)}`;
   const logoHTML = organizer?.logoUrl
     ? `<img src="${sbwSafeEscape(organizer.logoUrl)}" alt="Logo ${sbwSafeEscape(name)}">`
     : `<span>${sbwSafeEscape(initials || "ORG")}</span>`;
@@ -774,14 +808,14 @@ function sbwGetRankingRowUrl(row, type) {
   if (type === "teams") {
     const teamId = row?.teamSlug || row?.teamId || row?.key || "";
     return teamId
-      ? `/equipes/equipe.html?id=${encodeURIComponent(teamId)}`
-      : "/rankings/rankings.html";
+      ? (window.SBWRoutes?.team ? window.SBWRoutes.team(teamId) : `/equipes/equipe.html?id=${encodeURIComponent(teamId)}`)
+      : (window.SBWRoutes?.rankings ? window.SBWRoutes.rankings() : "/rankings/rankings.html");
   }
 
   const profileId = row?.profileSlug || row?.playerSlug || row?.profileId || row?.key || "";
   return profileId
-    ? `/perfis/perfil.html?id=${encodeURIComponent(profileId)}`
-    : "/rankings/rankings.html";
+    ? (window.SBWRoutes?.profile ? window.SBWRoutes.profile(profileId) : `/perfis/perfil.html?id=${encodeURIComponent(profileId)}`)
+    : (window.SBWRoutes?.rankings ? window.SBWRoutes.rankings() : "/rankings/rankings.html");
 }
 
 function sbwRenderRankingRows(rows = [], type = "players") {
@@ -851,7 +885,7 @@ async function sbwRenderGlobalRankingPreview() {
         ${sbwRenderRankingRows(teams, "teams")}
       </div>
 
-      <a class="sbw-tournaments-ranking-link" href="/rankings/rankings.html">
+      <a class="sbw-tournaments-ranking-link" href="${sbwSafeEscape(window.SBWRoutes?.rankings ? window.SBWRoutes.rankings() : "/rankings/rankings.html")}">
         Ver ranking completo
         <i class="fa-solid fa-arrow-right"></i>
       </a>
@@ -914,11 +948,12 @@ async function sbwRenderTournamentsListPage() {
     return;
   }
 
-  sbwPublicTournamentGrid.innerHTML = `
-    <div class="empty-tournament-state">
-      Carregando torneios...
-    </div>
-  `;
+  sbwTournamentPageLoading(
+    sbwPublicTournamentGrid,
+    "Carregando torneios",
+    "Buscando competições publicadas pelos organizadores.",
+    5
+  );
 
   let tournaments = [];
 
@@ -927,6 +962,16 @@ async function sbwRenderTournamentsListPage() {
   } catch (error) {
     console.error("Erro ao carregar torneios:", error);
     tournaments = typeof sbwGetAllTournaments === "function" ? sbwGetAllTournaments() : [];
+
+    if (!Array.isArray(tournaments) || tournaments.length === 0) {
+      sbwTournamentPageError(
+        sbwPublicTournamentGrid,
+        "Não foi possível carregar os torneios",
+        "Atualize a página ou tente novamente em alguns instantes.",
+        error?.message || ""
+      );
+      return;
+    }
   }
 
   if (currentRequest !== sbwTournamentListRenderRequest) {
@@ -944,11 +989,11 @@ async function sbwRenderTournamentsListPage() {
   const filteredTournaments = sbwTournamentListCache.filter(sbwTournamentMatchesFilters);
 
   if (filteredTournaments.length === 0) {
-    sbwPublicTournamentGrid.innerHTML = `
-      <div class="empty-tournament-state">
-        Nenhum torneio encontrado para os filtros selecionados.
-      </div>
-    `;
+    sbwTournamentPageEmpty(
+      sbwPublicTournamentGrid,
+      "Nenhum torneio encontrado",
+      "Ajuste os filtros ou limpe a busca para ver outros torneios."
+    );
   } else {
     sbwPublicTournamentGrid.innerHTML = sbwRenderTournamentSections(filteredTournaments);
   }
@@ -964,11 +1009,11 @@ function sbwRerenderTournamentFiltersOnly() {
   const filteredTournaments = sbwTournamentListCache.filter(sbwTournamentMatchesFilters);
 
   if (filteredTournaments.length === 0) {
-    sbwPublicTournamentGrid.innerHTML = `
-      <div class="empty-tournament-state">
-        Nenhum torneio encontrado para os filtros selecionados.
-      </div>
-    `;
+    sbwTournamentPageEmpty(
+      sbwPublicTournamentGrid,
+      "Nenhum torneio encontrado",
+      "Ajuste os filtros ou limpe a busca para ver outros torneios."
+    );
   } else {
     sbwPublicTournamentGrid.innerHTML = sbwRenderTournamentSections(filteredTournaments);
   }

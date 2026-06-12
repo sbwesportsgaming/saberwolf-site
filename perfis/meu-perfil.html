@@ -7,7 +7,9 @@
   <title>SaberWolf | Meu perfil</title>
 
   <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
+<link rel="stylesheet" href="../css/core/sbw-page-state.css" />
 <link rel="stylesheet" href="../css/profiles.css" />
+  <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
 </head>
 <body class="sbw-profile-admin-body sbw-has-sidebar sbw-sidebar-no-transition" data-sbw-active-page="profiles">
   <div id="sbwSidebarMount"></div>
@@ -69,8 +71,17 @@
     </section>
 
     <section data-profile-admin-root>
-      <div class="sbw-empty-state">
-        Carregando painel do perfil...
+      <div class="sbw-page-state sbw-page-state--loading" aria-live="polite" aria-busy="true">
+        <div class="sbw-page-state__orb" aria-hidden="true"></div>
+        <div>
+          <strong>Carregando painel do perfil</strong>
+          <p>Buscando seu perfil, equipe atual, convites e histórico competitivo.</p>
+          <div class="sbw-skeleton-stack">
+            <span class="sbw-skeleton-line is-wide"></span>
+            <span class="sbw-skeleton-line"></span>
+            <span class="sbw-skeleton-line"></span>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -78,6 +89,12 @@
 <script src="../js/supabase/supabase-config.js"></script>
 <script src="../js/supabase/supabase-client.js"></script>
 <script src="../js/auth/auth-service.js"></script>
+<script src="../js/core/sbw-routes.js"></script>
+<script src="../js/teams/teams-config.js"></script>
+<script src="../js/teams/teams-models.js"></script>
+<script src="../js/teams/teams-storage.js"></script>
+  <script src="../js/core/sbw-session-context.js"></script>
+<script src="../js/core/sbw-page-state.js"></script>
 <script src="../js/layout/sbw-sidebar.js"></script>
 <script src="../js/auth/auth-header.js"></script>
 
@@ -98,5 +115,6 @@
       });
     });
   </script>
+  <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

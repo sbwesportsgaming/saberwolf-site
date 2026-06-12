@@ -230,16 +230,20 @@
 
   function getProfileUrl(row) {
     const id = row.profileSlug || row.playerSlug || row.profileId || row.key || "";
-    return id ? "../perfis/perfil.html?id=" + encodeURIComponent(id) : "../perfis/perfis.html";
+    return id
+      ? (window.SBWRoutes?.profile ? window.SBWRoutes.profile(id) : "../perfis/perfil.html?id=" + encodeURIComponent(id))
+      : (window.SBWRoutes?.profiles ? window.SBWRoutes.profiles() : "../perfis/perfis.html");
   }
 
   function getTeamUrl(row) {
     const id = row.teamSlug || row.teamId || row.key || "";
-    return id ? "../equipes/equipe.html?id=" + encodeURIComponent(id) : "../equipes/equipes.html";
+    return id
+      ? (window.SBWRoutes?.team ? window.SBWRoutes.team(id) : "../equipes/equipe.html?id=" + encodeURIComponent(id))
+      : (window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "../equipes/equipes.html");
   }
 
   function getTournamentUrl(value) {
-    return "../torneios/detalhe-torneio.html?id=" + encodeURIComponent(value || "");
+    return window.SBWRoutes?.tournament ? window.SBWRoutes.tournament(value || "") : "../torneios/detalhe-torneio.html?id=" + encodeURIComponent(value || "");
   }
 
   function uniqueStrings(values) {
@@ -815,9 +819,19 @@
       "[data-ranking-rules-table]"
     ].forEach(function (selector) {
       const element = document.querySelector(selector);
-      if (element) {
-        element.innerHTML = `<div class="sbw-ranking-empty">Carregando rankings...</div>`;
+
+      if (!element) return;
+
+      if (window.SBWPageState?.renderLoading) {
+        window.SBWPageState.renderLoading(element, {
+          title: "Carregando rankings",
+          message: "Atualizando pontuações, posições e dados competitivos.",
+          rows: 3
+        });
+        return;
       }
+
+      element.innerHTML = `<div class="sbw-ranking-empty">Carregando rankings...</div>`;
     });
   }
 
@@ -842,7 +856,16 @@
     if (!window.SBWRankingsStorage?.getRankingSnapshotAsync) {
       renderInitialLoading();
       const firstRoot = document.querySelector("[data-ranking-global-players]");
-      if (firstRoot) firstRoot.innerHTML = `<div class="sbw-ranking-empty">O módulo de rankings não carregou corretamente.</div>`;
+      if (firstRoot) {
+        if (window.SBWPageState?.renderError) {
+          window.SBWPageState.renderError(firstRoot, {
+            title: "Rankings indisponíveis",
+            message: "O módulo de rankings não carregou corretamente."
+          });
+        } else {
+          firstRoot.innerHTML = `<div class="sbw-ranking-empty">O módulo de rankings não carregou corretamente.</div>`;
+        }
+      }
       return;
     }
 
@@ -873,10 +896,20 @@
       renderScoringRules();
     } catch (error) {
       console.error("[SBW Rankings] Erro ao carregar rankings:", error);
-      renderInitialLoading();
-      const elements = document.querySelectorAll(".sbw-ranking-empty");
-      elements.forEach(function (element) {
-        element.textContent = "Não foi possível carregar os rankings agora.";
+      const targets = document.querySelectorAll(
+        "[data-ranking-global-players], [data-ranking-global-teams], [data-ranking-organizer-body], [data-ranking-tournament-body], [data-ranking-search-results], [data-ranking-rules-table]"
+      );
+
+      targets.forEach(function (element) {
+        if (window.SBWPageState?.renderError) {
+          window.SBWPageState.renderError(element, {
+            title: "Não foi possível carregar os rankings",
+            message: "Atualize a página e tente novamente.",
+            details: error?.message || ""
+          });
+        } else {
+          element.innerHTML = `<div class="sbw-ranking-empty">Não foi possível carregar os rankings agora.</div>`;
+        }
       });
     } finally {
       state.isLoading = false;

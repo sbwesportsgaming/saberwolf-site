@@ -223,6 +223,30 @@
   }
 
   async function getCurrentAccount() {
+    if (window.SBWSessionContext?.getCurrentContext) {
+      try {
+        const context = await window.SBWSessionContext.getCurrentContext({
+          refresh: true
+        });
+
+        if (!context?.user) {
+          return null;
+        }
+
+        return {
+          authUser: context.user,
+          profile: context.profile,
+          profileSlug: context.profileKey,
+          displayName: context.displayName,
+          avatarUrl: context.avatarUrl,
+          email: context.email,
+          context
+        };
+      } catch (error) {
+        console.warn("[SBW Create Team] Contexto central falhou, usando fallback local da página:", error);
+      }
+    }
+
     const authUser = await getCurrentAuthUser();
 
     if (!authUser) {
@@ -250,7 +274,15 @@
   }
 
   async function getExistingMainTeam(account) {
-    if (!account || !storage?.getAllTeams) return null;
+    if (!account) return null;
+
+    const contextOwnedTeam = account.context?.ownedTeams?.find((team) => isMainTeam(team));
+
+    if (contextOwnedTeam) {
+      return contextOwnedTeam;
+    }
+
+    if (!storage?.getAllTeams) return null;
 
     const teams = await storage.getAllTeams();
     const profileSlug = String(account.profileSlug || "");
@@ -271,7 +303,16 @@
   }
 
   async function getExistingActiveMembership(account) {
-    if (!account || !storage?.getAllTeams || !storage?.getTeamMembers) return null;
+    if (!account) return null;
+
+    if (account.context?.currentTeam) {
+      return {
+        team: account.context.currentTeam,
+        member: account.context.currentTeamMember || null
+      };
+    }
+
+    if (!storage?.getAllTeams || !storage?.getTeamMembers) return null;
 
     const teams = await storage.getAllTeams();
     const profileSlug = String(account.profileSlug || "");
@@ -900,6 +941,10 @@
 
     const savedTeam = await storage.saveTeam(newTeam);
 
+    if (window.SBWSessionContext?.clearCache) {
+      window.SBWSessionContext.clearCache();
+    }
+
     if (!savedTeam) {
       if (result) {
         result.innerHTML = `
@@ -912,6 +957,11 @@
     }
 
     const captainLinked = await saveCaptainMembership(savedTeam, account, games);
+
+    if (window.SBWSessionContext?.clearCache) {
+      window.SBWSessionContext.clearCache();
+    }
+
     const savedTeamId = savedTeam.slug || savedTeam.id || newTeam.slug;
     const isSupabase = savedTeam.source === "supabase";
 

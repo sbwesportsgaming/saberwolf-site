@@ -501,6 +501,14 @@
       return;
     }
 
+    if (window.SBWPageState?.renderError) {
+      window.SBWPageState.renderError(root, {
+        title: "Não foi possível carregar o perfil",
+        message: message || "Atualize a página e tente novamente."
+      });
+      return;
+    }
+
     root.innerHTML = `
       <div class="sbw-empty-state">
         ${escapeHtml(message)}
@@ -512,6 +520,15 @@
     const root = getRoot();
 
     if (!root) {
+      return;
+    }
+
+    if (window.SBWPageState?.renderLoading) {
+      window.SBWPageState.renderLoading(root, {
+        title: "Carregando perfil",
+        message: "Buscando dados públicos, equipe atual e histórico competitivo.",
+        rows: 6
+      });
       return;
     }
 
@@ -969,7 +986,7 @@
                     const teamTag = team.teamTag || team.tag || "";
                     const teamUrl =
                       team.url ||
-                      "../equipes/equipe.html?id=" + encodeURIComponent(team.teamId || team.id || "");
+                      (window.SBWRoutes?.team ? window.SBWRoutes.team(team.teamId || team.id || "") : "../equipes/equipe.html?id=" + encodeURIComponent(team.teamId || team.id || ""));
 
                     return `
                       <a class="sbw-current-team-card" href="${escapeHtml(teamUrl)}">

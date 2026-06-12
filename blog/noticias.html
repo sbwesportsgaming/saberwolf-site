@@ -1,339 +1,178 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Notícias | -SBW-</title>
+  <meta name="description" content="Hub editorial da SaberWolf para comunicados oficiais, atualizações da plataforma, torneios, equipes, rankings, creators e comunidade." />
 
-  <meta name="description" content="SBW Media é a área de notícias da SaberWolf eSports. Em breve, conteúdos sobre torneios, comunidade, creators, jogos e cultura gamer.">
+  <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
+  <link rel="stylesheet" href="../css/core/sbw-page-state.css" />
+  <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
+  <link rel="stylesheet" href="../css/noticias.css" />
 
-  <link rel="stylesheet" href="../css/style.css">
-
-  <link rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-  <link rel="stylesheet" href="../css/noticias.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 
-<body>
+<body class="sbw-news-body sbw-has-sidebar sbw-sidebar-no-transition" data-sbw-active-page="news">
+  <div id="sbwSidebarMount"></div>
 
-<header>
-
-  <h1>SaberWolf</h1>
-
-  <div class="menu-toggle">
+  <button
+    class="sbw-sidebar-toggle"
+    type="button"
+    aria-label="Abrir menu"
+    data-sbw-sidebar-toggle
+  >
     ☰
-  </div>
+  </button>
 
-<nav class="main-nav">
-  <a href="../index.html">Home</a>
-  <a href="../blog/noticias.html">Notícias</a>
-  <a href="../pages/sobre.html">Sobre</a>
-  <a href="../creators/creators.html">Creators</a>
-  <a href="../perfis/perfis.html">Perfis</a>
-  <a href="../equipes/equipes.html">Equipes</a>
-  <a href="../torneios/torneios.html">Torneios</a>
-  <a href="../comunidades/comunidades.html">Comunidades</a>
-  <a href="../rankings/rankings.html">Rankings</a>
-  <a href="../transferencias/transferencias.html">Transferências</a>
-  <a href="../pages/loja.html">Loja</a>
-</nav>
-</header>
+  <div class="sbw-sidebar-backdrop" data-sbw-sidebar-close></div>
 
-<main class="news-main">
-
-  <!-- HERO -->
-
-  <section class="news-hero">
-
-    <div class="news-hero-content">
-
-      <span class="news-label">
-        <i class="fa-solid fa-newspaper"></i>
-        SBW Media
-      </span>
-
-      <h2>
-        Notícias e conteúdo gamer em preparação.
-      </h2>
-
-      <p>
-        Estamos organizando a área de comunicação da SaberWolf.
-        Em breve, este espaço reunirá notícias, matérias, coberturas,
-        calendários, conteúdos de creators e novidades do cenário gamer.
-      </p>
-
-      <div class="news-actions">
-
-        <a href="../index.html" class="btn">
-          Voltar para Home
-        </a>
-
-        <a href="../comunidades/comunidades.html" class="btn btn-secondary">
-          Entrar na Comunidade
-        </a>
-
-      </div>
-
-    </div>
-
-    <div class="news-status-card">
-
-      <div class="news-status-icon">
-        <i class="fa-solid fa-pen-nib"></i>
-      </div>
-
-      <span>
-        Status
-      </span>
-
-      <h3>
-        Blog em desenvolvimento
-      </h3>
-
-      <p>
-        A área de notícias será integrada ao ecossistema SaberWolf,
-        com publicações, categorias, autores, imagens e vídeos incorporados
-        de canais oficiais ou parceiros.
-      </p>
-
-    </div>
-
-  </section>
-
-  <!-- FUTURAS CATEGORIAS -->
-
-  <section class="news-section">
-
-    <div class="news-section-heading">
-
-      <span class="news-label">
-        Conteúdo
-      </span>
-
-      <h2>
-        O que será publicado no SBW Media?
-      </h2>
-
-      <p>
-        A proposta é criar um hub de comunicação para acompanhar
-        o crescimento da SaberWolf e da comunidade gamer ao redor dela.
-      </p>
-
-    </div>
-
-    <div class="news-grid">
-
-      <div class="news-card">
-
-        <div class="news-card-icon">
-          <i class="fa-solid fa-trophy"></i>
-        </div>
-
-        <h3>
-          Torneios
-        </h3>
-
-        <p>
-          Notícias sobre campeonatos, inscrições, resultados,
-          calendários, rankings e eventos competitivos.
-        </p>
-
-      </div>
-
-      <div class="news-card">
-
-        <div class="news-card-icon">
-          <i class="fa-solid fa-users"></i>
-        </div>
-
-        <h3>
-          Comunidade
-        </h3>
-
-        <p>
-          Atualizações sobre hubs, grupos parceiros,
-          movimentações da comunidade e projetos conectados.
-        </p>
-
-      </div>
-
-      <div class="news-card">
-
-        <div class="news-card-icon">
-          <i class="fa-solid fa-video"></i>
-        </div>
-
-        <h3>
-          Creators
-        </h3>
-
-        <p>
-          Destaques para criadores de conteúdo,
-          vídeos incorporados, entrevistas e ações especiais.
-        </p>
-
-      </div>
-
-      <div class="news-card">
-
-        <div class="news-card-icon">
-          <i class="fa-solid fa-gamepad"></i>
-        </div>
-
-        <h3>
-          Games
-        </h3>
-
-        <p>
-          Conteúdos sobre jogos, atualizações, lançamentos,
-          cenário competitivo e cultura gamer.
-        </p>
-
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- MODELO FUTURO -->
-
-  <section class="news-section">
-
-    <div class="news-info-panel">
-
-      <div>
-
-        <span class="news-label">
-          Estrutura futura
+  <main class="sbw-news-page" id="sbwNewsPage">
+    <section class="sbw-news-hero" aria-labelledby="sbwNewsTitle">
+      <div class="sbw-news-hero__content">
+        <span class="sbw-news-eyebrow">
+          <i class="fa-solid fa-newspaper"></i>
+          Ecossistema Gamer
         </span>
 
-        <h2>
-          O blog fará parte do login único da SaberWolf.
-        </h2>
+        <h1 id="sbwNewsTitle">Notícias</h1>
 
         <p>
-          A ideia é que parceiros autorizados possam acessar o painel
-          da plataforma, criar matérias, adicionar imagens, inserir links
-          e incorporar vídeos do YouTube, sempre respeitando as permissões
-          definidas pela organização.
+          Fique por dentro das comunicações oficiais da SaberWolf: atualizações da plataforma,
+          torneios, equipes, rankings, creators, comunidades e próximos passos do ecossistema.
         </p>
 
+        <div class="sbw-news-hero__actions">
+          <a class="sbw-news-button" href="../torneios/torneios.html">
+            Ver torneios
+          </a>
+          <a class="sbw-news-button sbw-news-button--ghost" href="../comunidades/comunidades.html">
+            Explorar comunidades
+          </a>
+        </div>
       </div>
 
-      <div class="news-mark">
+      <aside class="sbw-news-hero__panel" aria-label="Status editorial">
+        <span>SBW Media</span>
+        <strong>Hub editorial em preparação</strong>
+        <p>
+          Esta área está sendo preparada para publicações oficiais. Enquanto isso, evitamos listar
+          notícias fictícias ou chamadas que ainda não foram publicadas pela administração da -SBW-.
+        </p>
+      </aside>
+    </section>
 
-        <strong>
-          -SBW-
-        </strong>
+    <section class="sbw-news-categories" aria-label="Categorias de notícias">
+      <button class="is-active" type="button" data-sbw-news-category="all">Todas</button>
+      <button type="button" data-sbw-news-category="torneios">Torneios</button>
+      <button type="button" data-sbw-news-category="equipes">Equipes</button>
+      <button type="button" data-sbw-news-category="rankings">Rankings</button>
+      <button type="button" data-sbw-news-category="creators">Creators</button>
+      <button type="button" data-sbw-news-category="atualizacoes">Atualizações</button>
+    </section>
 
-        <span>
-          Media
-        </span>
+    <section class="sbw-news-layout" aria-label="Área editorial SaberWolf">
+      <div class="sbw-news-main-column">
+        <article class="sbw-news-featured" data-sbw-news-featured>
+          <div class="sbw-news-featured__meta">
+            <span class="sbw-news-chip">Publicações oficiais</span>
+            <span>Em breve</span>
+          </div>
 
+          <h2>Nenhuma notícia oficial publicada ainda.</h2>
+
+          <p>
+            O layout editorial já está preparado para receber matérias reais. Quando a equipe -SBW-
+            publicar comunicados, coberturas ou atualizações, a notícia principal aparecerá aqui em destaque.
+          </p>
+
+          <div class="sbw-news-featured__footer">
+            <a class="sbw-news-button" href="../pages/sobre.html">Conhecer o projeto</a>
+            <span class="sbw-news-featured__status">Conteúdo real primeiro. Sem notícias fictícias.</span>
+          </div>
+        </article>
+
+        <section class="sbw-news-section" aria-labelledby="sbwNewsGridTitle">
+          <div class="sbw-news-section__head">
+            <div>
+              <span class="sbw-news-eyebrow">Publicações</span>
+              <h2 id="sbwNewsGridTitle">Últimas notícias</h2>
+            </div>
+
+            <label class="sbw-news-search">
+              <span class="sr-only">Buscar notícias</span>
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="search" placeholder="Buscar notícias..." data-sbw-news-search />
+            </label>
+          </div>
+
+          <div class="sbw-news-grid" data-sbw-news-grid></div>
+
+          <div class="sbw-news-empty" data-sbw-news-empty>
+            <div class="sbw-news-empty__icon">
+              <i class="fa-regular fa-newspaper"></i>
+            </div>
+            <strong>Nenhuma publicação oficial cadastrada no momento.</strong>
+            <p>
+              A página está pronta para receber notícias reais. Assim que houver publicações aprovadas,
+              os cards serão exibidos nesta área.
+            </p>
+          </div>
+
+          <button class="sbw-news-load-more" type="button" disabled>
+            Carregar mais notícias
+          </button>
+        </section>
       </div>
 
-    </div>
+      <aside class="sbw-news-sidebar" aria-label="Destaques editoriais">
+        <section class="sbw-news-side-card">
+          <div class="sbw-news-side-card__head">
+            <span>Em destaque</span>
+            <i class="fa-solid fa-star"></i>
+          </div>
+          <p>
+            Nenhum destaque editorial foi publicado ainda. Esta área ficará reservada para matérias oficiais.
+          </p>
+        </section>
 
-  </section>
+        <section class="sbw-news-side-card">
+          <div class="sbw-news-side-card__head">
+            <span>Últimas atualizações</span>
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <ul class="sbw-news-side-list">
+            <li>
+              <strong>Área editorial preparada</strong>
+              <small>Pronta para publicações reais da -SBW-.</small>
+            </li>
+          </ul>
+        </section>
 
-  <!-- CTA FINAL -->
+        <section class="sbw-news-side-card sbw-news-side-card--cta">
+          <span>Receba novidades</span>
+          <h3>Acompanhe o ecossistema SaberWolf.</h3>
+          <p>
+            Enquanto notificações e newsletter não são ativadas, acompanhe as comunidades e torneios oficiais.
+          </p>
+          <a class="sbw-news-button sbw-news-button--full" href="../comunidades/comunidades.html">
+            Entrar na comunidade
+          </a>
+        </section>
+      </aside>
+    </section>
+  </main>
 
-  <section class="news-section">
-
-    <div class="news-final-cta">
-
-      <h2>
-        Enquanto o SBW Media é preparado, acompanhe o ecossistema.
-      </h2>
-
-      <p>
-        Conheça os torneios, veja os creators, participe da comunidade
-        e acompanhe a evolução da SaberWolf.
-      </p>
-
-      <div class="news-actions center">
-
-        <a href="../torneios/torneios.html" class="btn">
-          Ver Torneios
-        </a>
-
-        <a href="../creators/creators.html" class="btn btn-secondary">
-          Ver Creators
-        </a>
-
-      </div>
-
-    </div>
-
-  </section>
-
-</main>
-
-<footer>
-
-  <div class="footer-content">
-
-    <h2>SaberWolf</h2>
-
-    <p>
-      Ecossistema brasileiro de esports,
-      creators, campeonatos e comunidade.
-    </p>
-
-    <div class="footer-links">
-
-      <a href="../index.html">
-        Home
-      </a>
-
-      <a href="noticias.html">
-        Notícias
-      </a>
-
-      <a href="../pages/sobre.html">
-        Sobre
-      </a>
-
-      <a href="../equipes/equipes.html">
-        Equipes
-      </a>
-
-      <a href="../creators/creators.html">
-        Creators
-      </a>
-
-      <a href="../comunidades/comunidades.html">
-        Comunidades
-      </a>
-
-      <a href="../torneios/torneios.html">
-        Torneios
-      </a>
-
-      <a href="../pages/loja.html">
-        Loja
-      </a>
-
-    </div>
-
-    <p class="footer-copy">
-      -SBW- © 2026 — Todos os direitos reservados.
-    </p>
-
-  </div>
-
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/supabase/supabase-config.js"></script>
-<script src="../js/supabase/supabase-client.js"></script>
-<script src="../js/auth/auth-service.js"></script>
-<script src="../js/auth/auth-header.js"></script>
-
-<script src="../js/menu.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase/supabase-config.js"></script>
+  <script src="../js/supabase/supabase-client.js"></script>
+  <script src="../js/auth/auth-service.js"></script>
+  <script src="../js/core/sbw-routes.js"></script>
+  <script src="../js/core/sbw-page-state.js"></script>
+  <script src="../js/layout/sbw-sidebar.js"></script>
+  <script src="../js/news/news-page.js"></script>
+  <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

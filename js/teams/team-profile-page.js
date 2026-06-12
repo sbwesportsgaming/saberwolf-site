@@ -280,7 +280,7 @@
 
     if (!id) return "";
 
-    return `../perfis/perfil.html?id=${encodeURIComponent(id)}`;
+    return window.SBWRoutes?.profile ? window.SBWRoutes.profile(id) : `../perfis/perfil.html?id=${encodeURIComponent(id)}`;
   }
 
   function getMemberAvatarHtml(member) {
@@ -392,7 +392,7 @@
     return `
       <div class="sbw-team-v2-parent">
         <span>Subequipe oficial vinculada a</span>
-        <a href="equipe.html?id=${encodeURIComponent(getTeamId(parentTeam))}">${escapeHtml(parentTeam.name)}</a>
+        <a href="${escapeHtml(window.SBWRoutes?.team ? window.SBWRoutes.team(getTeamId(parentTeam)) : `equipe.html?id=${encodeURIComponent(getTeamId(parentTeam))}`)}">${escapeHtml(parentTeam.name)}</a>
       </div>
     `;
   }
@@ -448,7 +448,7 @@
 
             <div class="sbw-team-v2-actions">
               ${website ? `<a class="sbw-team-v2-button sbw-team-v2-button-primary" href="${escapeHtml(website)}" target="_blank" rel="noopener noreferrer">Site oficial</a>` : ""}
-              <a class="sbw-team-v2-button" href="equipes.html">Ver equipes</a>
+              <a class="sbw-team-v2-button" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "equipes.html")}">Ver equipes</a>
             </div>
 
             ${renderParentTeamBox(parentTeam)}
@@ -769,7 +769,7 @@
                     const games = Array.isArray(team.games) ? team.games : [];
 
                     return `
-                      <a class="sbw-team-v2-subteam" href="equipe.html?id=${encodeURIComponent(getTeamId(team))}">
+                      <a class="sbw-team-v2-subteam" href="${escapeHtml(window.SBWRoutes?.team ? window.SBWRoutes.team(getTeamId(team)) : `equipe.html?id=${encodeURIComponent(getTeamId(team))}`)}">
                         ${renderLogo(team, "sbw-team-v2-subteam-logo")}
                         <div>
                           <strong>${escapeHtml(team.name)}</strong>
@@ -901,12 +901,29 @@
     const root = getRoot();
     if (!root) return;
 
+    if (window.SBWPageState?.renderLoading) {
+      window.SBWPageState.renderLoading(root, {
+        title: "Carregando equipe",
+        message: "Buscando perfil público, membros e dados competitivos.",
+        rows: 6
+      });
+      return;
+    }
+
     root.innerHTML = `<div class="sbw-empty-state">Carregando equipe...</div>`;
   }
 
   function renderError(message) {
     const root = getRoot();
     if (!root) return;
+
+    if (window.SBWPageState?.renderError) {
+      window.SBWPageState.renderError(root, {
+        title: "Não foi possível carregar a equipe",
+        message: message || "Atualize a página e tente novamente."
+      });
+      return;
+    }
 
     root.innerHTML = `
       <div class="sbw-empty-state">

@@ -8,6 +8,9 @@
     history: [],
     medals: [],
     playerStatus: null,
+    sessionContext: null,
+    inviteMessage: "",
+    inviteMessageType: "",
     activeTab: "overview",
     activeHistoryTab: "teams"
   };
@@ -184,10 +187,58 @@ function readImageFile(file, maxSizeMb) {
   function getInviteTypeLabel(type) {
     const labels = {
       received: "Convite recebido",
+      team_to_player: "Convite recebido",
       sent_request: "Solicitação enviada"
     };
 
     return labels[type] || "Convite";
+  }
+
+  function getContextTeamKey(team) {
+    return String(team?.slug || team?.id || team?.teamSlug || team?.teamId || "");
+  }
+
+  function renderCurrentTeamStatus(context) {
+    const team = context?.currentTeam || null;
+    const member = context?.currentTeamMember || null;
+    const teamKey = getContextTeamKey(team);
+
+    if (!team) {
+      return `
+        <div class="sbw-profile-team-status sbw-profile-team-status--empty">
+          <span>Equipe atual</span>
+          <strong>Sem equipe</strong>
+          <p>Você ainda não está vinculado a uma equipe ativa. Convites aceitos aparecerão aqui.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="sbw-profile-team-status">
+        <span>Equipe atual</span>
+        <strong>${escapeHtml(team.name || team.displayName || "Equipe")}</strong>
+        <p>${escapeHtml(member?.role || "membro")} · ${escapeHtml(team.tag || team.typeLabel || "Equipe SaberWolf")}</p>
+
+        <div class="sbw-profile-team-status__actions">
+          <a href="${escapeHtml(window.SBWRoutes?.team ? window.SBWRoutes.team(teamKey) : `../equipes/equipe.html?id=${encodeURIComponent(teamKey)}`)}">Ver equipe</a>
+          <a href="${escapeHtml(window.SBWRoutes?.myTeam ? window.SBWRoutes.myTeam(teamKey) : `../equipes/minha-equipe.html?id=${encodeURIComponent(teamKey)}`)}">Minha equipe</a>
+        </div>
+      </div>
+    `;
+  }
+
+  async function refreshSessionContext() {
+    try {
+      if (window.SBWSessionContext && typeof window.SBWSessionContext.getCurrentContext === "function") {
+        state.sessionContext = await window.SBWSessionContext.getCurrentContext({ refresh: true });
+        return state.sessionContext;
+      }
+    } catch (error) {
+      console.warn("[SaberWolf Profiles] Não foi possível carregar contexto de equipe do usuário:", error);
+    }
+
+    state.sessionContext = null;
+    return null;
   }
 
     function getProfileId(profile) {
@@ -766,7 +817,7 @@ function readImageFile(file, maxSizeMb) {
       return "";
     }
 
-    return "../equipes/equipe.html?id=" + encodeURIComponent(teamSlug);
+    return window.SBWRoutes?.team ? window.SBWRoutes.team(teamSlug) : "../equipes/equipe.html?id=" + encodeURIComponent(teamSlug);
   }
 
   function renderInvitesPanel(invites) {
@@ -789,6 +840,16 @@ function readImageFile(file, maxSizeMb) {
           </p>
 
           ${
+            state.inviteMessage
+              ? `
+                <div class="sbw-profile-inline-message ${state.inviteMessageType === "error" ? "is-error" : "is-success"}">
+                  ${escapeHtml(state.inviteMessage)}
+                </div>
+              `
+              : ""
+          }
+
+          ${
             invites.length
               ? `
                 <div class="sbw-profile-invite-list">
@@ -796,9 +857,10 @@ function readImageFile(file, maxSizeMb) {
                     .map((invite) => {
                      const isPending = invite.status === "pending";
                       const canRespond =
-                        invite.inviteType === "received" &&
                         isPending &&
-                        invite.source !== "supabase";
+                        (invite.inviteType === "received" ||
+                          invite.inviteType === "team_to_player" ||
+                          !invite.inviteType);
 
                       const teamUrl = getInviteTeamUrl(invite);
                       const teamName = invite.teamName || invite.teamSlug || invite.teamId || "Equipe";
@@ -979,6 +1041,10 @@ function readImageFile(file, maxSizeMb) {
           </div>
 
           <div class="sbw-profile-panel">
+            ${renderCurrentTeamStatus(state.sessionContext)}
+          </div>
+
+          <div class="sbw-profile-panel">
             <div class="sbw-profile-panel-heading">
               <div>
                 <span>Navegação</span>
@@ -1000,7 +1066,7 @@ function readImageFile(file, maxSizeMb) {
               Ver perfil público
             </a>
 
-            <a class="sbw-profile-btn" href="../equipes/equipes.html">
+            <a class="sbw-profile-btn" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "../equipes/equipes.html")}">
               Ver equipes
             </a>
           </div>
@@ -1085,25 +1151,62 @@ function readImageFile(file, maxSizeMb) {
     });
   }
 
+  function setInviteMessage(message, type) {
+    state.inviteMessage = message || "";
+    state.inviteMessageType = type || "";
+  }
+
   function bindInviteActions() {
-     document.querySelectorAll("[data-invite-accept]").forEach((button) => {
-  button.addEventListener("click", async function () {
-    state.activeTab = "invites";
+    document.querySelectorAll("[data-invite-accept]").forEach((button) => {
+      button.addEventListener("click", async function () {
+        state.activeTab = "invites";
+        button.disabled = true;
+        button.textContent = "Aceitando...";
 
-    if (typeof storage.acceptTeamInvite === "function") {
-      await storage.acceptTeamInvite(button.dataset.inviteAccept);
-    } else {
-      await storage.updateInviteStatus(button.dataset.inviteAccept, "accepted");
-    }
+        try {
+          let result = null;
 
-    await reloadAndRender();
-  });
-});
+          if (typeof storage.acceptTeamInvite === "function") {
+            result = await storage.acceptTeamInvite(button.dataset.inviteAccept);
+          } else {
+            result = await storage.updateInviteStatus(button.dataset.inviteAccept, "accepted");
+          }
+
+          setInviteMessage(
+            result?.message || (result?.ok ? "Convite aceito." : "Não foi possível aceitar o convite."),
+            result?.ok ? "success" : "error"
+          );
+        } catch (error) {
+          setInviteMessage(error.message || "Erro ao aceitar convite.", "error");
+        }
+
+        await reloadAndRender();
+      });
+    });
 
     document.querySelectorAll("[data-invite-decline]").forEach((button) => {
       button.addEventListener("click", async function () {
         state.activeTab = "invites";
-        await storage.updateInviteStatus(button.dataset.inviteDecline, "declined");
+        button.disabled = true;
+        button.textContent = "Recusando...";
+
+        try {
+          let result = null;
+
+          if (typeof storage.declineTeamInvite === "function") {
+            result = await storage.declineTeamInvite(button.dataset.inviteDecline);
+          } else {
+            result = await storage.updateInviteStatus(button.dataset.inviteDecline, "declined");
+          }
+
+          setInviteMessage(
+            result?.message || (result?.ok ? "Convite recusado." : "Não foi possível recusar o convite."),
+            result?.ok ? "success" : "error"
+          );
+        } catch (error) {
+          setInviteMessage(error.message || "Erro ao recusar convite.", "error");
+        }
+
         await reloadAndRender();
       });
     });
@@ -1225,6 +1328,7 @@ function readImageFile(file, maxSizeMb) {
 
 async function reloadAndRender() {
   await syncAuthenticatedProfileBeforeRender();
+  await refreshSessionContext();
 
   state.profile = await storage.getCurrentUserProfile();
   state.invites = await storage.getCurrentUserInvites();
@@ -1238,17 +1342,42 @@ async function reloadAndRender() {
 }
 
 async function init() {
-  await syncAuthenticatedProfileBeforeRender();
+  const root = document.querySelector("[data-profile-admin-root]");
 
-  state.profile = await storage.getCurrentUserProfile();
-  state.invites = await storage.getCurrentUserInvites();
-  const competitiveSnapshot = await getCurrentUserCompetitiveSnapshot(state.profile);
-  state.history = mergeHistoryForPanel(await storage.getCurrentUserHistory(), competitiveSnapshot);
-  state.medals = mergeMedalsForPanel(getCurrentUserMedals(state.profile), competitiveSnapshot);
-  state.playerStatus = getCurrentUserPlayerStatus(state.profile);
+  if (window.SBWPageState?.renderLoading) {
+    window.SBWPageState.renderLoading(root, {
+      title: "Carregando Meu Perfil",
+      message: "Validando conta, equipe atual, convites e histórico competitivo.",
+      rows: 4
+    });
+  }
 
-  renderAdmin(state.profile, state.invites, state.history, state.medals, state.playerStatus);
-  bindPlayerStatusFormOnce();
+  try {
+    await syncAuthenticatedProfileBeforeRender();
+    await refreshSessionContext();
+
+    state.profile = await storage.getCurrentUserProfile();
+    state.invites = await storage.getCurrentUserInvites();
+    const competitiveSnapshot = await getCurrentUserCompetitiveSnapshot(state.profile);
+    state.history = mergeHistoryForPanel(await storage.getCurrentUserHistory(), competitiveSnapshot);
+    state.medals = mergeMedalsForPanel(getCurrentUserMedals(state.profile), competitiveSnapshot);
+    state.playerStatus = getCurrentUserPlayerStatus(state.profile);
+
+    renderAdmin(state.profile, state.invites, state.history, state.medals, state.playerStatus);
+    bindPlayerStatusFormOnce();
+  } catch (error) {
+    console.error("[SBW Profile Admin] Falha ao carregar Meu Perfil:", error);
+
+    if (window.SBWPageState?.renderError) {
+      window.SBWPageState.renderError(root, {
+        title: "Não foi possível carregar Meu Perfil",
+        message: "A sessão, o profile ou os convites não responderam corretamente.",
+        details: error?.message || ""
+      });
+    }
+  } finally {
+    window.SBWPageState?.markReady?.();
+  }
 }
 
   document.addEventListener("DOMContentLoaded", init);

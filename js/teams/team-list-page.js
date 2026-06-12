@@ -84,6 +84,16 @@
     return Number(config.limits?.verifiedTeamMembers || 100);
   }
 
+  function getTeamPublicUrl(team) {
+    const teamId = getTeamId(team);
+
+    if (window.SBWRoutes && typeof window.SBWRoutes.team === "function") {
+      return window.SBWRoutes.team(teamId);
+    }
+
+    return `equipe.html?id=${encodeURIComponent(teamId)}`;
+  }
+
   function getTeamId(team) {
     return team?.slug || team?.id || team?.teamId || team?.teamSlug || "";
   }
@@ -456,7 +466,7 @@
     const secondary = safeColor(team?.theme?.secondaryColor, "#0ea5e9");
     const bannerUrl = safeImageUrl(team?.bannerUrl || team?.banner_url || "");
     const teamId = getTeamId(team);
-    const teamUrl = `equipe.html?id=${encodeURIComponent(teamId)}`;
+    const teamUrl = getTeamPublicUrl(team);
     const memberCount = getMemberCount(team);
     const memberLimit = getTeamLimit(team);
     const cardClass = options.featured ? "sbw-team-card-v2 sbw-team-card-v2--featured" : "sbw-team-card-v2";
@@ -597,19 +607,19 @@
     if (!grid) return;
 
     if (state.loading) {
-      grid.innerHTML = `<div class="sbw-team-empty-v2">Carregando destaques...</div>`;
+      renderPageLoading(grid, "Carregando destaques", "Buscando equipes verificadas, ativas e em destaque.", 3);
       return;
     }
 
     if (state.error) {
-      grid.innerHTML = `<div class="sbw-team-empty-v2">Não foi possível carregar os destaques.</div>`;
+      renderPageError(grid, "Não foi possível carregar os destaques", state.error);
       return;
     }
 
     const teams = getFeaturedTeams();
 
     if (!teams.length) {
-      grid.innerHTML = `<div class="sbw-team-empty-v2">Nenhuma equipe em destaque por enquanto.</div>`;
+      renderPageEmpty(grid, "Nenhuma equipe em destaque", "As equipes verificadas ou mais ativas aparecerão aqui.");
       return;
     }
 

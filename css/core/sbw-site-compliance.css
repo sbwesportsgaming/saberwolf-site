@@ -1,0 +1,266 @@
+/* v1.6.27 — Rodapé solto e centralizado */
+
+.sbw-site-footer {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 26px 22px 34px;
+  color: rgba(221, 235, 247, 0.70);
+}
+
+body.sbw-has-sidebar .sbw-site-footer {
+  width: auto;
+  margin-left: var(--sbw-sidebar-width, 280px);
+}
+
+.sbw-site-footer__inner {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 0;
+  text-align: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.sbw-site-footer__copy {
+  margin: 0;
+  color: rgba(199, 216, 231, 0.66);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sbw-site-footer__legal {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 14px;
+}
+
+.sbw-site-footer__legal a {
+  color: rgba(226, 241, 255, 0.58);
+  font-size: 11.5px;
+  text-decoration: none;
+}
+
+.sbw-site-footer__legal a:hover {
+  color: #ffffff;
+}
+
+.sbw-cookie-banner {
+  position: fixed;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  width: min(1120px, calc(100% - 36px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid rgba(76, 202, 255, 0.26);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(55, 200, 255, 0.16), transparent 34rem),
+    rgba(4, 12, 26, 0.94);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px);
+}
+
+.sbw-cookie-banner__text {
+  display: grid;
+  gap: 4px;
+}
+
+.sbw-cookie-banner__text strong {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.sbw-cookie-banner__text span {
+  color: rgba(215, 231, 245, 0.76);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.sbw-cookie-banner__actions,
+.sbw-cookie-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sbw-cookie-button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(76, 202, 255, 0.34);
+  border-radius: 999px;
+  color: #04101f;
+  background: linear-gradient(135deg, #7ddfff, #35b8ff);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sbw-cookie-button--ghost {
+  color: rgba(226, 241, 255, 0.86);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.sbw-cookie-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.sbw-cookie-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(1, 6, 14, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.sbw-cookie-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  border: 1px solid rgba(76, 202, 255, 0.22);
+  border-radius: 24px;
+  background: rgba(4, 12, 26, 0.98);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.sbw-cookie-modal__header,
+.sbw-cookie-modal__content,
+.sbw-cookie-modal__actions {
+  padding: 20px;
+}
+
+.sbw-cookie-modal__header {
+  position: relative;
+  border-bottom: 1px solid rgba(76, 202, 255, 0.12);
+}
+
+.sbw-cookie-modal__eyebrow {
+  color: var(--sbw-cyan, #38d5ff);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sbw-cookie-modal__header h2 {
+  margin: 6px 40px 0 0;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.sbw-cookie-modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.sbw-cookie-option {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid rgba(76, 202, 255, 0.12);
+  border-radius: 16px;
+  color: rgba(228, 241, 255, 0.9);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sbw-cookie-option + .sbw-cookie-option {
+  margin-top: 10px;
+}
+
+.sbw-cookie-option strong,
+.sbw-cookie-option small {
+  display: block;
+}
+
+.sbw-cookie-option small {
+  margin-top: 4px;
+  color: rgba(199, 216, 231, 0.68);
+  line-height: 1.42;
+}
+
+@media (max-width: 980px) {
+  body.sbw-has-sidebar .sbw-site-footer {
+    margin-left: 0;
+  }
+
+  .sbw-site-footer__inner,
+  .sbw-cookie-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-site-footer__links,
+  .sbw-cookie-banner__actions,
+  .sbw-cookie-modal__actions {
+    justify-content: flex-start;
+  }
+}
+
+/* v1.6.32 — Rodapé centralizado sem deslocamento extra da sidebar */
+body.sbw-has-sidebar .sbw-site-footer {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
+
+.sbw-site-footer__inner {
+  max-width: 900px !important;
+  justify-items: center !important;
+  text-align: center !important;
+}
+
+.sbw-site-footer__copy,
+.sbw-site-footer__legal {
+  text-align: center !important;
+  justify-content: center !important;
+}
+
+/* v1.6.33 — Rodapé centralizado pela largura real da tela, não pela área deslocada da sidebar */
+body.sbw-has-sidebar .sbw-site-footer {
+  position: relative !important;
+  left: calc(var(--sbw-sidebar-width, 270px) * -1) !important;
+  width: 100vw !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+body.sbw-has-sidebar .sbw-site-footer__inner {
+  width: min(900px, calc(100vw - 40px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+@media (max-width: 980px) {
+  body.sbw-has-sidebar .sbw-site-footer {
+    left: 0 !important;
+    width: 100% !important;
+  }
+}

@@ -3986,3 +3986,259 @@ body.sbw-team-admin-body .sbw-team-admin-page {
     grid-template-columns: 1fr;
   }
 }
+
+/* v1.6.13 — Estrutura interna do painel Minha Equipe */
+
+.sbw-admin-tabs {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.sbw-admin-tab-link {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 14px;
+  color: rgba(244, 248, 255, 0.82);
+  background: rgba(255, 255, 255, 0.035);
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.sbw-admin-tab-link:hover,
+.sbw-admin-tab-link.is-active {
+  color: #ffffff;
+  border-color: rgba(76, 202, 255, 0.36);
+  background:
+    linear-gradient(90deg, rgba(55, 200, 255, 0.14), rgba(18, 103, 255, 0.06)),
+    rgba(255, 255, 255, 0.045);
+}
+
+.sbw-admin-tab-link strong {
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.sbw-admin-tab-link span {
+  font-size: 11px;
+  color: rgba(199, 216, 231, 0.62);
+}
+
+.sbw-admin-tab-heading {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(76, 202, 255, 0.13);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(76, 202, 255, 0.12), transparent 22rem),
+    rgba(4, 10, 22, 0.62);
+}
+
+.sbw-admin-tab-heading span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--sbw-cyan, #38d9ff);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sbw-admin-tab-heading h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(22px, 3vw, 34px);
+  letter-spacing: -0.04em;
+}
+
+.sbw-admin-tab-panel {
+  display: none;
+  gap: 16px;
+}
+
+.sbw-admin-tab-panel.is-active {
+  display: grid;
+}
+
+.sbw-admin-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.sbw-admin-quick-metric {
+  min-height: 96px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 14px;
+  border: 1px solid rgba(76, 202, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sbw-admin-quick-metric strong {
+  color: #ffffff;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.sbw-admin-quick-metric span {
+  color: rgba(224, 235, 255, 0.78);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sbw-admin-quick-metric small {
+  color: rgba(199, 216, 231, 0.58);
+  font-size: 11px;
+}
+
+.sbw-admin-feature-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sbw-admin-feature-list > div,
+.sbw-admin-feature-link {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(76, 202, 255, 0.11);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(244, 248, 255, 0.88);
+  text-decoration: none;
+}
+
+.sbw-admin-feature-list strong,
+.sbw-admin-feature-link strong {
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.sbw-admin-feature-list span,
+.sbw-admin-feature-link span {
+  color: rgba(199, 216, 231, 0.66);
+  font-size: 12px;
+}
+
+.sbw-admin-feature-link:hover {
+  border-color: rgba(76, 202, 255, 0.30);
+  background: rgba(76, 202, 255, 0.07);
+}
+
+.sbw-admin-invite-list,
+.sbw-admin-title-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sbw-admin-invite-row,
+.sbw-admin-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(76, 202, 255, 0.11);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sbw-admin-invite-row strong,
+.sbw-admin-title-row strong {
+  display: block;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.sbw-admin-invite-row span,
+.sbw-admin-title-row span,
+.sbw-admin-invite-row small {
+  color: rgba(199, 216, 231, 0.66);
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .sbw-admin-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .sbw-admin-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sbw-admin-tab-link {
+    min-height: 62px;
+  }
+
+  .sbw-admin-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-admin-invite-row,
+  .sbw-admin-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* v1.6.14 — Convites reais/busca de jogadores no painel Minha Equipe */
+
+.sbw-admin-player-result small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(76, 202, 255, 0.72);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sbw-admin-invite-feedback {
+  min-height: 18px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.sbw-admin-invite-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sbw-admin-invite-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border: 1px solid rgba(76, 202, 255, 0.20);
+  border-radius: 999px;
+  color: rgba(190, 246, 255, 0.88);
+  background: rgba(55, 200, 255, 0.08);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sbw-admin-invite-source--local {
+  color: rgba(255, 223, 160, 0.88);
+  border-color: rgba(255, 195, 77, 0.20);
+  background: rgba(255, 195, 77, 0.07);
+}
+
+@media (max-width: 720px) {
+  .sbw-admin-invite-meta {
+    justify-content: flex-start;
+  }
+}

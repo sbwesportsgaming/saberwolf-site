@@ -1,313 +1,137 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>Creators | -SBW-</title>
+  <title>Creators | -SBW-</title>
 
-<meta name="description" content="Conheça creators conectados à SaberWolf eSports, criadores de conteúdo, canais parceiros e projetos ligados ao ecossistema gamer -SBW-.">
+  <meta
+    name="description"
+    content="Conheça creators oficiais e parceiros curados pela SaberWolf, conectados ao ecossistema gamer e competitivo -SBW-."
+  />
 
-<link rel="icon" href="../assets/images/logo-sbw.jpg" type="image/jpeg">
-  <link rel="stylesheet" href="../css/style.css">
-
-  <link rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="icon" href="../assets/images/logo-sbw.jpg" type="image/jpeg" />
+  <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
+  <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
+  <link rel="stylesheet" href="../css/creators.css" />
 </head>
 
-<body>
+<body class="sbw-creators-body sbw-has-sidebar sbw-sidebar-no-transition" data-sbw-active-page="creators">
+  <div id="sbwSidebarMount"></div>
 
-<header>
-
-  <h1>SaberWolf</h1>
-
-  <div class="menu-toggle">
+  <button
+    class="sbw-sidebar-toggle"
+    type="button"
+    aria-label="Abrir menu"
+    data-sbw-sidebar-toggle
+  >
     ☰
-  </div>
+  </button>
 
-<nav class="main-nav">
-  <a href="../index.html">Home</a>
-  <a href="../blog/noticias.html">Notícias</a>
-  <a href="../pages/sobre.html">Sobre</a>
-  <a href="../creators/creators.html">Creators</a>
-  <a href="../perfis/perfis.html">Perfis</a>
-  <a href="../equipes/equipes.html">Equipes</a>
-  <a href="../torneios/torneios.html">Torneios</a>
-  <a href="../comunidades/comunidades.html">Comunidades</a>
-  <a href="../rankings/rankings.html">Rankings</a>
-  <a href="../transferencias/transferencias.html">Transferências</a>
-  <a href="../pages/loja.html">Loja</a>
-</nav>
+  <div class="sbw-sidebar-backdrop" data-sbw-sidebar-close></div>
 
-</header>
+  <main class="sbw-creators-page" id="sbwCreatorsPage">
+    <section class="sbw-creators-hero sbw-creators-hero--featured" aria-labelledby="creatorsTitle">
+      <div class="sbw-creators-hero__content">
+        <span class="sbw-creators-kicker">Creators oficiais</span>
 
-<section class="hero">
-
-  <h2>Creators -SBW-</h2>
-
-  <p>
-    Creators parceiros conectados
-    ao ecossistema competitivo,
-    comunidade e conteúdo gamer da SaberWolf.
-  </p>
-
-</section>
-
-<section>
-
-  <h2>Creators Oficiais</h2>
-
-  <div class="creator-grid">
-
-    <!-- D'LUCCA -->
-
-    <a href="creator-dlucca.html"
-    class="featured-creator-link">
-
-      <div class="card creator-card featured-creator">
-
-        <img
-        class="creator-mini-avatar"
-        src="../assets/images/dlucca-avatar.jpg"
-        alt="D'Lucca SBW">
-
-        <h3>D'Lucca SBW</h3>
+        <h1 id="creatorsTitle">Creators</h1>
 
         <p>
-          Fundador da -SBW- e responsável
-          pelo desenvolvimento do ecossistema,
-          torneios, comunidade e expansão da plataforma.
+          Curadoria oficial da -SBW-. Esta área reúne creators, parceiros e representantes selecionados manualmente para fortalecer comunidade, torneios e presença competitiva do ecossistema.
         </p>
-
-        <div class="creator-tags">
-
-          <span>Founder</span>
-          <span>SBW</span>
-
-        </div>
-
       </div>
 
-    </a>
+      <article class="sbw-featured-creator sbw-featured-creator--hero" data-featured-creator aria-label="Creator oficial em destaque">
+        <div class="sbw-featured-creator__media">
+          <img data-featured-avatar src="../assets/images/logo-sbw.jpg" alt="Creator em destaque" />
+        </div>
 
-    <!-- ELITZ -->
+        <div class="sbw-featured-creator__body">
+          <span data-featured-role>Creator oficial</span>
+          <h2 data-featured-name>Carregando creator...</h2>
+          <p data-featured-description>
+            Preparando destaque dos creators oficiais da plataforma.
+          </p>
 
-    <a href="creator-elitz.html"
-    class="featured-creator-link">
+          <div class="sbw-featured-creator__meta" data-featured-tags></div>
 
-      <div class="card creator-card featured-creator">
+          <div class="sbw-featured-creator__actions">
+            <a class="sbw-creators-button sbw-creators-button--primary" data-featured-link href="#creators-oficiais">
+              Ver perfil
+            </a>
 
-        <img
-        class="creator-mini-avatar"
-        src="../assets/images/elitz-avatar.jpg"
-        alt="SBW EliTz">
+            <div class="sbw-featured-creator__nav" aria-label="Navegação dos creators oficiais">
+              <button type="button" data-feature-prev aria-label="Creator anterior">‹</button>
+              <button type="button" data-feature-next aria-label="Próximo creator">›</button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
 
-        <h3>SBW EliTz</h3>
-
+    <section class="sbw-creators-official" id="creators-oficiais" aria-labelledby="officialCreatorsTitle">
+      <div class="sbw-creators-section-heading">
+        <span>Diretório oficial</span>
+        <h2 id="officialCreatorsTitle">Creators oficiais</h2>
         <p>
-          Creator focado em gameplay,
-          conteúdo competitivo
-          e interação com a comunidade.
+          Lista curada pela equipe -SBW-. Novos creators serão adicionados conforme aprovação e organização interna da plataforma.
         </p>
-
-        <div class="creator-tags">
-
-          <span>Gameplay</span>
-          <span>Community</span>
-
-        </div>
-
       </div>
 
-    </a>
+      <div class="sbw-creators-grid" data-creators-grid></div>
+    </section>
 
-    <!-- KARI AKANE -->
+    <section class="sbw-creators-ecosystem" aria-labelledby="creatorEcosystemTitle">
+      <div class="sbw-creators-section-heading">
+        <span>Ecossistema</span>
+        <h2 id="creatorEcosystemTitle">Como creators se conectam à -SBW-</h2>
+      </div>
 
-    <a href="creator-kari-akane.html"
-    class="featured-creator-link">
+      <div class="sbw-creators-pillars">
+        <article>
+          <span>01</span>
+          <h3>Comunidade</h3>
+          <p>Creators ajudam a aproximar jogadores, equipes, comunidades e eventos oficiais.</p>
+        </article>
 
-      <div class="card creator-card featured-creator">
+        <article>
+          <span>02</span>
+          <h3>Conteúdo</h3>
+          <p>Lives, vídeos e presença digital podem fortalecer torneios, campanhas e projetos parceiros.</p>
+        </article>
 
-        <img
-        class="creator-mini-avatar"
-        src="../assets/images/logo-sbw.jpg"
-        alt="Kari Akane">
+        <article>
+          <span>03</span>
+          <h3>Curadoria</h3>
+          <p>A presença na página é administrada manualmente pela -SBW-, mantendo qualidade e identidade.</p>
+        </article>
+      </div>
+    </section>
 
-        <h3>Kari Akane</h3>
-
+    <section class="sbw-creators-cta" aria-label="Chamada para creators">
+      <div>
+        <span>Creator ou comunidade?</span>
+        <h2>Quer se aproximar do ecossistema SaberWolf?</h2>
         <p>
-          Creator e representante
-          da Fighting Girls Community,
-          fortalecendo a presença feminina na FGC.
+          A área de creators será expandida de forma organizada. Enquanto isso, acompanhe as comunidades e torneios oficiais.
         </p>
-
-        <div class="creator-tags">
-
-          <span>FGC</span>
-          <span>Community</span>
-
-        </div>
-
       </div>
 
-    </a>
-
-    <!-- TIGER FURIOUS -->
-
-    <a href="creator-tiger-furious.html"
-    class="featured-creator-link">
-
-      <div class="card creator-card featured-creator">
-
-        <img
-        class="creator-mini-avatar"
-        src="../assets/images/logo-sbw.jpg"
-        alt="Tiger Furious">
-
-        <h3>Tiger Furious</h3>
-
-        <p>
-          Creator parceiro focado
-          em gameplay, comunidade
-          e conteúdo competitivo.
-        </p>
-
-        <div class="creator-tags">
-
-          <span>Gameplay</span>
-          <span>Live</span>
-
-        </div>
-
-      </div>
-
-    </a>
-
-  </div>
-
-</section>
-
-<section>
-
-  <h2>Creator Ecosystem</h2>
-
-  <div class="cards">
-
-    <div class="card creator-card">
-
-      <h3>Conteúdo</h3>
-
-      <p>
-        Gameplay, lives,
-        vídeos e presença digital
-        dentro do universo gamer.
-      </p>
-
-    </div>
-
-    <div class="card creator-card">
-
-      <h3>Comunidade</h3>
-
-      <p>
-        Integração entre creators,
-        comunidades e eventos competitivos.
-      </p>
-
-    </div>
-
-    <div class="card creator-card">
-
-      <h3>Expansão</h3>
-
-      <p>
-        Estrutura preparada para
-        novos creators e crescimento
-        do ecossistema da plataforma.
-      </p>
-
-    </div>
-
-  </div>
-
-</section>
-
-<section>
-
-  <div class="card creator-card">
-
-    <h2>SBW Creator Platform</h2>
-
-    <p>
-      Os creators da -SBW- fazem parte
-      do ecossistema competitivo da organização,
-      ajudando na construção de comunidade,
-      mídia gamer, torneios e expansão estratégica.
-    </p>
-
-  </div>
-
-</section>
-
-<footer>
-
-  <div class="footer-content">
-
-    <h2>SaberWolf</h2>
-
-    <p>
-      Ecossistema brasileiro de esports,
-      creators, campeonatos e comunidade.
-    </p>
-
-    <div class="footer-links">
-
-      <a href="../index.html">
-        Home
+      <a class="sbw-creators-button sbw-creators-button--primary" href="../torneios/torneios.html">
+        Explorar torneios
       </a>
+    </section>
+  </main>
 
-      <a href="../pages/sobre.html">
-        Sobre
-      </a>
-
-      <a href="../equipes/equipes.html">
-        Equipes
-      </a>
-
-      <a href="creators.html">
-        Creators
-      </a>
-
-      <a href="../comunidades/comunidades.html">
-        Comunidades
-      </a>
-
-      <a href="../torneios/torneios.html">
-        Torneios
-      </a>
-
-      <a href="../pages/loja.html">
-        Loja
-      </a>
-
-    </div>
-
-    <p class="footer-copy">
-      -SBW- © 2026 — Todos os direitos reservados.
-    </p>
-
-  </div>
-
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/supabase/supabase-config.js"></script>
-<script src="../js/supabase/supabase-client.js"></script>
-<script src="../js/auth/auth-service.js"></script>
-<script src="../js/auth/auth-header.js"></script>
-
-<script src="../js/menu.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase/supabase-config.js"></script>
+  <script src="../js/supabase/supabase-client.js"></script>
+  <script src="../js/auth/auth-service.js"></script>
+  <script src="../js/core/sbw-routes.js"></script>
+  <script src="../js/layout/sbw-sidebar.js"></script>
+  <script src="../js/core/sbw-site-compliance.js"></script>
+  <script src="../js/creators/creators-page.js"></script>
 </body>
 </html>

@@ -2850,4 +2850,481 @@
       message: "Status do convite atualizado."
     };
   };
+
+  /* =========================================================
+     SaberWolf v1.6.15 - Convites recebidos / Meu Perfil
+     ========================================================= */
+
+  function getProfileKeyFromContext(context) {
+    return String(
+      context?.profileKey ||
+        context?.profile?.slug ||
+        context?.profile?.username ||
+        context?.profile?.profile_slug ||
+        context?.profile?.id ||
+        context?.user?.id ||
+        ""
+    );
+  }
+
+  function getInviteIdentifiersFromContext(context) {
+    const values = [];
+
+    if (Array.isArray(context?.identifiers)) {
+      values.push.apply(values, context.identifiers);
+    }
+
+    values.push(
+      getProfileKeyFromContext(context),
+      context?.profile?.slug,
+      context?.profile?.username,
+      context?.profile?.profile_slug,
+      context?.profile?.id,
+      context?.user?.id,
+      context?.user?.email
+    );
+
+    return Array.from(
+      new Set(
+        values
+          .map(function (value) {
+            return String(value || "").trim();
+          })
+          .filter(Boolean)
+      )
+    );
+  }
+
+  async function getInviteProfileContext() {
+    try {
+      if (window.SBWSessionContext && typeof window.SBWSessionContext.getCurrentContext === "function") {
+        const context = await window.SBWSessionContext.getCurrentContext({ refresh: true });
+
+        if (context && context.user) {
+          return context;
+        }
+      }
+    } catch (error) {
+      console.warn("[SaberWolf Profiles] Não foi possível carregar contexto de sessão para convites:", error);
+    }
+
+    const currentUser = getCurrentUser();
+    const userId = currentUser.userId || currentUser.id || "";
+    const profile = getProfileByUserId(userId) || getCurrentProfile() || null;
+
+    return {
+      user: currentUser || null,
+      profile: profile,
+      profileKey: profile?.slug || profile?.username || profile?.id || userId,
+      identifiers: [userId, profile?.slug, profile?.username, profile?.id].filter(Boolean),
+      displayName: profile?.displayName || profile?.nickname || currentUser?.displayName || "Usuário SBW",
+      currentTeam: null,
+      currentTeamMember: null
+    };
+  }
+
+  function inviteTeamKeyV1615(invite) {
+    return String(invite?.teamSlug || invite?.teamId || invite?.team_slug || "");
+  }
+
+  function inviteProfileKeyV1615(invite) {
+    return String(
+      invite?.userId ||
+        invite?.profileSlug ||
+        invite?.profileId ||
+        invite?.invitedProfileSlug ||
+        invite?.invited_profile_slug ||
+        ""
+    );
+  }
+
+  function normalizeInviteForCurrentProfile(invite, context) {
+    const normalized = normalizeInviteForAdminPanel(invite);
+    const profileKey = getProfileKeyFromContext(context);
+
+    return Object.assign({}, normalized, {
+      userId: normalized.userId || profileKey,
+      profileSlug: normalized.profileSlug || normalized.userId || profileKey,
+      invitedProfileSlug: normalized.invitedProfileSlug || normalized.userId || profileKey,
+      inviteType: normalized.inviteType === "team_to_player" ? "received" : normalized.inviteType || "received"
+    });
+  }
+
+  function mergeCurrentProfileInvites(lists, context) {
+    const identifiers = getInviteIdentifiersFromContext(context);
+    const map = new Map();
+
+    lists.flat().forEach(function (invite) {
+      const normalized = normalizeInviteForCurrentProfile(invite, context);
+      const profileKey = inviteProfileKeyV1615(normalized);
+
+      if (profileKey && identifiers.length && !identifiers.includes(profileKey)) {
+        return;
+      }
+
+      const key = normalized.id || [inviteTeamKeyV1615(normalized), profileKey, normalized.status || "pending"].join("::");
+
+      if (!map.has(key) || normalized.source === "supabase") {
+        map.set(key, normalized);
+      }
+    });
+
+    return Array.from(map.values()).sort(function (a, b) {
+      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    });
+  }
+
+  async function getCurrentUserInvitesV1615() {
+    const context = await getInviteProfileContext();
+    const identifiers = getInviteIdentifiersFromContext(context);
+    const localInvites = [];
+    const supabaseInvites = [];
+
+    identifiers.forEach(function (identifier) {
+      localInvites.push.apply(localInvites, getInvitesByUserId(identifier));
+    });
+
+    if (profilesSupabaseEnabled() && typeof getInvitesByUserIdFromSupabase === "function") {
+      for (const identifier of identifiers) {
+        try {
+          const rows = await getInvitesByUserIdFromSupabase(identifier);
+          supabaseInvites.push.apply(supabaseInvites, rows);
+        } catch (error) {
+          console.warn("[SaberWolf Profiles] Erro ao buscar convite recebido no Supabase:", error);
+        }
+      }
+    }
+
+    return mergeCurrentProfileInvites([supabaseInvites, localInvites], context);
+  }
+
+  async function findCurrentProfileInvite(inviteId, context) {
+    const invites = await getCurrentUserInvitesV1615();
+
+    return invites.find(function (invite) {
+      return String(invite.id || "") === String(inviteId || "");
+    }) || null;
+  }
+
+  async function getCurrentActiveTeamMembershipsV1615(context) {
+    const identifiers = getInviteIdentifiersFromContext(context);
+    const map = new Map();
+
+    if (context?.currentTeam) {
+      const key = context.currentTeam.slug || context.currentTeam.id || "current-team";
+      map.set(key, {
+        teamId: key,
+        teamSlug: key,
+        teamName: context.currentTeam.name || "Equipe atual",
+        status: "active",
+        source: "session-context"
+      });
+    }
+
+    if (window.SBWTeamsStorage && typeof window.SBWTeamsStorage.getActiveMembershipsForProfile === "function") {
+      for (const identifier of identifiers) {
+        try {
+          const memberships = await window.SBWTeamsStorage.getActiveMembershipsForProfile(identifier);
+          (Array.isArray(memberships) ? memberships : []).forEach(function (membership) {
+            const key = String(membership.teamSlug || membership.teamId || membership.team_id || "");
+            if (key) map.set(key, membership);
+          });
+        } catch (error) {
+          console.warn("[SaberWolf Profiles] Não foi possível verificar vínculo atual de equipe:", error);
+        }
+      }
+    }
+
+    return Array.from(map.values()).filter(function (membership) {
+      return String(membership.status || "active") === "active";
+    });
+  }
+
+  function getProfileGamesForMemberRow(profile) {
+    return (profile?.mainGames || [])
+      .map(function (game) {
+        if (typeof game === "string") return game;
+        return game.id || game.name || "";
+      })
+      .filter(Boolean);
+  }
+
+  async function upsertSupabaseTeamMemberFromInviteV1615(invite, context) {
+    if (!profilesSupabaseEnabled()) {
+      return null;
+    }
+
+    const client = window.SBWSupabase?.client;
+    if (!client) return null;
+
+    const tableName =
+      (window.SBWSupabaseConfig &&
+        window.SBWSupabaseConfig.tables &&
+        window.SBWSupabaseConfig.tables.teamMembers) ||
+      "team_members";
+
+    const teamSlug = inviteTeamKeyV1615(invite);
+    const profileSlug = getProfileKeyFromContext(context) || inviteProfileKeyV1615(invite);
+    const profile = context.profile || {};
+    const metadata = profile.metadata && typeof profile.metadata === "object" ? profile.metadata : {};
+    const joinedAt = nowIso();
+
+    if (!teamSlug || !profileSlug) {
+      return null;
+    }
+
+    const row = {
+      team_slug: teamSlug,
+      profile_slug: profileSlug,
+      auth_user_id: context.user?.id || null,
+      nickname: profile.nickname || profile.username || context.displayName || profileSlug,
+      display_name:
+        profile.display_name ||
+        profile.displayName ||
+        profile.nickname ||
+        context.displayName ||
+        profileSlug,
+      avatar_url: profile.avatar_url || profile.avatarUrl || metadata.avatarUrl || "",
+      role: invite.role || "member",
+      function_name: invite.functionName || invite.memberFunction || "Player",
+      public_title: invite.publicTitle || "",
+      games: getProfileGamesForMemberRow(profile),
+      status: "active",
+      joined_at: joinedAt,
+      invited_by_profile_slug: invite.invitedByProfileSlug || null,
+      metadata: {
+        source: "profile-invite-accept-v1.6.15",
+        inviteId: invite.id || "",
+        teamName: invite.teamName || "",
+        teamTag: invite.teamTag || ""
+      }
+    };
+
+    try {
+      const existing = await client
+        .from(tableName)
+        .select("id")
+        .eq("team_slug", teamSlug)
+        .eq("profile_slug", profileSlug)
+        .maybeSingle();
+
+      if (!existing.error && existing.data?.id) {
+        const updateResult = await client
+          .from(tableName)
+          .update(Object.assign({}, row, { updated_at: joinedAt }))
+          .eq("id", existing.data.id)
+          .select("*")
+          .maybeSingle();
+
+        if (updateResult.error) {
+          console.warn("[SaberWolf Profiles] Supabase recusou atualização do membro:", updateResult.error);
+          return null;
+        }
+
+        return updateResult.data || row;
+      }
+
+      const insertResult = await client
+        .from(tableName)
+        .insert(row)
+        .select("*")
+        .maybeSingle();
+
+      if (insertResult.error) {
+        console.warn("[SaberWolf Profiles] Supabase recusou criação do membro:", insertResult.error);
+        return null;
+      }
+
+      return insertResult.data || row;
+    } catch (error) {
+      console.warn("[SaberWolf Profiles] Erro inesperado ao criar vínculo de equipe:", error);
+      return null;
+    }
+  }
+
+  async function updateSupabaseInviteStatusV1615(invite, status) {
+    if (!profilesSupabaseEnabled() || !invite?.id) {
+      return false;
+    }
+
+    const client = window.SBWSupabase?.client;
+    if (!client) return false;
+
+    const tableName = getTeamInvitesSupabaseTableName();
+    const respondedAt = nowIso();
+
+    try {
+      const result = await client
+        .from(tableName)
+        .update({
+          status: status,
+          responded_at: respondedAt,
+          updated_at: respondedAt
+        })
+        .eq("id", invite.id)
+        .select("*")
+        .maybeSingle();
+
+      if (result.error) {
+        console.warn("[SaberWolf Profiles] Supabase recusou atualização do convite:", result.error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.warn("[SaberWolf Profiles] Erro inesperado ao atualizar convite:", error);
+      return false;
+    }
+  }
+
+  function mirrorInviteToLocalForCurrentProfile(invite, context) {
+    const profileKey = getProfileKeyFromContext(context) || inviteProfileKeyV1615(invite);
+    const localInvite = Object.assign({}, invite, {
+      userId: profileKey,
+      profileId: profileKey,
+      profileSlug: profileKey,
+      invitedProfileSlug: profileKey,
+      teamId: inviteTeamKeyV1615(invite),
+      teamSlug: inviteTeamKeyV1615(invite),
+      inviteType: "received",
+      source: invite.source || "local-demo"
+    });
+
+    const invites = getProfileInvites();
+    const index = invites.findIndex(function (item) {
+      return String(item.id || "") === String(localInvite.id || "");
+    });
+
+    if (index >= 0) {
+      invites[index] = Object.assign({}, invites[index], localInvite);
+    } else {
+      invites.push(localInvite);
+    }
+
+    saveProfileInvites(invites);
+
+    return localInvite;
+  }
+
+  async function acceptCurrentUserTeamInviteV1615(inviteId) {
+    const context = await getInviteProfileContext();
+    const invite = await findCurrentProfileInvite(inviteId, context);
+
+    if (!context?.user && !context?.profile) {
+      return {
+        ok: false,
+        message: "Entre na sua conta para aceitar convites."
+      };
+    }
+
+    if (!invite) {
+      return {
+        ok: false,
+        message: "Convite não encontrado para este perfil."
+      };
+    }
+
+    if (String(invite.status || "pending") !== "pending") {
+      return {
+        ok: false,
+        invite: invite,
+        message: "Este convite já foi respondido."
+      };
+    }
+
+    const teamSlug = inviteTeamKeyV1615(invite);
+    const memberships = await getCurrentActiveTeamMembershipsV1615(context);
+    const otherMembership = memberships.find(function (membership) {
+      const membershipTeam = String(membership.teamSlug || membership.teamId || membership.team_id || "");
+      return membershipTeam && teamSlug && membershipTeam !== teamSlug;
+    });
+
+    if (otherMembership) {
+      return {
+        ok: false,
+        invite: invite,
+        message: "Você já participa de outra equipe ativa. Saia da equipe atual antes de aceitar outro convite."
+      };
+    }
+
+    let supabaseOk = false;
+
+    if (invite.source === "supabase") {
+      const member = await upsertSupabaseTeamMemberFromInviteV1615(invite, context);
+      const inviteUpdated = member ? await updateSupabaseInviteStatusV1615(invite, "accepted") : false;
+      supabaseOk = Boolean(member && inviteUpdated);
+    }
+
+    const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
+    const localResult = acceptTeamInvite(mirroredInvite.id, mirroredInvite.userId);
+
+    if (window.SBWSessionContext?.clearCache) {
+      window.SBWSessionContext.clearCache();
+    }
+
+    return {
+      ok: supabaseOk || localResult.ok,
+      invite: Object.assign({}, invite, { status: "accepted", respondedAt: nowIso() }),
+      member: localResult.member || null,
+      source: supabaseOk ? "supabase" : "local-demo",
+      message: supabaseOk
+        ? "Convite aceito. Você entrou na equipe."
+        : localResult.message || "Convite aceito no fallback local."
+    };
+  }
+
+  async function declineCurrentUserTeamInviteV1615(inviteId) {
+    const context = await getInviteProfileContext();
+    const invite = await findCurrentProfileInvite(inviteId, context);
+
+    if (!invite) {
+      return {
+        ok: false,
+        message: "Convite não encontrado para este perfil."
+      };
+    }
+
+    let supabaseOk = false;
+
+    if (invite.source === "supabase") {
+      supabaseOk = await updateSupabaseInviteStatusV1615(invite, "declined");
+    }
+
+    const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
+    const localResult = declineTeamInvite(mirroredInvite.id, mirroredInvite.userId);
+
+    if (window.SBWSessionContext?.clearCache) {
+      window.SBWSessionContext.clearCache();
+    }
+
+    return {
+      ok: supabaseOk || localResult.ok,
+      invite: Object.assign({}, invite, { status: "declined", respondedAt: nowIso() }),
+      source: supabaseOk ? "supabase" : "local-demo",
+      message: supabaseOk
+        ? "Convite recusado."
+        : localResult.message || "Convite recusado no fallback local."
+    };
+  }
+
+  window.SBWProfilesStorage.getCurrentUserInvites = getCurrentUserInvitesV1615;
+  window.SBWProfilesStorage.acceptTeamInvite = acceptCurrentUserTeamInviteV1615;
+  window.SBWProfilesStorage.declineTeamInvite = declineCurrentUserTeamInviteV1615;
+  window.SBWProfilesStorage.rejectTeamInvite = declineCurrentUserTeamInviteV1615;
+
+  window.SBWProfilesStorage.updateInviteStatus = async function (inviteId, status) {
+    if (status === "accepted") {
+      return acceptCurrentUserTeamInviteV1615(inviteId);
+    }
+
+    if (status === "declined") {
+      return declineCurrentUserTeamInviteV1615(inviteId);
+    }
+
+    return {
+      ok: false,
+      message: "Status de convite não suportado nesta etapa."
+    };
+  };
+
 })();

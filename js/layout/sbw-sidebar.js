@@ -289,7 +289,23 @@
     });
   }
 
+
+  function ensureVisualBalanceStyles() {
+    const id = "sbwVisualBalanceStyles";
+
+    if (document.getElementById(id)) return;
+
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = "/css/core/sbw-visual-balance.css?v=1634";
+
+    document.head.appendChild(link);
+  }
+
   async function initSidebar() {
+    ensureVisualBalanceStyles();
+
     const mount = document.getElementById("sbwSidebarMount");
 
     if (!mount) return;

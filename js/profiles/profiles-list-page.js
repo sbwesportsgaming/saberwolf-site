@@ -40,6 +40,34 @@
     }
   }
 
+
+  function renderDirectoryLoading(target, title, message, rows = 4) {
+    if (window.SBWPageState?.renderLoading) {
+      window.SBWPageState.renderLoading(target, { title, message, rows });
+      return;
+    }
+
+    if (target) target.innerHTML = `<div class="sbw-profiles-v2-empty">${escapeHtml(message || title || "Carregando...")}</div>`;
+  }
+
+  function renderDirectoryEmpty(target, title, message) {
+    if (window.SBWPageState?.renderEmpty) {
+      window.SBWPageState.renderEmpty(target, { title, message });
+      return;
+    }
+
+    if (target) target.innerHTML = `<div class="sbw-profiles-v2-empty">${escapeHtml(message || title || "Nada encontrado.")}</div>`;
+  }
+
+  function renderDirectoryError(target, title, message, details = "") {
+    if (window.SBWPageState?.renderError) {
+      window.SBWPageState.renderError(target, { title, message, details });
+      return;
+    }
+
+    if (target) target.innerHTML = `<div class="sbw-profiles-v2-empty">${escapeHtml(message || title || "Erro ao carregar.")}</div>`;
+  }
+
   function asArray(value) {
     if (Array.isArray(value)) return value;
     if (!value || typeof value !== "object") return [];
@@ -98,7 +126,8 @@
   }
 
   function getProfileUrl(profile) {
-    return `/perfis/perfil.html?id=${encodeURIComponent(getProfileId(profile))}`;
+    const id = getProfileId(profile);
+    return window.SBWRoutes?.profile ? window.SBWRoutes.profile(id) : `/perfis/perfil.html?id=${encodeURIComponent(id)}`;
   }
 
   function getDisplayName(profile) {
@@ -688,7 +717,7 @@
           <h3>${escapeHtml(name)} ${verified ? "✦" : ""}</h3>
           <p>${escapeHtml(games.slice(0, 2).join(" • ") || "Recrutamento competitivo")}</p>
         </div>
-        <a class="sbw-profiles-v2-team-action" href="/equipes/equipe.html?id=${encodeURIComponent(id)}">Ver equipe →</a>
+        <a class="sbw-profiles-v2-team-action" href="${escapeHtml(window.SBWRoutes?.team ? window.SBWRoutes.team(id) : `/equipes/equipe.html?id=${encodeURIComponent(id)}`)}">Ver equipe →</a>
       </article>
     `;
   }
@@ -704,7 +733,9 @@
 
     roots.forEach((selector) => {
       const root = document.querySelector(selector);
-      if (root) root.innerHTML = `<div class="sbw-profiles-v2-empty">Carregando...</div>`;
+      if (root) {
+        renderDirectoryLoading(root, "Carregando perfis", "Buscando jogadores, equipes e destaques públicos.", 4);
+      }
     });
   }
 
@@ -733,14 +764,22 @@
     if (listRoot) {
       listRoot.innerHTML = filtered.length
         ? `<div class="sbw-profiles-v2-card-grid">${filtered.map(renderProfileCard).join("")}</div>`
-        : `<div class="sbw-profiles-v2-empty">Nenhum perfil público encontrado com os filtros atuais.</div>`;
+        : (() => {
+            const wrapper = document.createElement("div");
+            renderDirectoryEmpty(wrapper, "Nenhum perfil encontrado", "Ajuste os filtros ou limpe a busca para encontrar outros jogadores.");
+            return wrapper.innerHTML;
+          })();
     }
 
     if (weeklyRoot) {
       const weekly = ranked.slice(0, 5);
       weeklyRoot.innerHTML = weekly.length
         ? `<div class="sbw-profiles-v2-list">${weekly.map((profile, index) => renderMiniProfile(profile, index, "weekly")).join("")}</div>`
-        : `<div class="sbw-profiles-v2-empty sbw-profiles-v2-empty--small">Ainda não há destaques semanais.</div>`;
+        : (() => {
+            const wrapper = document.createElement("div");
+            renderDirectoryEmpty(wrapper, "Sem destaques semanais", "Os perfis com atividade recente aparecerão aqui.");
+            return wrapper.innerHTML;
+          })();
     }
 
     if (recentRoot) {
@@ -751,7 +790,11 @@
 
       recentRoot.innerHTML = recent.length
         ? `<div class="sbw-profiles-v2-list">${recent.map((profile, index) => renderMiniProfile(profile, index, "recent")).join("")}</div>`
-        : `<div class="sbw-profiles-v2-empty sbw-profiles-v2-empty--small">Nenhum perfil atualizado recentemente.</div>`;
+        : (() => {
+            const wrapper = document.createElement("div");
+            renderDirectoryEmpty(wrapper, "Nenhum perfil atualizado", "Atualizações recentes de perfis aparecerão aqui.");
+            return wrapper.innerHTML;
+          })();
     }
 
     if (recruitingRoot) {
@@ -761,7 +804,11 @@
 
       recruitingRoot.innerHTML = recruiting.length
         ? `<div class="sbw-profiles-v2-list">${recruiting.map(renderRecruitingTeam).join("")}</div>`
-        : `<div class="sbw-profiles-v2-empty sbw-profiles-v2-empty--small">Nenhuma equipe com recrutamento público no momento.</div>`;
+        : (() => {
+            const wrapper = document.createElement("div");
+            renderDirectoryEmpty(wrapper, "Nenhuma equipe recrutando", "Equipes com recrutamento público aparecerão aqui.");
+            return wrapper.innerHTML;
+          })();
     }
   }
 

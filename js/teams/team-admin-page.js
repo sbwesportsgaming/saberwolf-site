@@ -9,6 +9,7 @@
     teams: [],
     activeTeam: null,
     members: [],
+    teamInvites: [],
     subteams: [],
     teamType: null,
     tagStatus: null
@@ -222,6 +223,38 @@
   }
 
   async function getCurrentAccount() {
+    if (window.SBWSessionContext?.getCurrentContext) {
+      try {
+        const context = await window.SBWSessionContext.getCurrentContext({
+          refresh: true
+        });
+
+        if (!context?.user) {
+          return {
+            authUser: null,
+            profile: null,
+            profileSlug: "",
+            displayName: "Usuário SBW",
+            email: "",
+            fallbackUser: null,
+            context
+          };
+        }
+
+        return {
+          authUser: context.user,
+          profile: context.profile,
+          profileSlug: context.profileKey,
+          displayName: context.displayName,
+          email: context.email,
+          fallbackUser: null,
+          context
+        };
+      } catch (error) {
+        console.warn("[SBW Team Admin] Contexto central falhou, usando fallback local da página:", error);
+      }
+    }
+
     const authUser = await getCurrentAuthUser();
 
     if (!authUser) {
@@ -231,7 +264,7 @@
         profileSlug: "",
         displayName: "Usuário SBW",
         email: "",
-        fallbackUser: getCurrentUser()
+        fallbackUser: null
       };
     }
 
@@ -243,7 +276,7 @@
       profileSlug: getProfileSlug(profile, authUser),
       displayName: getProfileDisplayName(profile, authUser),
       email: authUser.email || "",
-      fallbackUser: getCurrentUser()
+      fallbackUser: null
     };
   }
 
@@ -348,11 +381,35 @@
 
   function isAdminSbw(user) {
     const roles = Array.isArray(user?.roles) ? user.roles : [];
-    return roles.includes("admin_sbw");
+    const permissions = user?.permissions || {};
+
+    return Boolean(
+      roles.includes("master_admin") ||
+      roles.includes("admin_sbw") ||
+      roles.includes("admin") ||
+      permissions.isMasterAdmin ||
+      permissions.is_master_admin ||
+      permissions.isAdminSbw ||
+      permissions.is_admin_sbw ||
+      permissions.isAdmin ||
+      permissions.is_admin
+    );
   }
 
   function canManageTeam(user, team) {
     if (!user || !team) return false;
+
+    if (window.SBWSessionContext?.canManageTeam) {
+      try {
+        const context = state.currentAccount?.context || null;
+
+        if (context) {
+          return window.SBWSessionContext.canManageTeam(team, context);
+        }
+      } catch (error) {
+        console.warn("[SBW Team Admin] canManageTeam central falhou:", error);
+      }
+    }
 
     if (isAdminSbw(user)) return true;
 
@@ -876,12 +933,9 @@ function renderMembersCard(team, members) {
       }
 
       <div class="sbw-admin-members-toolbar">
-        <button class="sbw-team-btn sbw-team-btn-primary" type="button" data-add-demo-member>
-          Adicionar membro demo
-        </button>
-
         <p>
-          Use esta lista para simular cargos, funções públicas e organização interna da equipe.
+          Use esta lista para acompanhar cargos, funções públicas e organização interna da equipe.
+          Novos membros entram pelo fluxo de convites.
         </p>
       </div>
 
@@ -1053,8 +1107,8 @@ function renderMembersCard(team, members) {
         </div>
 
         <p class="sbw-admin-note">
-          Busque um perfil público pelo nome ou nickname. Nesta etapa, o convite fica preparado no localStorage;
-          depois conectamos esse fluxo à tabela de convites do Supabase.
+          Busque um perfil público pelo nome ou nickname. O convite fica registrado para o jogador
+          e respeita a regra de 1 usuário por equipe ativa.
         </p>
 
         <div class="sbw-admin-search-row">
@@ -1065,6 +1119,8 @@ function renderMembersCard(team, members) {
         <div class="sbw-admin-player-results" data-player-search-results>
           <span>Digite pelo menos 2 caracteres para pesquisar jogadores.</span>
         </div>
+
+        <div class="sbw-admin-invite-feedback" data-player-invite-feedback></div>
       </div>
     `;
   }
@@ -1111,12 +1167,553 @@ function renderMembersCard(team, members) {
     `;
   }
 
+  const adminPanelTabs = [
+    { id: "geral", label: "Geral", hint: "Resumo" },
+    { id: "perfil", label: "Perfil público", hint: "Dados públicos" },
+    { id: "membros", label: "Membros", hint: "Pessoal" },
+    { id: "convites", label: "Convites", hint: "Entradas" },
+    { id: "titulos", label: "Títulos", hint: "Conquistas" },
+    { id: "rankings", label: "Rankings", hint: "Posição" },
+    { id: "redes", label: "Redes sociais", hint: "Links" },
+    { id: "configuracoes", label: "Configurações", hint: "Status" }
+  ];
+
+  function getTeamKey(team) {
+    return team?.slug || team?.id || team?.teamId || team?.supabaseId || "";
+  }
+
+  function getActiveAdminTab() {
+    const requested = getParam("tab") || "geral";
+    const exists = adminPanelTabs.some((tab) => tab.id === requested);
+    return exists ? requested : "geral";
+  }
+
+  function getAdminTabUrl(team, tabId) {
+    const teamKey = getTeamKey(team);
+    const query = new URLSearchParams();
+
+    if (teamKey) query.set("id", teamKey);
+    query.set("tab", tabId);
+
+    return `minha-equipe.html?${query.toString()}`;
+  }
+
+  function getAdminTabPanelClass(tabId, activeTab) {
+    return `sbw-admin-tab-panel ${tabId === activeTab ? "is-active" : ""}`;
+  }
+
+  function renderAdminTabNavigation(team, activeTab) {
+    return `
+      <nav class="sbw-admin-tabs" aria-label="Navegação do painel da equipe">
+        ${adminPanelTabs
+          .map((tab) => {
+            const activeClass = tab.id === activeTab ? "is-active" : "";
+
+            return `
+              <a
+                class="sbw-admin-tab-link ${activeClass}"
+                href="${escapeHtml(getAdminTabUrl(team, tab.id))}"
+                data-admin-tab-link
+                data-admin-tab="${escapeHtml(tab.id)}"
+              >
+                <strong>${escapeHtml(tab.label)}</strong>
+                <span>${escapeHtml(tab.hint)}</span>
+              </a>
+            `;
+          })
+          .join("")}
+      </nav>
+    `;
+  }
+
+  function renderAdminQuickMetric(label, value, note) {
+    return `
+      <div class="sbw-admin-quick-metric">
+        <strong>${escapeHtml(value)}</strong>
+        <span>${escapeHtml(label)}</span>
+        ${note ? `<small>${escapeHtml(note)}</small>` : ""}
+      </div>
+    `;
+  }
+
+  function getRecruitmentLabel(team) {
+    return team?.recruitment?.isOpen || team?.metadata?.recruitmentOpen ? "Aberto" : "Fechado";
+  }
+
+  function getTeamRankingPosition(team) {
+    return (
+      team?.ranking?.globalPosition ||
+      team?.ranking?.position ||
+      team?.stats?.globalRank ||
+      team?.stats?.rankingPosition ||
+      team?.metadata?.globalRank ||
+      "—"
+    );
+  }
+
+  function getTeamPoints(team) {
+    return (
+      team?.ranking?.points ||
+      team?.stats?.points ||
+      team?.stats?.rankingPoints ||
+      team?.metadata?.points ||
+      0
+    );
+  }
+
+  function renderGeneralTab(team, members) {
+    const activeMembers = getActiveMembers(members);
+    const memberLimit = Number(team.memberLimit || config.limits.commonTeamMembers || 50);
+    const gamesCount = Array.isArray(team.games) ? team.games.length : 0;
+    const verifiedLabel = getVerificationStatusLabel(team.verificationStatus);
+
+    return `
+      <div class="sbw-admin-card sbw-admin-overview-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Geral</span>
+            <h3>Resumo da equipe</h3>
+          </div>
+
+          <small>${escapeHtml(team.tag || "SBW")}</small>
+        </div>
+
+        <div class="sbw-admin-overview-grid">
+          ${renderAdminQuickMetric("Membros", `${activeMembers.length}/${memberLimit}`, "limite atual")}
+          ${renderAdminQuickMetric("Modalidades", String(gamesCount), "jogos vinculados")}
+          ${renderAdminQuickMetric("Ranking global", String(getTeamRankingPosition(team)), "equipes -SBW-")}
+          ${renderAdminQuickMetric("Recrutamento", getRecruitmentLabel(team), "status público")}
+        </div>
+
+        <div class="sbw-admin-status-box">
+          <strong>${escapeHtml(verifiedLabel)}</strong>
+          <span>
+            Este painel é a central privada da equipe. Use as abas para editar perfil público,
+            membros, convites, títulos, rankings e redes sociais sem misturar com a página pública.
+          </span>
+        </div>
+
+        <div class="sbw-admin-actions">
+          <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(getTeamKey(team))}">
+            Ver perfil público
+          </a>
+
+          <a class="sbw-team-btn" href="equipes.html">
+            Lista de equipes
+          </a>
+        </div>
+      </div>
+
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Próximas áreas</span>
+            <h3>Estrutura do painel</h3>
+          </div>
+        </div>
+
+        <div class="sbw-admin-feature-list">
+          <div><strong>Perfil público</strong><span>Nome, tag, descrição, identidade visual, modalidades e recrutamento.</span></div>
+          <div><strong>Membros</strong><span>Capitão, staff, cargos internos e funções públicas.</span></div>
+          <div><strong>Convites</strong><span>Busca de jogadores, convites enviados e solicitações recebidas.</span></div>
+          <div><strong>Rankings</strong><span>Posição global da equipe e leitura por modalidade.</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPublicProfileTab(team, primary, secondary) {
+    return `
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Dados públicos</span>
+            <h3>Informações principais</h3>
+          </div>
+        </div>
+
+        <div class="sbw-form-grid">
+          <label class="sbw-form-field">
+            <span>Nome da equipe</span>
+            <input type="text" name="name" maxlength="50" value="${escapeHtml(team.name)}" required />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Tag oficial</span>
+            <input 
+              type="text" 
+              name="tag" 
+              maxlength="${config.tagRules.extendedMaxLength}" 
+              value="${escapeHtml(team.tag)}" 
+              data-admin-tag-input
+              required 
+            />
+
+            <small class="sbw-form-help" data-admin-tag-help>
+              Tags iguais ou reservadas não são permitidas.
+            </small>
+          </label>
+        </div>
+
+        <label class="sbw-form-field">
+          <span>Descrição pública</span>
+          <textarea name="description" rows="4" maxlength="260">${escapeHtml(team.description)}</textarea>
+        </label>
+      </div>
+
+      ${renderTeamTypeCard(team, state.teamType)}
+
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Identidade visual</span>
+            <h3>Logo, banner e cores</h3>
+          </div>
+        </div>
+
+        <div class="sbw-form-grid">
+          <label class="sbw-form-field">
+            <span>Logo da equipe</span>
+            <input type="url" name="logoUrl" value="${escapeHtml(team.logoUrl || "")}" placeholder="https://.../logo.png" />
+            <small class="sbw-form-help">Por enquanto use uma URL pública. Upload via Storage será conectado depois.</small>
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Banner da equipe</span>
+            <input type="url" name="bannerUrl" value="${escapeHtml(team.bannerUrl || "")}" placeholder="https://.../banner.jpg" />
+            <small class="sbw-form-help">Imagem larga recomendada para o topo do perfil público.</small>
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Cor principal</span>
+            <input type="color" name="primaryColor" value="${escapeHtml(primary)}" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Cor secundária</span>
+            <input type="color" name="secondaryColor" value="${escapeHtml(secondary)}" />
+          </label>
+        </div>
+      </div>
+
+      ${renderGamesCard(team)}
+
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Recrutamento</span>
+            <h3>Status de recrutamento</h3>
+          </div>
+        </div>
+
+        <label class="sbw-admin-checkline">
+          <input type="checkbox" name="recruitmentOpen" ${(team.recruitment?.isOpen || team.metadata?.recruitmentOpen) ? "checked" : ""} />
+          <span>Equipe aberta para receber novos jogadores</span>
+        </label>
+
+        <div class="sbw-form-grid">
+          <label class="sbw-form-field">
+            <span>Modalidades com vagas</span>
+            <input type="text" name="recruitmentGames" value="${escapeHtml(arrayToCsv(team.recruitment?.games || team.metadata?.recruitmentGames || []))}" placeholder="Street Fighter 6, Tekken 8, Valorant" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Requisitos / observação</span>
+            <input type="text" name="recruitmentDescription" value="${escapeHtml(team.recruitment?.description || team.metadata?.recruitmentDescription || "")}" placeholder="Ex: jogadores ativos, treino semanal, Discord obrigatório" />
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSocialLinksTab(team) {
+    return `
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Redes</span>
+            <h3>Links públicos</h3>
+          </div>
+        </div>
+
+        <div class="sbw-form-grid">
+          <label class="sbw-form-field">
+            <span>Discord</span>
+            <input type="url" name="discord" value="${escapeHtml(team.socialLinks?.discord || "")}" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>YouTube</span>
+            <input type="url" name="youtube" value="${escapeHtml(team.socialLinks?.youtube || "")}" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Instagram</span>
+            <input type="url" name="instagram" value="${escapeHtml(team.socialLinks?.instagram || "")}" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>X / Twitter</span>
+            <input type="url" name="x" value="${escapeHtml(team.socialLinks?.x || "")}" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Twitch</span>
+            <input type="url" name="twitch" value="${escapeHtml(team.socialLinks?.twitch || "")}" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>TikTok</span>
+            <input type="url" name="tiktok" value="${escapeHtml(team.socialLinks?.tiktok || "")}" />
+          </label>
+
+          <label class="sbw-form-field">
+            <span>Site oficial</span>
+            <input type="url" name="website" value="${escapeHtml(team.socialLinks?.website || team.socialLinks?.site || "")}" />
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  function getTeamLocalInvites(team) {
+    const teamKey = getTeamKey(team);
+
+    return (state.teamInvites || []).filter((invite) => {
+      return String(invite.teamId || invite.teamSlug || "") === String(teamKey);
+    });
+  }
+
+  function getInviteStatusLabel(status) {
+    const labels = {
+      pending: "Pendente",
+      accepted: "Aceito",
+      declined: "Recusado",
+      cancelled: "Cancelado",
+      expired: "Expirado"
+    };
+
+    return labels[status] || status || "Pendente";
+  }
+
+  function getInviteTypeLabel(invite) {
+    return invite?.inviteType === "player_to_team" ? "Solicitação recebida" : "Convite enviado";
+  }
+
+  function renderInviteSourceBadge(invite) {
+    const source = String(invite?.source || "local-demo");
+
+    if (source === "supabase") {
+      return `<em class="sbw-admin-invite-source">Supabase</em>`;
+    }
+
+    return `<em class="sbw-admin-invite-source sbw-admin-invite-source--local">Fallback local</em>`;
+  }
+
+  function renderTeamInvitesList(team) {
+    const invites = getTeamLocalInvites(team);
+
+    if (!invites.length) {
+      return `
+        <div class="sbw-empty-state">
+          Nenhum convite ou solicitação registrada para esta equipe ainda.
+        </div>
+      `;
+    }
+
+    return `
+      <div class="sbw-admin-invite-list">
+        ${invites
+          .map((invite) => {
+            const status = invite.status || "pending";
+            const type = getInviteTypeLabel(invite);
+            const dateLabel = invite.createdAt || invite.invitedAt
+              ? new Date(invite.createdAt || invite.invitedAt).toLocaleDateString("pt-BR")
+              : "Data não informada";
+
+            return `
+              <article class="sbw-admin-invite-row">
+                <div>
+                  <strong>${escapeHtml(invite.displayName || invite.profileName || invite.nickname || invite.userId || "Jogador")}</strong>
+                  <span>${escapeHtml(type)} · ${escapeHtml(getInviteStatusLabel(status))}</span>
+                </div>
+
+                <div class="sbw-admin-invite-meta">
+                  ${renderInviteSourceBadge(invite)}
+                  <small>${escapeHtml(dateLabel)}</small>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderInvitesTab(team) {
+    return `
+      ${renderInvitePlayerCard(team)}
+
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Convites recebidos e enviados</span>
+            <h3>Histórico de convites</h3>
+          </div>
+        </div>
+
+        <p class="sbw-admin-note">
+          Convites enviados aparecem aqui. Quando o jogador aceitar no Meu Perfil, ele passa a entrar
+          no vínculo de membros da equipe, respeitando o limite de 1 equipe ativa por usuário.
+        </p>
+
+        ${renderTeamInvitesList(team)}
+      </div>
+    `;
+  }
+
+  function renderTitlesTab(team) {
+    const titles = Array.isArray(team.achievements) ? team.achievements : [];
+
+    return `
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Títulos</span>
+            <h3>Conquistas -SBW-</h3>
+          </div>
+        </div>
+
+        ${
+          titles.length
+            ? `
+              <div class="sbw-admin-title-list">
+                ${titles
+                  .map((title) => `
+                    <article class="sbw-admin-title-row">
+                      <strong>${escapeHtml(title.name || title.tournament || "Título")}</strong>
+                      <span>${escapeHtml(title.game || "Modalidade")} · ${escapeHtml(title.date || "Data não informada")}</span>
+                    </article>
+                  `)
+                  .join("")}
+              </div>
+            `
+            : `
+              <div class="sbw-empty-state">
+                Nenhuma conquista -SBW- registrada para esta equipe ainda.
+              </div>
+            `
+        }
+      </div>
+
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Conquistas externas</span>
+            <h3>Área preparada para dados externos</h3>
+          </div>
+        </div>
+
+        <div class="sbw-admin-status-box">
+          <strong>Nenhuma conquista externa vinculada ainda</strong>
+          <span>
+            Esta seção fica reservada para futuras integrações e registros externos, sem misturar com as conquistas internas da plataforma.
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRankingsTab(team) {
+    const points = Number(getTeamPoints(team) || 0);
+    const globalPosition = getTeamRankingPosition(team);
+    const games = Array.isArray(team.games) ? team.games : [];
+
+    return `
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Ranking global</span>
+            <h3>Posição da equipe na -SBW-</h3>
+          </div>
+
+          <small>${escapeHtml(String(points))} pontos</small>
+        </div>
+
+        <div class="sbw-admin-overview-grid">
+          ${renderAdminQuickMetric("Posição global", String(globalPosition), "ranking de equipes")}
+          ${renderAdminQuickMetric("Pontos", String(points), "pontuação acumulada")}
+          ${renderAdminQuickMetric("Modalidades", String(games.length), "áreas vinculadas")}
+          ${renderAdminQuickMetric("Títulos", String(Number(team.stats?.titles || 0)), "conquistas internas")}
+        </div>
+
+        <div class="sbw-admin-actions">
+          <a class="sbw-team-btn sbw-team-btn-primary" href="../rankings/rankings.html">
+            Ver ranking completo
+          </a>
+        </div>
+      </div>
+
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Modalidades</span>
+            <h3>Ranking por jogo/modalidade</h3>
+          </div>
+        </div>
+
+        ${
+          games.length
+            ? `
+              <div class="sbw-admin-feature-list">
+                ${games
+                  .map((game) => `
+                    <a class="sbw-admin-feature-link" href="../rankings/rankings.html">
+                      <strong>${escapeHtml(game.name || game.id || "Modalidade")}</strong>
+                      <span>${escapeHtml(game.category || "Ranking da modalidade")}</span>
+                    </a>
+                  `)
+                  .join("")}
+              </div>
+            `
+            : `
+              <div class="sbw-empty-state">
+                Nenhuma modalidade vinculada ao ranking desta equipe ainda.
+              </div>
+            `
+        }
+      </div>
+    `;
+  }
+
+  function renderSettingsTab(team) {
+    return `
+      ${renderVerificationCard(team)}
+
+      <div class="sbw-admin-card">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Regras da equipe</span>
+            <h3>Permissões e limites</h3>
+          </div>
+        </div>
+
+        <div class="sbw-admin-feature-list">
+          <div><strong>Equipe comum</strong><span>Limite menor de membros e sem criação de subequipes.</span></div>
+          <div><strong>Equipe verificada</strong><span>Limite maior, selo público e possibilidade de subequipes.</span></div>
+          <div><strong>Aprovação -SBW-</strong><span>Verificação e permissões especiais dependem da administração da plataforma.</span></div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderAdminPanel() {
     const root = getRoot();
     if (!root || !state.activeTeam) return;
 
     const team = state.activeTeam;
     const ownedTeams = getOwnedTeams();
+    const activeTab = getActiveAdminTab();
 
     const primary = team.theme?.primaryColor || "#00e5ff";
     const secondary = team.theme?.secondaryColor || "#7c3cff";
@@ -1144,12 +1741,14 @@ function renderMembersCard(team, members) {
                 }
               </h2>
 
-              <p>${escapeHtml(team.tag)} | Tag oficial</p>
+              <p>${escapeHtml(team.tag)} | Painel privado</p>
             </div>
           </div>
 
+          ${renderAdminTabNavigation(team, activeTab)}
+
           <div class="sbw-admin-side-links">
-            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(team.slug || team.id)}">
+            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(getTeamKey(team))}">
               Ver perfil público
             </a>
 
@@ -1162,143 +1761,42 @@ function renderMembersCard(team, members) {
         </aside>
 
         <section class="sbw-admin-content">
+          <div class="sbw-admin-tab-heading">
+            <span>Painel da equipe</span>
+            <h2>${escapeHtml(adminPanelTabs.find((tab) => tab.id === activeTab)?.label || "Geral")}</h2>
+          </div>
+
           <form class="sbw-admin-form" data-admin-team-form>
-            <div class="sbw-admin-card">
-              <div class="sbw-admin-card-heading">
-                <div>
-                  <span>Dados públicos</span>
-                  <h3>Informações principais</h3>
-                </div>
-              </div>
-
-              <div class="sbw-form-grid">
-                <label class="sbw-form-field">
-                  <span>Nome da equipe</span>
-                  <input type="text" name="name" maxlength="50" value="${escapeHtml(team.name)}" required />
-                </label>
-
-                <label class="sbw-form-field">
-                  <span>Tag oficial</span>
-                  <input 
-                    type="text" 
-                    name="tag" 
-                    maxlength="${config.tagRules.extendedMaxLength}" 
-                    value="${escapeHtml(team.tag)}" 
-                    data-admin-tag-input
-                    required 
-                  />
-
-                  <small class="sbw-form-help" data-admin-tag-help>
-                    Tags iguais ou reservadas não são permitidas.
-                  </small>
-                </label>
-              </div>
-
-              <label class="sbw-form-field">
-                <span>Descrição pública</span>
-                <textarea name="description" rows="4" maxlength="260">${escapeHtml(team.description)}</textarea>
-              </label>
+            <div class="${getAdminTabPanelClass("geral", activeTab)}" data-admin-tab-panel="geral">
+              ${renderGeneralTab(team, state.members)}
             </div>
 
-             ${renderTeamTypeCard(team, state.teamType)}
-
-            <div class="sbw-admin-card">
-              <div class="sbw-admin-card-heading">
-                <div>
-                  <span>Identidade visual</span>
-                  <h3>Logo, banner e cores</h3>
-                </div>
-              </div>
-
-              <div class="sbw-form-grid">
-                <label class="sbw-form-field">
-                  <span>Logo da equipe</span>
-                  <input type="url" name="logoUrl" value="${escapeHtml(team.logoUrl || "")}" placeholder="https://.../logo.png" />
-                  <small class="sbw-form-help">Por enquanto use uma URL pública. Upload via Storage será conectado depois.</small>
-                </label>
-
-                <label class="sbw-form-field">
-                  <span>Banner da equipe</span>
-                  <input type="url" name="bannerUrl" value="${escapeHtml(team.bannerUrl || "")}" placeholder="https://.../banner.jpg" />
-                  <small class="sbw-form-help">Imagem larga recomendada para o topo do perfil público.</small>
-                </label>
-
-                <label class="sbw-form-field">
-                  <span>Cor principal</span>
-                  <input type="color" name="primaryColor" value="${escapeHtml(primary)}" />
-                </label>
-
-                <label class="sbw-form-field">
-                  <span>Cor secundária</span>
-                  <input type="color" name="secondaryColor" value="${escapeHtml(secondary)}" />
-                </label>
-              </div>
-
-              <div class="sbw-upload-rules">
-                <div>
-                  <strong>Upload real em etapa futura</strong>
-                  <span>O painel já aceita URL de logo/banner. O upload direto será ligado ao Supabase Storage depois.</span>
-                </div>
-              </div>
+            <div class="${getAdminTabPanelClass("perfil", activeTab)}" data-admin-tab-panel="perfil">
+              ${renderPublicProfileTab(team, primary, secondary)}
             </div>
 
-            <div class="sbw-admin-card">
-              <div class="sbw-admin-card-heading">
-                <div>
-                  <span>Redes</span>
-                  <h3>Links públicos</h3>
-                </div>
-              </div>
-
-              <div class="sbw-form-grid">
-                <label class="sbw-form-field">
-                  <span>Discord</span>
-                  <input type="url" name="discord" value="${escapeHtml(team.socialLinks?.discord || "")}" />
-                </label>
-
-                <label class="sbw-form-field">
-                  <span>YouTube</span>
-                  <input type="url" name="youtube" value="${escapeHtml(team.socialLinks?.youtube || "")}" />
-                </label>
-
-                <label class="sbw-form-field">
-                  <span>Instagram</span>
-                  <input type="url" name="instagram" value="${escapeHtml(team.socialLinks?.instagram || "")}" />
-                </label>
-
-                <label class="sbw-form-field">
-                  <span>X / Twitter</span>
-                  <input type="url" name="x" value="${escapeHtml(team.socialLinks?.x || "")}" />
-                </label>
-              </div>
+            <div class="${getAdminTabPanelClass("membros", activeTab)}" data-admin-tab-panel="membros">
+              ${renderMembersCard(team, state.members)}
             </div>
 
-            ${renderGamesCard(team)}
+            <div class="${getAdminTabPanelClass("convites", activeTab)}" data-admin-tab-panel="convites">
+              ${renderInvitesTab(team)}
+            </div>
 
-            <div class="sbw-admin-card">
-              <div class="sbw-admin-card-heading">
-                <div>
-                  <span>Recrutamento</span>
-                  <h3>Status de recrutamento</h3>
-                </div>
-              </div>
+            <div class="${getAdminTabPanelClass("titulos", activeTab)}" data-admin-tab-panel="titulos">
+              ${renderTitlesTab(team)}
+            </div>
 
-              <label class="sbw-admin-checkline">
-                <input type="checkbox" name="recruitmentOpen" ${(team.recruitment?.isOpen || team.metadata?.recruitmentOpen) ? "checked" : ""} />
-                <span>Equipe aberta para receber novos jogadores</span>
-              </label>
+            <div class="${getAdminTabPanelClass("rankings", activeTab)}" data-admin-tab-panel="rankings">
+              ${renderRankingsTab(team)}
+            </div>
 
-              <div class="sbw-form-grid">
-                <label class="sbw-form-field">
-                  <span>Modalidades com vagas</span>
-                  <input type="text" name="recruitmentGames" value="${escapeHtml(arrayToCsv(team.recruitment?.games || team.metadata?.recruitmentGames || []))}" placeholder="Street Fighter 6, Tekken 8, Valorant" />
-                </label>
+            <div class="${getAdminTabPanelClass("redes", activeTab)}" data-admin-tab-panel="redes">
+              ${renderSocialLinksTab(team)}
+            </div>
 
-                <label class="sbw-form-field">
-                  <span>Requisitos / observação</span>
-                  <input type="text" name="recruitmentDescription" value="${escapeHtml(team.recruitment?.description || team.metadata?.recruitmentDescription || "")}" placeholder="Ex: jogadores ativos, treino semanal, Discord obrigatório" />
-                </label>
-              </div>
+            <div class="${getAdminTabPanelClass("configuracoes", activeTab)}" data-admin-tab-panel="configuracoes">
+              ${renderSettingsTab(team)}
             </div>
 
             <div class="sbw-admin-save-bar">
@@ -1309,48 +1807,6 @@ function renderMembersCard(team, members) {
               <span data-admin-save-result></span>
             </div>
           </form>
-
-          ${renderVerificationCard(team)}
-
-          ${renderInvitePlayerCard(team)}
-
-          ${renderMembersCard(team, state.members)}
-
-          <div class="sbw-admin-card">
-            <div class="sbw-admin-card-heading">
-              <div>
-                <span>Premiações</span>
-                <h3>Resumo competitivo SBW</h3>
-              </div>
-            </div>
-
-            <div class="sbw-admin-info-grid">
-              <div>
-                <strong>${Number(team.stats?.tournamentsPlayed || 0)}</strong>
-                <span>Torneios disputados</span>
-              </div>
-
-              <div>
-                <strong>${Number(team.stats?.titles || 0)}</strong>
-                <span>Títulos</span>
-              </div>
-
-              <div>
-                <strong>${Number(team.stats?.podiums || 0)}</strong>
-                <span>Pódios</span>
-              </div>
-
-              <div>
-                <strong>${formatPrize(team.stats)}</strong>
-                <span>Premiação</span>
-              </div>
-            </div>
-
-            <p class="sbw-admin-note">
-              Esse valor representa premiações conquistadas por membros da equipe em torneios
-              SaberWolf. Não significa repasse automático para a equipe.
-            </p>
-          </div>
         </section>
       </section>
     `;
@@ -1480,10 +1936,14 @@ function renderMembersCard(team, members) {
       },
 
       socialLinks: {
+        ...(team.socialLinks || {}),
         discord: String(formData.get("discord") || "").trim(),
         youtube: String(formData.get("youtube") || "").trim(),
         instagram: String(formData.get("instagram") || "").trim(),
-        x: String(formData.get("x") || "").trim()
+        x: String(formData.get("x") || "").trim(),
+        twitch: String(formData.get("twitch") || "").trim(),
+        tiktok: String(formData.get("tiktok") || "").trim(),
+        website: String(formData.get("website") || "").trim()
       },
 
       recruitment: {
@@ -1532,7 +1992,7 @@ function renderMembersCard(team, members) {
     if (!state.activeTeam) return;
 
     const confirmed = window.confirm(
-      "Solicitar verificação desta equipe? Na versão local, o status será alterado para 'Solicitação em análise'."
+      "Solicitar verificação desta equipe? O status será marcado como 'Solicitação em análise'."
     );
 
     if (!confirmed) return;
@@ -1671,6 +2131,27 @@ function renderMembersCard(team, members) {
     return profile?.slug || profile?.username || profile?.userId || profile?.user_id || profile?.id || "";
   }
 
+  function getProfileAvatar(profile) {
+    return profile?.avatarUrl || profile?.avatar_url || profile?.picture || "";
+  }
+
+  function getProfileSubtitle(profile) {
+    const games = Array.isArray(profile?.mainGames) ? profile.mainGames : [];
+    const gameLabel = games[0]?.name || profile?.mainGame || profile?.main_game || "";
+    const status = profile?.headline || profile?.profileType || profile?.status || "Perfil público";
+
+    return gameLabel ? `${status} · ${gameLabel}` : status;
+  }
+
+  function profileMatchesCurrentAccount(profile) {
+    const profileId = String(getProfileId(profile) || "");
+    const account = state.currentAccount || {};
+    const context = account.context || {};
+    const identifiers = context.identifiers || [];
+
+    return identifiers.some((identifier) => String(identifier || "") === profileId);
+  }
+
   async function getSearchableProfiles() {
     try {
       const profilesStorage = window.SBWProfilesStorage;
@@ -1697,13 +2178,70 @@ function renderMembersCard(team, members) {
     return [];
   }
 
+  async function getAllActiveMembershipsSafely() {
+    try {
+      if (storage.getAllActiveTeamMembers) {
+        return await storage.getAllActiveTeamMembers();
+      }
+    } catch (error) {
+      console.warn("[SBW Team Admin] Não foi possível carregar membros ativos:", error);
+    }
+
+    return getActiveMembers(state.members);
+  }
+
+  function getMembershipForProfile(profileId, memberships) {
+    const key = String(profileId || "");
+
+    return (memberships || []).find((member) => {
+      return (
+        String(member.profileSlug || "") === key ||
+        String(member.profileId || "") === key ||
+        String(member.userId || "") === key ||
+        String(member.authUserId || "") === key
+      );
+    }) || null;
+  }
+
+  function getPendingInviteForProfile(profileId, invites) {
+    const key = String(profileId || "");
+
+    return (invites || []).find((invite) => {
+      return (
+        String(invite.profileSlug || invite.invitedProfileSlug || invite.userId || "") === key &&
+        String(invite.status || "pending") === "pending"
+      );
+    }) || null;
+  }
+
+  function getProfileSearchText(profile) {
+    return [
+      getProfileName(profile),
+      profile?.nickname,
+      profile?.username,
+      profile?.displayName,
+      profile?.display_name,
+      profile?.email,
+      profile?.headline,
+      profile?.mainGame,
+      profile?.main_game,
+      ...(Array.isArray(profile?.roleTags) ? profile.roleTags : []),
+      ...(Array.isArray(profile?.publicTags) ? profile.publicTags : [])
+    ]
+      .join(" ")
+      .toLowerCase();
+  }
+
   async function handleSearchPlayer() {
     const input = document.querySelector("[data-player-search-input]");
     const results = document.querySelector("[data-player-search-results]");
+    const feedback = document.querySelector("[data-player-invite-feedback]");
 
     if (!input || !results || !state.activeTeam) return;
 
     const query = String(input.value || "").trim().toLowerCase();
+
+    if (feedback) feedback.innerHTML = "";
 
     if (query.length < 2) {
       results.innerHTML = `<span>Digite pelo menos 2 caracteres para pesquisar jogadores.</span>`;
@@ -1712,24 +2250,20 @@ function renderMembersCard(team, members) {
 
     results.innerHTML = `<span>Pesquisando perfis...</span>`;
 
-    const profiles = await getSearchableProfiles();
-    const members = getActiveMembers(state.members);
-    const memberProfileIds = new Set(members.map((member) => String(member.profileSlug || member.profileId || member.userId || "")));
+    const [profiles, memberships] = await Promise.all([
+      getSearchableProfiles(),
+      getAllActiveMembershipsSafely()
+    ]);
+
+    const teamKey = getTeamKey(state.activeTeam);
+    const invites = state.teamInvites || [];
 
     const matches = profiles
       .filter((profile) => {
-        const text = [
-          getProfileName(profile),
-          profile?.nickname,
-          profile?.username,
-          profile?.displayName,
-          profile?.display_name,
-          profile?.email
-        ].join(" ").toLowerCase();
-
-        return text.includes(query);
+        if (!profile || profileMatchesCurrentAccount(profile)) return false;
+        return getProfileSearchText(profile).includes(query);
       })
-      .slice(0, 8);
+      .slice(0, 10);
 
     if (!matches.length) {
       results.innerHTML = `<span>Nenhum perfil encontrado para essa busca.</span>`;
@@ -1739,9 +2273,28 @@ function renderMembersCard(team, members) {
     results.innerHTML = matches
       .map((profile) => {
         const profileId = getProfileId(profile);
-        const alreadyMember = memberProfileIds.has(String(profileId));
         const name = getProfileName(profile);
-        const avatar = profile?.avatarUrl || profile?.avatar_url || "";
+        const avatar = getProfileAvatar(profile);
+        const membership = getMembershipForProfile(profileId, memberships);
+        const pendingInvite = getPendingInviteForProfile(profileId, invites);
+        const currentMemberTeamKey = String(membership?.teamSlug || membership?.teamId || "");
+        const alreadyInThisTeam = Boolean(membership && currentMemberTeamKey === String(teamKey));
+        const alreadyInOtherTeam = Boolean(membership && currentMemberTeamKey && currentMemberTeamKey !== String(teamKey));
+        const disabled = alreadyInThisTeam || alreadyInOtherTeam || Boolean(pendingInvite);
+
+        let buttonLabel = "Convidar";
+        let statusLabel = "Disponível para convite";
+
+        if (alreadyInThisTeam) {
+          buttonLabel = "Já é membro";
+          statusLabel = "Já faz parte desta equipe";
+        } else if (alreadyInOtherTeam) {
+          buttonLabel = "Indisponível";
+          statusLabel = `Já está em ${membership.teamName || membership.teamTag || "outra equipe"}`;
+        } else if (pendingInvite) {
+          buttonLabel = "Convite pendente";
+          statusLabel = "Convite já enviado";
+        }
 
         return `
           <div class="sbw-admin-player-result">
@@ -1751,7 +2304,8 @@ function renderMembersCard(team, members) {
 
             <div>
               <strong>${escapeHtml(name)}</strong>
-              <span>${escapeHtml(profile?.headline || profile?.profileType || profile?.status || "Perfil público")}</span>
+              <span>${escapeHtml(getProfileSubtitle(profile))}</span>
+              <small>${escapeHtml(statusLabel)}</small>
             </div>
 
             <button
@@ -1760,9 +2314,11 @@ function renderMembersCard(team, members) {
               data-invite-player
               data-profile-id="${escapeHtml(profileId)}"
               data-profile-name="${escapeHtml(name)}"
-              ${alreadyMember ? "disabled" : ""}
+              data-profile-avatar="${escapeHtml(avatar)}"
+              data-profile-subtitle="${escapeHtml(getProfileSubtitle(profile))}"
+              ${disabled ? "disabled" : ""}
             >
-              ${alreadyMember ? "Já é membro" : "Convidar"}
+              ${escapeHtml(buttonLabel)}
             </button>
           </div>
         `;
@@ -1772,56 +2328,83 @@ function renderMembersCard(team, members) {
     bindInviteButtons();
   }
 
-  function saveLocalInvite(profileId, profileName) {
-    if (!state.activeTeam || !profileId) return null;
+  async function createInviteForProfile(profileId, profileName, profileAvatar, profileSubtitle) {
+    if (!state.activeTeam || !profileId) {
+      return {
+        ok: false,
+        message: "Equipe ou perfil inválido."
+      };
+    }
 
-    const key = config.storageKeys?.teamJoinRequests || "sbw_team_join_requests_v1_3_9";
-    const invites = readJson(key, []);
-    const teamKey = state.activeTeam.slug || state.activeTeam.id;
+    const teamKey = getTeamKey(state.activeTeam);
+    const inviterProfileSlug = state.currentAccount?.profileSlug || state.currentUser?.profileSlug || "";
 
-    const existing = invites.find((invite) => {
-      return (
-        String(invite.teamId || invite.teamSlug || "") === String(teamKey) &&
-        String(invite.userId || invite.profileSlug || "") === String(profileId) &&
-        String(invite.status || "pending") === "pending"
-      );
-    });
+    if (storage.createTeamInvite) {
+      return await storage.createTeamInvite({
+        teamId: teamKey,
+        teamSlug: teamKey,
+        teamName: state.activeTeam.name,
+        teamTag: state.activeTeam.tag,
+        teamLogoUrl: state.activeTeam.logoUrl || "",
+        userId: profileId,
+        profileId,
+        profileSlug: profileId,
+        invitedProfileSlug: profileId,
+        invitedByProfileSlug: inviterProfileSlug,
+        displayName: profileName,
+        profileName,
+        nickname: profileName,
+        avatarUrl: profileAvatar,
+        role: "member",
+        roleOffered: "Membro",
+        functionName: "Player",
+        status: "pending",
+        inviteType: "team_to_player",
+        message: "Convite enviado pelo painel Minha Equipe.",
+        metadata: {
+          subtitle: profileSubtitle,
+          createdFrom: "team-admin-v1.6.14"
+        }
+      });
+    }
 
-    if (existing) return existing;
-
-    const invite = {
-      id: `invite-${teamKey}-${profileId}-${Date.now()}`,
-      teamId: teamKey,
-      teamSlug: teamKey,
-      teamName: state.activeTeam.name,
-      teamTag: state.activeTeam.tag,
-      userId: profileId,
-      profileSlug: profileId,
-      displayName: profileName,
-      roleOffered: "Membro",
-      status: "pending",
-      inviteType: "team_to_player",
-      source: "team-admin-local",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+    return {
+      ok: false,
+      message: "Storage de convites indisponível."
     };
-
-    invites.push(invite);
-    writeJson(key, invites);
-
-    return invite;
   }
 
   function bindInviteButtons() {
     document.querySelectorAll("[data-invite-player]").forEach((button) => {
-      button.addEventListener("click", function () {
+      button.addEventListener("click", async function () {
+        const feedback = document.querySelector("[data-player-invite-feedback]");
         const profileId = button.dataset.profileId || "";
         const profileName = button.dataset.profileName || "Jogador";
-        const invite = saveLocalInvite(profileId, profileName);
+        const profileAvatar = button.dataset.profileAvatar || "";
+        const profileSubtitle = button.dataset.profileSubtitle || "";
 
-        if (invite) {
-          button.textContent = "Convite criado";
-          button.disabled = true;
+        button.disabled = true;
+        button.textContent = "Enviando...";
+
+        const result = await createInviteForProfile(profileId, profileName, profileAvatar, profileSubtitle);
+
+        if (result?.ok) {
+          button.textContent = result.duplicate ? "Já convidado" : "Convite enviado";
+
+          if (feedback) {
+            feedback.innerHTML = `<span class="sbw-admin-result-success">${escapeHtml(result.message || "Convite registrado.")}</span>`;
+          }
+
+          await reloadState(getTeamKey(state.activeTeam));
+          renderAdminPanel();
+          return;
+        }
+
+        button.disabled = false;
+        button.textContent = "Convidar";
+
+        if (feedback) {
+          feedback.innerHTML = `<span class="sbw-admin-result-error">${escapeHtml(result?.message || "Não foi possível criar o convite.")}</span>`;
         }
       });
     });
@@ -1915,8 +2498,9 @@ function renderMembersCard(team, members) {
   }
 
   function buildCurrentManagerUser(account) {
-    const fallbackUser = account?.fallbackUser || getCurrentUser();
+    const fallbackUser = account?.fallbackUser || null;
     const authUser = account?.authUser || null;
+    const context = account?.context || null;
 
     return {
       ...(fallbackUser || {}),
@@ -1927,12 +2511,16 @@ function renderMembersCard(team, members) {
       name: account?.displayName || fallbackUser?.name || "Usuário SBW",
       nickname: account?.displayName || fallbackUser?.nickname || "Usuário SBW",
       email: account?.email || fallbackUser?.email || "",
-      roles: fallbackUser?.roles || [],
-      permissions: fallbackUser?.permissions || {}
+      roles: context?.permissions?.roles || fallbackUser?.roles || [],
+      permissions: context?.permissions || fallbackUser?.permissions || {}
     };
   }
 
   async function reloadState(activeTeamId) {
+    if (window.SBWSessionContext?.clearCache) {
+      window.SBWSessionContext.clearCache();
+    }
+
     state.currentAccount = await getCurrentAccount();
     state.currentUser = buildCurrentManagerUser(state.currentAccount);
     state.teams = await storage.getAllTeams();
@@ -1941,44 +2529,74 @@ function renderMembersCard(team, members) {
 
     state.activeTeam = team;
     state.members = team ? await loadMembersForTeam(team) : [];
+    state.teamInvites = team && storage.getTeamInvites ? await storage.getTeamInvites(getTeamKey(team)) : [];
     state.subteams = team ? await storage.getSubteams(team.slug || team.id) : [];
     state.teamType = team ? getTeamPublicType(team) : null;
   }
 
   async function init() {
-    state.currentAccount = await getCurrentAccount();
-    state.currentUser = buildCurrentManagerUser(state.currentAccount);
-    state.teams = await storage.getAllTeams();
+    const root = getRoot();
 
-    const requestedTeamId = getParam("id");
-    const ownedTeams = getOwnedTeams();
-
-    if (!ownedTeams.length) {
-      renderNoTeamState();
-      return;
+    if (window.SBWPageState?.renderLoading) {
+      window.SBWPageState.renderLoading(root, {
+        title: "Carregando painel da equipe",
+        message: "Validando sessão, equipe gerenciável, membros e convites.",
+        rows: 4
+      });
     }
 
-    let activeTeam = null;
+    try {
+      if (window.SBWSessionContext?.clearCache) {
+        window.SBWSessionContext.clearCache();
+      }
 
-    if (requestedTeamId) {
-      activeTeam = findTeamByAnyId(requestedTeamId);
+      state.currentAccount = await getCurrentAccount();
+      state.currentUser = buildCurrentManagerUser(state.currentAccount);
+      state.teams = await storage.getAllTeams();
 
-      if (activeTeam && !canManageTeam(state.currentUser, activeTeam)) {
-        renderAccessDenied(activeTeam);
+      const requestedTeamId = getParam("id");
+      const ownedTeams = getOwnedTeams();
+
+      if (!ownedTeams.length) {
+        renderNoTeamState();
         return;
       }
+
+      let activeTeam = null;
+
+      if (requestedTeamId) {
+        activeTeam = findTeamByAnyId(requestedTeamId);
+
+        if (activeTeam && !canManageTeam(state.currentUser, activeTeam)) {
+          renderAccessDenied(activeTeam);
+          return;
+        }
+      }
+
+      if (!activeTeam) {
+        activeTeam = ownedTeams[0];
+      }
+
+      state.activeTeam = activeTeam;
+      state.members = await loadMembersForTeam(activeTeam);
+      state.teamInvites = storage.getTeamInvites ? await storage.getTeamInvites(getTeamKey(activeTeam)) : [];
+      state.subteams = await storage.getSubteams(activeTeam.slug || activeTeam.id);
+      state.teamType = getTeamPublicType(activeTeam);
+
+      renderAdminPanel();
+    } catch (error) {
+      console.error("[SBW Team Admin] Falha ao carregar painel da equipe:", error);
+
+      if (window.SBWPageState?.renderError) {
+        window.SBWPageState.renderError(root, {
+          title: "Não foi possível carregar Minha Equipe",
+          message: "A sessão, a equipe ou os vínculos de membros não responderam corretamente.",
+          details: error?.message || ""
+        });
+      }
+    } finally {
+      window.SBWPageState?.markReady?.();
     }
-
-    if (!activeTeam) {
-      activeTeam = ownedTeams[0];
-    }
-
-    state.activeTeam = activeTeam;
-    state.members = await loadMembersForTeam(activeTeam);
-    state.subteams = await storage.getSubteams(activeTeam.slug || activeTeam.id);
-    state.teamType = getTeamPublicType(activeTeam);
-
-    renderAdminPanel();
   }
 
   document.addEventListener("DOMContentLoaded", init);

@@ -1,325 +1,198 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Loja | -SBW-</title>
+  <meta name="description" content="Vitrine oficial da -SBW- em preparação para produtos, coleções e itens ligados ao ecossistema SaberWolf." />
 
-  <meta name="description" content="Loja oficial da SaberWolf eSports em desenvolvimento. Em breve, produtos, coleções e itens oficiais do ecossistema -SBW-.">
-
-  <link rel="icon" href="../assets/images/logo-sbw.jpg" type="image/jpeg">
-  
-  <link rel="stylesheet" href="../css/style.css">
-
-  <link rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-  <link rel="stylesheet" href="../css/loja.css">
+  <link rel="icon" href="../assets/images/logo-sbw.jpg" type="image/jpeg" />
+  <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
+  <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
+  <link rel="stylesheet" href="../css/loja.css" />
 </head>
 
-<body>
+<body class="sbw-store-body sbw-has-sidebar sbw-sidebar-no-transition" data-sbw-active-page="shop">
+  <div id="sbwSidebarMount"></div>
 
-<header>
-
-  <h1>SaberWolf</h1>
-
-  <div class="menu-toggle">
+  <button
+    class="sbw-sidebar-toggle"
+    type="button"
+    aria-label="Abrir menu"
+    data-sbw-sidebar-toggle
+  >
     ☰
-  </div>
+  </button>
 
-<nav class="main-nav">
-  <a href="../index.html">Home</a>
-  <a href="../blog/noticias.html">Notícias</a>
-  <a href="../pages/sobre.html">Sobre</a>
-  <a href="../creators/creators.html">Creators</a>
-  <a href="../perfis/perfis.html">Perfis</a>
-  <a href="../equipes/equipes.html">Equipes</a>
-  <a href="../torneios/torneios.html">Torneios</a>
-  <a href="../comunidades/comunidades.html">Comunidades</a>
-  <a href="../rankings/rankings.html">Rankings</a>
-  <a href="../transferencias/transferencias.html">Transferências</a>
-  <a href="../pages/loja.html">Loja</a>
-</nav>
+  <div class="sbw-sidebar-backdrop" data-sbw-sidebar-close></div>
 
-</header>
+  <main class="sbw-store-page" aria-labelledby="sbwStoreTitle">
+    <section class="sbw-store-hero">
+      <div class="sbw-store-hero__content">
+        <span class="sbw-store-eyebrow">SaberWolf Store</span>
 
-<main class="store-main">
+        <h1 id="sbwStoreTitle">Loja</h1>
 
-  <!-- HERO -->
+        <p>
+          A vitrine oficial da -SBW- está sendo preparada para apresentar coleções,
+          itens da marca, produtos de parceiros e ações especiais do ecossistema SaberWolf.
+        </p>
+      </div>
 
-  <section class="store-hero">
+      <div class="sbw-store-hero__visual" aria-hidden="true">
+        <img src="../assets/home/sbw-home-banner.png" alt="" />
+      </div>
+    </section>
 
-    <div class="store-hero-content">
+    <section class="sbw-store-feature" aria-label="Destaque da loja">
+      <div class="sbw-store-feature__media" aria-hidden="true">
+        <div class="sbw-store-feature__mockup">
+          <span>-SBW-</span>
+        </div>
+      </div>
 
-      <span class="store-label">
-        <i class="fa-solid fa-store"></i>
-        Loja Oficial
-      </span>
+      <div class="sbw-store-feature__content">
+        <span class="sbw-store-tag">Em preparação</span>
+        <h2>Vitrine oficial SaberWolf</h2>
+        <p>
+          Esta área ficará pronta para divulgar produtos oficiais, coleções limitadas,
+          itens de comunidade e possíveis campanhas com parceiros. Nenhum produto oficial
+          está publicado para compra neste momento.
+        </p>
+      </div>
 
-      <h2>
-        Loja -SBW- em preparação.
-      </h2>
-
-      <p>
-        Estamos organizando a futura loja oficial da SaberWolf eSports.
-        Em breve, este espaço reunirá produtos, coleções, acessórios
-        e itens ligados ao ecossistema gamer da organização.
-      </p>
-
-      <div class="store-actions">
-
-        <a href="../index.html" class="btn">
-          Voltar para Home
+      <div class="sbw-store-feature__actions">
+        <a class="sbw-store-button sbw-store-button--primary" href="../blog/noticias.html">
+          Acompanhar novidades
+          <span>→</span>
         </a>
-
-        <a href="../comunidades/comunidades.html" class="btn btn-secondary">
-          Entrar na Comunidade
+        <a class="sbw-store-button" href="../comunidades/comunidades.html">
+          Entrar na comunidade
         </a>
+      </div>
+    </section>
 
+    <section class="sbw-store-categories" aria-label="Categorias previstas">
+      <button class="is-active" type="button" data-sbw-store-filter="all">Todos</button>
+      <button type="button" data-sbw-store-filter="apparel">Vestuário</button>
+      <button type="button" data-sbw-store-filter="accessories">Acessórios</button>
+      <button type="button" data-sbw-store-filter="collectibles">Colecionáveis</button>
+      <button type="button" data-sbw-store-filter="partners">Parceiros</button>
+      <button type="button" data-sbw-store-filter="offers">Ofertas futuras</button>
+    </section>
+
+    <div class="sbw-store-layout">
+      <div class="sbw-store-main-column">
+        <section class="sbw-store-section" aria-labelledby="storeHighlightsTitle">
+          <div class="sbw-store-section__heading">
+            <span class="sbw-store-eyebrow">Planejamento</span>
+            <h2 id="storeHighlightsTitle">O que poderá chegar à loja</h2>
+            <p>
+              A loja ainda não possui produtos oficiais publicados. Os cards abaixo indicam
+              categorias planejadas para organização futura da vitrine.
+            </p>
+          </div>
+
+          <div class="sbw-store-grid" data-sbw-store-grid>
+            <article class="sbw-store-plan-card" data-store-category="apparel">
+              <span class="sbw-store-plan-card__icon">👕</span>
+              <span class="sbw-store-plan-card__label">Categoria prevista</span>
+              <h3>Vestuário oficial</h3>
+              <p>Espaço preparado para camisetas, jerseys, moletons e coleções da marca.</p>
+              <span class="sbw-store-plan-card__status">Em planejamento</span>
+            </article>
+
+            <article class="sbw-store-plan-card" data-store-category="accessories">
+              <span class="sbw-store-plan-card__icon">🎮</span>
+              <span class="sbw-store-plan-card__label">Categoria prevista</span>
+              <h3>Acessórios gamer</h3>
+              <p>Área futura para itens de setup, acessórios e produtos ligados ao ecossistema.</p>
+              <span class="sbw-store-plan-card__status">Em planejamento</span>
+            </article>
+
+            <article class="sbw-store-plan-card" data-store-category="collectibles">
+              <span class="sbw-store-plan-card__icon">⭐</span>
+              <span class="sbw-store-plan-card__label">Categoria prevista</span>
+              <h3>Colecionáveis</h3>
+              <p>Estrutura reservada para itens especiais, campanhas e coleções limitadas.</p>
+              <span class="sbw-store-plan-card__status">Futuro</span>
+            </article>
+
+            <article class="sbw-store-plan-card" data-store-category="partners">
+              <span class="sbw-store-plan-card__icon">🤝</span>
+              <span class="sbw-store-plan-card__label">Categoria prevista</span>
+              <h3>Parceiros oficiais</h3>
+              <p>Espaço preparado para ações comerciais ou campanhas com parceiros aprovados.</p>
+              <span class="sbw-store-plan-card__status">Futuro</span>
+            </article>
+
+            <article class="sbw-store-plan-card" data-store-category="offers">
+              <span class="sbw-store-plan-card__icon">🔥</span>
+              <span class="sbw-store-plan-card__label">Categoria prevista</span>
+              <h3>Ofertas e campanhas</h3>
+              <p>Bloco futuro para promoções, combos e ações temporárias da comunidade.</p>
+              <span class="sbw-store-plan-card__status">Futuro</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="sbw-store-empty" aria-labelledby="storeEmptyTitle">
+          <span class="sbw-store-empty__icon">🛒</span>
+          <div>
+            <h2 id="storeEmptyTitle">Produtos oficiais ainda não publicados</h2>
+            <p>
+              A loja será ativada com produtos reais quando a -SBW- definir catálogo,
+              fornecedores, condições comerciais e fluxo de venda seguro. Até lá, esta página
+              funciona como vitrine institucional em preparação.
+            </p>
+          </div>
+        </section>
       </div>
 
+      <aside class="sbw-store-side" aria-label="Informações da loja">
+        <article class="sbw-store-side-card">
+          <span class="sbw-store-side-card__icon">🚚</span>
+          <h3>Entrega</h3>
+          <p>Informações de envio serão exibidas apenas quando produtos reais estiverem publicados.</p>
+        </article>
+
+        <article class="sbw-store-side-card">
+          <span class="sbw-store-side-card__icon">💳</span>
+          <h3>Pagamento</h3>
+          <p>Nenhum checkout está ativo nesta etapa. Integrações comerciais ficam para uma fase futura.</p>
+        </article>
+
+        <article class="sbw-store-side-card sbw-store-side-card--highlight">
+          <span class="sbw-store-side-card__icon">🛡️</span>
+          <h3>Compra segura</h3>
+          <p>Quando a loja for ativada, a prioridade será operar com parceiros e fluxos confiáveis.</p>
+        </article>
+      </aside>
     </div>
 
-    <div class="store-status-card">
-
-      <div class="store-status-icon">
-        <i class="fa-solid fa-screwdriver-wrench"></i>
-      </div>
-
-      <span>
-        Status
-      </span>
-
-      <h3>
-        Em desenvolvimento
-      </h3>
-
-      <p>
-        A loja será integrada ao site como vitrine oficial da SaberWolf.
-        Nesta primeira fase, a área permanece visível para apresentar
-        o projeto e preparar o lançamento futuro.
-      </p>
-
-    </div>
-
-  </section>
-
-  <!-- O QUE VEM POR AÍ -->
-
-  <section class="store-section">
-
-    <div class="store-section-heading">
-
-      <span class="store-label">
-        Planejamento
-      </span>
-
-      <h2>
-        O que poderá chegar na loja?
-      </h2>
-
-      <p>
-        A proposta inicial é criar uma vitrine organizada para produtos
-        oficiais, coleções da marca e possíveis itens de parceiros.
-      </p>
-
-    </div>
-
-    <div class="store-grid">
-
-      <div class="store-card">
-
-        <div class="store-card-icon">
-          <i class="fa-solid fa-shirt"></i>
-        </div>
-
-        <h3>
-          Vestuário
-        </h3>
-
-        <p>
-          Camisetas, jerseys, moletons e coleções com identidade visual
-          da SaberWolf eSports.
-        </p>
-
-      </div>
-
-      <div class="store-card">
-
-        <div class="store-card-icon">
-          <i class="fa-solid fa-headset"></i>
-        </div>
-
-        <h3>
-          Acessórios
-        </h3>
-
-        <p>
-          Itens voltados para jogadores, creators, torcedores
-          e comunidade gamer.
-        </p>
-
-      </div>
-
-      <div class="store-card">
-
-        <div class="store-card-icon">
-          <i class="fa-solid fa-users"></i>
-        </div>
-
-        <h3>
-          Comunidade
-        </h3>
-
-        <p>
-          Produtos e ações especiais conectadas a equipes,
-          parceiros, eventos e torneios.
-        </p>
-
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- INTEGRAÇÃO FUTURA -->
-
-  <section class="store-section">
-
-    <div class="store-info-panel">
-
+    <section class="sbw-store-cta">
       <div>
-
-        <span class="store-label">
-          Integração futura
-        </span>
-
-        <h2>
-          A loja será conectada ao ecossistema SaberWolf.
-        </h2>
-
+        <span class="sbw-store-eyebrow">Acompanhe a evolução</span>
+        <h2>A loja oficial será lançada com produtos reais e comunicados oficiais.</h2>
         <p>
-          Nesta fase inicial, a loja ficará em preparação. Futuramente,
-          ela poderá funcionar como uma vitrine integrada ao site,
-          redirecionando para plataformas externas de venda ou parceiros
-          oficiais, sem comprometer o funcionamento da plataforma principal.
+          Enquanto isso, acompanhe as novidades da -SBW-, participe da comunidade e fique de olho nos próximos anúncios.
         </p>
-
       </div>
 
-      <div class="store-mark">
-
-        <strong>
-          -SBW-
-        </strong>
-
-        <span>
-          Loja Oficial
-        </span>
-
+      <div class="sbw-store-cta__actions">
+        <a class="sbw-store-button sbw-store-button--primary" href="../blog/noticias.html">Ver notícias</a>
+        <a class="sbw-store-button" href="../torneios/torneios.html">Explorar torneios</a>
       </div>
+    </section>
+  </main>
 
-    </div>
-
-  </section>
-
-  <!-- CTA FINAL -->
-
-  <section class="store-section">
-
-    <div class="store-final-cta">
-
-      <h2>
-        Enquanto a loja é preparada, acompanhe a SaberWolf.
-      </h2>
-
-      <p>
-        Conheça os torneios, participe da comunidade e acompanhe
-        as novidades da organização.
-      </p>
-
-      <div class="store-actions center">
-
-        <a href="../torneios/torneios.html" class="btn">
-          Ver Torneios
-        </a>
-
-        <a href="../blog/noticias.html" class="btn btn-secondary">
-          Ver Notícias
-        </a>
-
-      </div>
-
-    </div>
-
-  </section>
-
-</main>
-
-<footer>
-
-  <div class="footer-content">
-
-    <h2>SaberWolf</h2>
-
-    <p>
-      Ecossistema brasileiro de esports,
-      creators, campeonatos e comunidade.
-    </p>
-
-    <div class="footer-links">
-
-      <a href="../index.html">
-        Home
-      </a>
-
-      <a href="../blog/noticias.html">
-        Notícias
-      </a>
-
-      <a href="sobre.html">
-        Sobre
-      </a>
-
-      <a href="../equipes/equipes.html">
-        Equipes
-      </a>
-
-      <a href="../creators/creators.html">
-        Creators
-      </a>
-
-      <a href="../comunidades/comunidades.html">
-        Comunidades
-      </a>
-
-      <a href="../torneios/torneios.html">
-        Torneios
-      </a>
-
-      <a href="loja.html">
-        Loja
-      </a>
-
-    </div>
-
-    <p class="footer-copy">
-      -SBW- © 2026 — Todos os direitos reservados.
-    </p>
-
-  </div>
-
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/supabase/supabase-config.js"></script>
-<script src="../js/supabase/supabase-client.js"></script>
-<script src="../js/auth/auth-service.js"></script>
-<script src="../js/auth/auth-header.js"></script>
-
-<script src="../js/menu.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase/supabase-config.js"></script>
+  <script src="../js/supabase/supabase-client.js"></script>
+  <script src="../js/auth/auth-service.js"></script>
+  <script src="../js/core/sbw-routes.js"></script>
+  <script src="../js/layout/sbw-sidebar.js"></script>
+  <script src="../js/store/store-page.js"></script>
+  <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>
