@@ -448,8 +448,18 @@
 
   async function loadTeams() {
     try {
-      if (window.SBWTeamsStorage?.getAllTeams) {
-        return await window.SBWTeamsStorage.getAllTeams();
+      const storage = window.SBWTeamsStorage || null;
+
+      if (typeof storage?.getAllTeamsForAdmin === "function") {
+        return await storage.getAllTeamsForAdmin();
+      }
+
+      if (typeof storage?.getAllTeamsForSession === "function") {
+        return await storage.getAllTeamsForSession();
+      }
+
+      if (typeof storage?.getAllTeams === "function") {
+        return await storage.getAllTeams({ publicOnly: false });
       }
     } catch (error) {
       console.warn("[SBW Admin] Falha ao carregar equipes:", error);
@@ -598,6 +608,9 @@
     const verified = isVerifiedTeam(team);
     const memberLimit = team.memberLimit || team.member_limit || (verified ? 100 : 50);
     const modalities = Array.isArray(team.modalities) ? team.modalities.slice(0, 4).join(", ") : "";
+    const visibility = team.isPublic === false || team.is_public === false ? "Privada" : "Pública";
+    const status = team.status || team.state || "active";
+    const captain = team.captainName || team.captain_name || team.captainProfileSlug || team.captain_profile_slug || team.captainUserId || team.captain_user_id || "";
 
     return `
       <article class="sbw-admin-result-card" data-team-key="${escapeHtml(key)}">
@@ -606,7 +619,7 @@
 
           <div class="sbw-admin-result-title">
             <strong>${escapeHtml(name)}</strong>
-            <small>${escapeHtml([tag, key, modalities].filter(Boolean).join(" · "))}</small>
+            <small>${escapeHtml([tag, key, visibility, status, captain ? `Capitão: ${captain}` : "", modalities].filter(Boolean).join(" · "))}</small>
           </div>
 
           <div class="sbw-admin-badges">
@@ -618,6 +631,10 @@
         <div class="sbw-admin-actions">
           <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(window.SBWRoutes?.team ? window.SBWRoutes.team(key) : `../equipes/equipe.html?id=${encodeURIComponent(key)}`)}" target="_blank" rel="noopener">
             Ver perfil
+          </a>
+
+          <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(window.SBWRoutes?.myTeam ? window.SBWRoutes.myTeam(key) : `../equipes/minha-equipe.html?id=${encodeURIComponent(key)}`)}">
+            Gerenciar
           </a>
 
           <button class="sbw-admin-button" type="button" data-admin-action="verify-team" data-team-key="${escapeHtml(key)}">
@@ -909,6 +926,11 @@
       try {
         if (action === "run-rls-diagnostics") {
           await runRlsDiagnostics();
+        }
+
+        if (action === "show-all-teams") {
+          renderTeamResults(state.teams);
+          addLog(`Listando ${state.teams.length} equipe(s) carregada(s) para a conta Admin.`);
         }
 
         if (action === "toggle-profile-permission") {

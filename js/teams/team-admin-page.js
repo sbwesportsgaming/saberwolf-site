@@ -2584,6 +2584,25 @@ function renderMembersCard(team, members) {
     );
   }
 
+  async function loadTeamsForManagement() {
+    if (!storage) return [];
+
+    if (typeof storage.getAllTeamsForSession === "function") {
+      return await storage.getAllTeamsForSession();
+    }
+
+    if (typeof storage.getAllTeamsForAdmin === "function") {
+      return await storage.getAllTeamsForAdmin();
+    }
+
+    if (typeof storage.getAllTeams === "function") {
+      return await storage.getAllTeams({ publicOnly: false });
+    }
+
+    return [];
+  }
+
+
   function buildCurrentManagerUser(account) {
     const fallbackUser = account?.fallbackUser || null;
     const authUser = account?.authUser || null;
@@ -2610,7 +2629,7 @@ function renderMembersCard(team, members) {
 
     state.currentAccount = await getCurrentAccount();
     state.currentUser = buildCurrentManagerUser(state.currentAccount);
-    state.teams = await storage.getAllTeams();
+    state.teams = await loadTeamsForManagement();
 
     const team = findTeamByAnyId(activeTeamId);
 
@@ -2639,7 +2658,7 @@ function renderMembersCard(team, members) {
 
       state.currentAccount = await getCurrentAccount();
       state.currentUser = buildCurrentManagerUser(state.currentAccount);
-      state.teams = await storage.getAllTeams();
+      state.teams = await loadTeamsForManagement();
 
       const requestedTeamId = getParam("id");
       const ownedTeams = getOwnedTeams();

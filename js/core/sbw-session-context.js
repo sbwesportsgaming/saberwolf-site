@@ -413,10 +413,16 @@
   }
 
   async function getAllTeams() {
-    if (!window.SBWTeamsStorage?.getAllTeams) return [];
+    const storage = window.SBWTeamsStorage || null;
+
+    if (!storage?.getAllTeams && !storage?.getAllTeamsForSession) return [];
 
     try {
-      return await window.SBWTeamsStorage.getAllTeams();
+      if (typeof storage.getAllTeamsForSession === "function") {
+        return await storage.getAllTeamsForSession();
+      }
+
+      return await storage.getAllTeams({ publicOnly: false });
     } catch (error) {
       console.warn("[SBW Session] Não foi possível carregar equipes:", error);
       return [];

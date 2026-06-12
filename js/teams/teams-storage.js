@@ -384,7 +384,10 @@
     });
   }
 
-  async function getAllTeamsFromSupabase() {
+  async function getAllTeamsFromSupabase(options) {
+    const safeOptions = options || {};
+    const publicOnly = safeOptions.publicOnly !== false;
+
     if (!teamsSupabaseEnabled()) {
       return [];
     }
@@ -392,13 +395,19 @@
     const tableName = getTeamsSupabaseTableName();
 
     try {
-      const result = await window.SBWSupabase.client
+      let query = window.SBWSupabase.client
         .from(tableName)
-        .select("*")
-        .eq("is_public", true)
-        .order("name", {
-          ascending: true
-        });
+        .select("*");
+
+      if (publicOnly) {
+        // Público: mostra equipes publicadas e equipes antigas onde is_public ainda não foi preenchido.
+        // Admin/Minha Equipe usam publicOnly:false para não perder equipes privadas/pendentes do dono.
+        query = query.or("is_public.eq.true,is_public.is.null");
+      }
+
+      const result = await query.order("name", {
+        ascending: true
+      });
 
       if (result.error) {
         console.error("[SaberWolf Teams] Erro ao buscar equipes no Supabase:", result.error);
@@ -1001,27 +1010,35 @@
     }
   }
 
-  async function getAllTeams() {
+  function mergeSupabaseAndLocalTeamsForAllowedFallback(supabaseTeams) {
+    if (!localSupabaseMergeAllowed()) {
+      return supabaseTeams;
+    }
+
+    const map = new Map();
+
+    supabaseTeams.forEach((team) => {
+      map.set(team.id, team);
+    });
+
+    getLocalTeams().forEach((team) => {
+      const normalized = normalizeTeamLocal(team);
+      map.set(normalized.id, normalized);
+    });
+
+    return Array.from(map.values());
+  }
+
+  async function getAllTeams(options) {
+    const safeOptions = options || {};
+
     if (teamsSupabaseEnabled()) {
-      const supabaseTeams = await getAllTeamsFromSupabase();
+      const supabaseTeams = await getAllTeamsFromSupabase({
+        publicOnly: safeOptions.publicOnly !== false
+      });
 
       if (supabaseTeams.length > 0) {
-        if (!localSupabaseMergeAllowed()) {
-          return supabaseTeams;
-        }
-
-        const map = new Map();
-
-        supabaseTeams.forEach((team) => {
-          map.set(team.id, team);
-        });
-
-        getLocalTeams().forEach((team) => {
-          const normalized = normalizeTeamLocal(team);
-          map.set(normalized.id, normalized);
-        });
-
-        return Array.from(map.values());
+        return mergeSupabaseAndLocalTeamsForAllowedFallback(supabaseTeams);
       }
 
       if (!localDemoFallbackAllowed()) {
@@ -1032,6 +1049,16 @@
     }
 
     return mergeDemoAndLocalTeams();
+  }
+
+  async function getAllTeamsForSession() {
+    // Usado por Meu Perfil/Minha Equipe para localizar vínculo real mesmo se a equipe ainda não estiver pública.
+    return getAllTeams({ publicOnly: false });
+  }
+
+  async function getAllTeamsForAdmin() {
+    // Usado pelo Admin Master para listar todas as equipes que a RLS permitir à conta atual.
+    return getAllTeams({ publicOnly: false });
   }
 
   async function getTeamById(teamId) {
@@ -1417,6 +1444,8 @@
 
   window.SBWTeamsStorage = {
   getAllTeams,
+  getAllTeamsForSession,
+  getAllTeamsForAdmin,
   getTeamById,
   getTeamBySlug,
   getTeamMembers,

@@ -215,6 +215,14 @@ body.sbw-has-sidebar .sbw-admin-page {
   margin-bottom: 18px;
 }
 
+
+.sbw-admin-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -6px 0 18px;
+}
+
 .sbw-admin-search input,
 .sbw-admin-select {
   width: 100%;
