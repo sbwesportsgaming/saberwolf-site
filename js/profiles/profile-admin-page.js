@@ -227,6 +227,43 @@ function readImageFile(file, maxSizeMb) {
     `;
   }
 
+  function canAccessAdminPanel() {
+    const permissions = state.sessionContext?.permissions || {};
+
+    return Boolean(
+      permissions.isMasterAdmin ||
+      permissions.isAdminSbw ||
+      permissions.canManagePermissions
+    );
+  }
+
+  function renderAdminAccessPanel() {
+    if (!canAccessAdminPanel()) return "";
+
+    return `
+      <section ${renderPanelAttrs("admin")}> 
+        <div class="sbw-profile-panel">
+          <div class="sbw-profile-panel-heading">
+            <div>
+              <span>Administração</span>
+              <h2>Painel administrativo</h2>
+            </div>
+          </div>
+
+          <p class="sbw-profile-muted">
+            Sua conta possui permissão administrativa ativa. Use esta área para acessar o painel interno da -SBW-.
+          </p>
+
+          <div class="sbw-profile-actions">
+            <a class="sbw-profile-btn sbw-profile-btn-primary" href="../admin/admin.html">
+              Abrir Admin Master
+            </a>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
   async function refreshSessionContext() {
     try {
       if (window.SBWSessionContext && typeof window.SBWSessionContext.getCurrentContext === "function") {
@@ -1058,6 +1095,7 @@ function readImageFile(file, maxSizeMb) {
               ${renderAdminTabButton("invites", "Convites", pendingInvites)}
               ${renderAdminTabButton("medals", "Medalhas", medalsCount)}
               ${renderAdminTabButton("history", "Histórico")}
+              ${canAccessAdminPanel() ? renderAdminTabButton("admin", "Administrador") : ""}
             </div>
           </div>
 
@@ -1078,6 +1116,7 @@ function readImageFile(file, maxSizeMb) {
           ${renderInvitesPanel(invites)}
           ${renderMedalsPanel(profile, arguments[3] || [])}
           ${renderHistoryPanel(history)}
+          ${renderAdminAccessPanel()}
         </main>
       </section>
     `;

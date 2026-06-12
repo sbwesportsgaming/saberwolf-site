@@ -534,12 +534,99 @@
       .toUpperCase();
   }
 
+  function localDemoFallbackAllowed() {
+    const host = String(window.location?.hostname || "").toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "" || window.SBW_TEAMS_CONFIG?.allowLocalDemoFallback === true;
+  }
+
+  function isLocalDemoTeam(team) {
+    const source = String(team?.source || "").toLowerCase();
+    const id = String(team?.id || team?.slug || "").toLowerCase();
+
+    return (
+      source.includes("local") ||
+      source.includes("demo") ||
+      id.includes("demo") ||
+      id.includes("team-sbw-fgc")
+    );
+  }
+
+  function teamMatchesContextCurrentTeam(team) {
+    const currentTeam = state.currentAccount?.context?.currentTeam || null;
+    if (!team || !currentTeam) return false;
+
+    const currentKeys = [
+      currentTeam.id,
+      currentTeam.slug,
+      currentTeam.teamId,
+      currentTeam.teamSlug,
+      currentTeam.supabaseId
+    ].map((value) => String(value || "")).filter(Boolean);
+
+    const teamKeys = [
+      team.id,
+      team.slug,
+      team.teamId,
+      team.teamSlug,
+      team.supabaseId
+    ].map((value) => String(value || "")).filter(Boolean);
+
+    return teamKeys.some((key) => currentKeys.includes(key));
+  }
+
+  function teamBelongsDirectlyToCurrentProfile(team) {
+    const context = state.currentAccount?.context || null;
+
+    if (!team || !context) return false;
+
+    if (teamMatchesContextCurrentTeam(team)) return true;
+
+    if (window.SBWSessionContext?.teamBelongsToProfile) {
+      try {
+        return window.SBWSessionContext.teamBelongsToProfile(team, context);
+      } catch (error) {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  function sortTeamsForMyTeamPage(teams) {
+    return [...teams].sort((a, b) => {
+      const aCurrent = teamMatchesContextCurrentTeam(a) ? 0 : 1;
+      const bCurrent = teamMatchesContextCurrentTeam(b) ? 0 : 1;
+      if (aCurrent !== bCurrent) return aCurrent - bCurrent;
+
+      const aDirect = teamBelongsDirectlyToCurrentProfile(a) ? 0 : 1;
+      const bDirect = teamBelongsDirectlyToCurrentProfile(b) ? 0 : 1;
+      if (aDirect !== bDirect) return aDirect - bDirect;
+
+      const aDemo = isLocalDemoTeam(a) ? 1 : 0;
+      const bDemo = isLocalDemoTeam(b) ? 1 : 0;
+      if (aDemo !== bDemo) return aDemo - bDemo;
+
+      return String(a.name || "").localeCompare(String(b.name || ""), "pt-BR");
+    });
+  }
+
   function getOwnedTeams() {
     const user = state.currentUser;
-
-    return state.teams.filter((team) => {
+    const manageable = state.teams.filter((team) => {
       return canManageTeam(user, team);
     });
+
+    const directTeams = manageable.filter(teamBelongsDirectlyToCurrentProfile);
+
+    if (directTeams.length) {
+      return sortTeamsForMyTeamPage(directTeams);
+    }
+
+    if (!localDemoFallbackAllowed()) {
+      return sortTeamsForMyTeamPage(manageable.filter((team) => !isLocalDemoTeam(team)));
+    }
+
+    return sortTeamsForMyTeamPage(manageable);
   }
 
   function getGameIds(team) {
@@ -596,7 +683,7 @@
       return member.role === config.memberRoles.captain;
     });
 
-    if (!hasCaptain) {
+    if (!hasCaptain && (localDemoFallbackAllowed() || String(team.source || "").toLowerCase() !== "supabase")) {
       const captainMember = saveLocalMember({
         id: `member-${team.slug || team.id}-${team.captainUserId || "captain"}`,
         teamId: team.slug || team.id,
@@ -2574,7 +2661,7 @@ function renderMembersCard(team, members) {
       }
 
       if (!activeTeam) {
-        activeTeam = ownedTeams[0];
+        activeTeam = ownedTeams.find(teamMatchesContextCurrentTeam) || ownedTeams[0];
       }
 
       state.activeTeam = activeTeam;

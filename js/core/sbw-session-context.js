@@ -183,6 +183,74 @@
     };
   }
 
+  function permissionRowIsActive(row) {
+    const safeRow = asObject(row);
+    const status = String(safeRow.status || safeRow.state || "active").toLowerCase();
+
+    if (["inactive", "disabled", "revoked", "rejected", "denied", "blocked"].includes(status)) {
+      return false;
+    }
+
+    if (safeRow.active === false || safeRow.is_active === false || safeRow.enabled === false) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function normalizeSitePermissionRows(rows) {
+    const activeRows = asArray(rows).filter(permissionRowIsActive);
+    const roles = [];
+    const merged = {
+      roles,
+      isMasterAdmin: false,
+      isAdminSbw: false,
+      canCreateTournament: false,
+      canVerifyTeam: false,
+      canManagePermissions: false,
+      source: "site_permissions"
+    };
+
+    activeRows.forEach((row) => {
+      const safeRow = asObject(row);
+      const permissionKey = String(
+        safeRow.permission_key ||
+        safeRow.permissionKey ||
+        safeRow.permission ||
+        safeRow.role ||
+        safeRow.type ||
+        safeRow.name ||
+        ""
+      ).trim().toLowerCase();
+
+      if (permissionKey) roles.push(permissionKey);
+
+      const direct = normalizePermissionSource(safeRow);
+
+      merged.isMasterAdmin = merged.isMasterAdmin || direct.isMasterAdmin || ["master", "master_admin", "owner", "super_admin"].includes(permissionKey);
+      merged.isAdminSbw = merged.isAdminSbw || direct.isAdminSbw || ["admin", "admin_sbw", "site_admin", "staff_admin"].includes(permissionKey);
+      merged.canCreateTournament = merged.canCreateTournament || direct.canCreateTournament || ["can_create_tournament", "can_create_tournaments", "tournament_admin", "organizer_admin"].includes(permissionKey);
+      merged.canVerifyTeam = merged.canVerifyTeam || direct.canVerifyTeam || ["can_verify_team", "team_admin", "teams_admin", "verify_team"].includes(permissionKey);
+      merged.canManagePermissions = merged.canManagePermissions || direct.canManagePermissions || ["can_manage_permissions", "permission_admin", "permissions_admin"].includes(permissionKey);
+    });
+
+    merged.roles = uniqueValues(roles);
+
+    if (merged.isMasterAdmin) {
+      merged.isAdminSbw = true;
+      merged.canManagePermissions = true;
+      merged.canCreateTournament = true;
+      merged.canVerifyTeam = true;
+    }
+
+    if (merged.isAdminSbw) {
+      merged.canCreateTournament = true;
+      merged.canVerifyTeam = true;
+    }
+
+    return activeRows.length ? merged : null;
+  }
+
   async function getCurrentUser() {
     try {
       if (window.SBWAuth?.getUser) {
@@ -300,11 +368,15 @@
 
     if (!client) return null;
 
+    const profileKey = getProfileKey(profile, user);
     const attempts = [
       ["auth_user_id", user?.id],
+      ["user_id", user?.id],
       ["profile_id", profile?.id],
-      ["profile_slug", getProfileKey(profile, user)],
-      ["email", user?.email]
+      ["profile_slug", profileKey],
+      ["slug", profileKey],
+      ["email", user?.email],
+      ["user_email", user?.email]
     ].filter((item) => item[1]);
 
     for (const [column, value] of attempts) {
@@ -313,10 +385,11 @@
           .from("site_permissions")
           .select("*")
           .eq(column, value)
-          .maybeSingle();
+          .limit(50);
 
-        if (!result.error && result.data) {
-          return result.data;
+        if (!result.error && Array.isArray(result.data) && result.data.length) {
+          const mergedRows = normalizeSitePermissionRows(result.data);
+          if (mergedRows) return mergedRows;
         }
       } catch (error) {
         // A tabela/coluna pode ainda não existir no beta. Não bloquear a página por isso.
@@ -325,6 +398,7 @@
 
     return null;
   }
+
 
   function normalizeOrganizerPermission(permission) {
     if (!permission) return {};

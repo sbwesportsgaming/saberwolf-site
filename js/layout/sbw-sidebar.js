@@ -71,6 +71,28 @@
     );
   }
 
+  function canAccessAdmin(context) {
+    const permissions = context?.permissions || {};
+
+    return Boolean(
+      permissions.isMasterAdmin ||
+      permissions.isAdminSbw ||
+      permissions.canManagePermissions
+    );
+  }
+
+  async function getCurrentContextSafely() {
+    try {
+      if (window.SBWSessionContext?.getCurrentContext) {
+        return await window.SBWSessionContext.getCurrentContext({ refresh: true });
+      }
+    } catch (error) {
+      console.warn("[SBW Sidebar] Não foi possível carregar contexto central:", error);
+    }
+
+    return null;
+  }
+
   async function getCurrentUserSafely() {
     try {
       const client = await waitForSupabaseClient();
@@ -161,9 +183,18 @@
     `;
   }
 
-  function renderLoggedInAccount(user) {
-    const name = escapeHtml(getDisplayNameFromUser(user));
-    const initial = escapeHtml(getInitialFromUser(user));
+  function renderLoggedInAccount(user, context = null) {
+    const displayName = context?.displayName || getDisplayNameFromUser(user);
+    const name = escapeHtml(displayName);
+    const initial = escapeHtml(String(displayName || getInitialFromUser(user)).trim().charAt(0).toUpperCase() || "S");
+    const adminItem = canAccessAdmin(context)
+      ? `
+          <a class="sbw-account-dropdown__item sbw-account-dropdown__item--primary" href="/admin/admin.html">
+            <span>⚙️</span>
+            <strong>Administrador</strong>
+          </a>
+        `
+      : "";
 
     return `
       <div class="sbw-account-compact" data-sbw-account-compact>
@@ -208,6 +239,8 @@
             <strong>Criar torneio</strong>
           </a>
 
+          ${adminItem}
+
           <button class="sbw-account-dropdown__item sbw-account-dropdown__item--danger" type="button" data-sbw-logout>
             <span>⏻</span>
             <strong>Sair</strong>
@@ -224,11 +257,12 @@
 
     accountArea.innerHTML = renderLoggedOutAccount();
 
-    const user = await getCurrentUserSafely();
+    const context = await getCurrentContextSafely();
+    const user = context?.user || await getCurrentUserSafely();
 
     if (!user) return;
 
-    accountArea.innerHTML = renderLoggedInAccount(user);
+    accountArea.innerHTML = renderLoggedInAccount(user, context);
 
     const logoutButton = accountArea.querySelector("[data-sbw-logout]");
 

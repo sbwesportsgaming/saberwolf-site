@@ -25,6 +25,23 @@
     return verificationStatus.verified || "verified";
   }
 
+  function localDemoFallbackAllowed() {
+    const host = String(window.location?.hostname || "").toLowerCase();
+    const cfg = window.SBW_TEAMS_CONFIG || {};
+
+    return Boolean(
+      cfg.allowLocalDemoFallback === true ||
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === ""
+    );
+  }
+
+  function localSupabaseMergeAllowed() {
+    const cfg = window.SBW_TEAMS_CONFIG || {};
+    return Boolean(cfg.allowLocalMergeWithSupabase === true && localDemoFallbackAllowed());
+  }
+
   function getNotVerifiedStatus() {
     return verificationStatus.notVerified || verificationStatus.not_verified || "not_verified";
   }
@@ -989,6 +1006,10 @@
       const supabaseTeams = await getAllTeamsFromSupabase();
 
       if (supabaseTeams.length > 0) {
+        if (!localSupabaseMergeAllowed()) {
+          return supabaseTeams;
+        }
+
         const map = new Map();
 
         supabaseTeams.forEach((team) => {
@@ -1003,7 +1024,11 @@
         return Array.from(map.values());
       }
 
-      console.warn("[SaberWolf Teams] Nenhuma equipe retornada do Supabase. Usando fallback local-demo.");
+      if (!localDemoFallbackAllowed()) {
+        return [];
+      }
+
+      console.warn("[SaberWolf Teams] Nenhuma equipe retornada do Supabase. Usando fallback local-demo apenas em ambiente local.");
     }
 
     return mergeDemoAndLocalTeams();
@@ -1040,6 +1065,10 @@
 
       if (supabaseMembers.length > 0) {
         return supabaseMembers;
+      }
+
+      if (!localDemoFallbackAllowed()) {
+        return [];
       }
     }
 
