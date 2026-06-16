@@ -1414,7 +1414,7 @@ function renderMembersCard(team, members) {
               <small>Upload e enquadramento serão ativados na próxima etapa.</small>
             </div>
           ` : ""}
-          <a class="sbw-admin-cover-edit" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}">
+          <a class="sbw-admin-cover-edit" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}#sbw-team-media-editor">
             Editar banner
           </a>
         </div>
@@ -1425,7 +1425,7 @@ function renderMembersCard(team, members) {
               ${renderTeamLogoVisual(team)}
             </div>
 
-            <a class="sbw-admin-logo-edit" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}">
+            <a class="sbw-admin-logo-edit" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}#sbw-team-media-editor">
               Editar logo
             </a>
           </div>
@@ -1585,8 +1585,38 @@ function renderMembersCard(team, members) {
         <input type="hidden" name="logoUrl" value="${escapeHtml(team.logoUrl || "")}" />
         <input type="hidden" name="bannerUrl" value="${escapeHtml(team.bannerUrl || "")}" />
 
+        <div id="sbw-team-media-editor" class="sbw-team-media-prep" aria-label="Preparação de logo e banner">
+          <div class="sbw-team-media-prep__item sbw-team-media-prep__item--cover">
+            <div class="sbw-team-media-prep__preview ${getTeamBannerUrl(team) ? "has-image" : ""}" ${getTeamBannerUrl(team) ? `style="background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.12), rgba(2, 6, 18, 0.48)), url('${escapeHtml(getTeamBannerUrl(team))}');"` : ""}>
+              ${!getTeamBannerUrl(team) ? `<span>Prévia do banner</span>` : ""}
+            </div>
+
+            <div class="sbw-team-media-prep__body">
+              <span>Imagem de capa</span>
+              <strong>Banner da equipe</strong>
+              <p>Área preparada para receber upload, recorte e reposicionamento na próxima etapa.</p>
+              <small>Recomendado: 1920×640px · JPG, PNG ou WebP · até 4 MB.</small>
+              <button class="sbw-team-btn" type="button" disabled aria-disabled="true">Alterar banner em breve</button>
+            </div>
+          </div>
+
+          <div class="sbw-team-media-prep__item sbw-team-media-prep__item--logo">
+            <div class="sbw-team-media-prep__logo">
+              ${renderTeamLogoVisual(team)}
+            </div>
+
+            <div class="sbw-team-media-prep__body">
+              <span>Imagem principal</span>
+              <strong>Logo da equipe</strong>
+              <p>O logo será usado no painel, perfil público, cards de equipe e rankings.</p>
+              <small>Recomendado: imagem quadrada 800×800px · PNG, JPG ou WebP · até 2 MB.</small>
+              <button class="sbw-team-btn" type="button" disabled aria-disabled="true">Alterar logo em breve</button>
+            </div>
+          </div>
+        </div>
+
         <p class="sbw-admin-note sbw-admin-note-tight">
-          Logo e banner serão editados no topo do painel, com upload e enquadramento em etapa futura. Por enquanto, esta área mantém apenas as cores públicas da equipe.
+          Esta etapa é apenas visual. O envio real para o Supabase Storage, validação de tamanho e recorte ficam para o próximo patch.
         </p>
 
         <div class="sbw-form-grid">
