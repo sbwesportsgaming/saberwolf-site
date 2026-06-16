@@ -1293,6 +1293,13 @@ function renderMembersCard(team, members) {
       <section class="sbw-admin-team-cover-block" aria-label="Identidade da equipe">
         <div class="sbw-admin-team-cover ${bannerUrl ? "has-banner" : ""}" ${coverStyle}>
           <div class="sbw-admin-team-cover__shade"></div>
+          ${!bannerUrl ? `
+            <div class="sbw-admin-team-cover__placeholder" aria-hidden="true">
+              <span>Banner da equipe</span>
+              <strong>${escapeHtml(team.name || "Equipe")}</strong>
+              <small>Upload e enquadramento serão ativados na próxima etapa.</small>
+            </div>
+          ` : ""}
           <a class="sbw-admin-cover-edit" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}">
             Editar banner
           </a>
@@ -1829,11 +1836,6 @@ function renderMembersCard(team, members) {
           </aside>
 
           <section class="sbw-admin-content">
-            <div class="sbw-admin-tab-heading">
-              <span>Área da equipe</span>
-              <h2>${escapeHtml(adminPanelTabs.find((tab) => tab.id === activeTab)?.label || "Geral")}</h2>
-            </div>
-
           <form class="sbw-admin-form" data-admin-team-form>
             <div class="${getAdminTabPanelClass("geral", activeTab)}" data-admin-tab-panel="geral">
               ${renderGeneralTab(team, state.members)}
