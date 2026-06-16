@@ -409,24 +409,24 @@
     const heroStyle = bannerUrl ? `style="--team-banner-image: url('${escapeHtml(bannerUrl)}');"` : "";
 
     return `
-      <section class="sbw-team-v2-hero sbw-team-v2-hero-clean ${bannerUrl ? "has-team-banner" : "is-team-banner-placeholder"}" ${heroStyle}>
+      <section class="sbw-team-v2-hero sbw-team-v2-hero-clean sbw-team-v2-hero-social sbw-team-v2-hero-facebook ${bannerUrl ? "has-team-banner" : "is-team-banner-placeholder"}" ${heroStyle}>
         <div class="sbw-team-v2-cover" aria-label="Banner público da equipe"></div>
 
-        <div class="sbw-team-v2-identity">
+        <div class="sbw-team-v2-profile-strip">
           ${renderLogo(team, "sbw-team-v2-logo")}
 
           <div class="sbw-team-v2-identity-main">
+            <h1>
+              ${escapeHtml(team.name || "Equipe SaberWolf")}
+              ${verified ? `<span class="sbw-verified-badge" title="${escapeHtml(getVerificationLabel(team))}">✓</span>` : ""}
+            </h1>
+
             <div class="sbw-team-v2-kicker-row">
               ${renderVerifiedBadge(team)}
               ${renderPill(getPublicTypeLabel(team), "")}
               ${renderPill(isSubteam(team) ? "Subequipe" : "Equipe principal", "")}
               ${recruitmentOpen ? renderPill("Recrutamento aberto", "sbw-team-v2-pill-success") : renderPill("Recrutamento fechado", "")}
             </div>
-
-            <h1>
-              ${escapeHtml(team.name || "Equipe SaberWolf")}
-              ${verified ? `<span class="sbw-verified-badge" title="${escapeHtml(getVerificationLabel(team))}">✓</span>` : ""}
-            </h1>
 
             <div class="sbw-team-v2-meta-line">
               <span>${escapeHtml(team.tag || "TAG")}</span>
@@ -448,12 +448,12 @@
                 : ""
             }
 
-            <div class="sbw-team-v2-actions">
-              ${website ? `<a class="sbw-team-v2-button sbw-team-v2-button-primary" href="${escapeHtml(website)}" target="_blank" rel="noopener noreferrer">Site oficial</a>` : ""}
-              <a class="sbw-team-v2-button" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "equipes.html")}">Ver outras equipes</a>
-            </div>
-
             ${renderParentTeamBox(parentTeam)}
+          </div>
+
+          <div class="sbw-team-v2-actions sbw-team-v2-hero-actions">
+            ${website ? `<a class="sbw-team-v2-button" href="${escapeHtml(website)}" target="_blank" rel="noopener noreferrer">Site oficial</a>` : ""}
+            <a class="sbw-team-v2-button sbw-team-v2-button-primary" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "equipes.html")}">Ver outras equipes</a>
           </div>
         </div>
       </section>

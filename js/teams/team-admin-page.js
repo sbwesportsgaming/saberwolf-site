@@ -894,6 +894,110 @@
     `;
   }
 
+function getCurrentMemberKeys() {
+  const user = state.currentUser || {};
+  const account = state.currentAccount || {};
+  const profile = account.profile || {};
+  const authUser = account.authUser || {};
+
+  return new Set(
+    [
+      user.id,
+      user.userId,
+      user.profileSlug,
+      user.profileId,
+      account.profileSlug,
+      authUser.id,
+      profile.id,
+      profile.slug,
+      profile.username,
+      profile.auth_user_id
+    ]
+      .filter(Boolean)
+      .map((value) => String(value))
+  );
+}
+
+function isCurrentMember(member) {
+  const keys = getCurrentMemberKeys();
+
+  if (!keys.size || !member) return false;
+
+  return [
+    member.id,
+    member.userId,
+    member.user_id,
+    member.authUserId,
+    member.auth_user_id,
+    member.profileId,
+    member.profile_id,
+    member.profileSlug,
+    member.profile_slug
+  ]
+    .filter(Boolean)
+    .some((value) => keys.has(String(value)));
+}
+
+function getMemberAvatarUrl(member) {
+  return (
+    member?.avatarUrl ||
+    member?.avatar_url ||
+    member?.profile?.avatar_url ||
+    member?.metadata?.avatarUrl ||
+    member?.metadata?.avatar_url ||
+    ""
+  );
+}
+
+function renderMemberAvatarVisual(member) {
+  const avatarUrl = getMemberAvatarUrl(member);
+
+  if (avatarUrl) {
+    return `<img src="${escapeHtml(avatarUrl)}" alt="Avatar ${escapeHtml(member.displayName || member.nickname || "do membro")}" />`;
+  }
+
+  return escapeHtml(getMemberInitials(member));
+}
+
+function countMembersByRole(members, role) {
+  return members.filter((member) => member.role === role).length;
+}
+
+function renderMembersSummary(team, members) {
+  const memberLimit = Number(team.memberLimit || config.limits.commonTeamMembers || 50);
+  const captain = members.find((member) => isCaptain(member));
+  const managers = countMembersByRole(members, config.memberRoles.manager) + countMembersByRole(members, config.memberRoles.viceCaptain);
+  const availableSlots = Math.max(memberLimit - members.length, 0);
+
+  return `
+    <div class="sbw-admin-member-summary-grid">
+      <div class="sbw-admin-member-summary-item">
+        <span>Membros ativos</span>
+        <strong>${escapeHtml(String(members.length))}/${escapeHtml(String(memberLimit))}</strong>
+        <small>limite atual da equipe</small>
+      </div>
+
+      <div class="sbw-admin-member-summary-item">
+        <span>Capitão</span>
+        <strong>${escapeHtml(captain?.nickname || captain?.displayName || team.captainName || "—")}</strong>
+        <small>responsável principal</small>
+      </div>
+
+      <div class="sbw-admin-member-summary-item">
+        <span>Gestão</span>
+        <strong>${escapeHtml(String(managers))}</strong>
+        <small>vice-capitães/managers</small>
+      </div>
+
+      <div class="sbw-admin-member-summary-item">
+        <span>Vagas</span>
+        <strong>${escapeHtml(String(availableSlots))}</strong>
+        <small>disponíveis no limite</small>
+      </div>
+    </div>
+  `;
+}
+
 function renderMembersCard(team, members) {
   const verified = isVerifiedTeam(team);
   const activeMembers = getActiveMembers(members);
@@ -904,11 +1008,13 @@ function renderMembersCard(team, members) {
       <div class="sbw-admin-card-heading">
         <div>
           <span>Membros</span>
-          <h3>Gerenciamento de membros</h3>
+          <h3>Lista da equipe</h3>
         </div>
 
         <small>${activeMembers.length}/${memberLimit} membros</small>
       </div>
+
+      ${renderMembersSummary(team, activeMembers)}
 
       ${
         verified
@@ -934,8 +1040,7 @@ function renderMembersCard(team, members) {
 
       <div class="sbw-admin-members-toolbar">
         <p>
-          Use esta lista para acompanhar cargos, funções públicas e organização interna da equipe.
-          Novos membros entram pelo fluxo de convites.
+          Lista privada de jogadores, cargos e funções públicas. O seu usuário fica destacado quando aparece no elenco.
         </p>
       </div>
 
@@ -953,11 +1058,15 @@ function renderMembersCard(team, members) {
 
               ${activeMembers
                 .map((member) => {
+                  const currentClass = isCurrentMember(member) ? " is-current-user" : "";
+                  const captainClass = isCaptain(member) ? " is-captain" : "";
+                  const rowClass = `sbw-admin-member-list-row${currentClass}${captainClass}`;
+
                   return `
-                    <article class="sbw-admin-member-list-row">
+                    <article class="${rowClass}">
                       <div class="sbw-admin-member-person">
-                        <div class="sbw-rank-avatar">
-                          ${escapeHtml(getMemberInitials(member))}
+                        <div class="sbw-rank-avatar sbw-admin-member-avatar">
+                          ${renderMemberAvatarVisual(member)}
                         </div>
 
                         <div>
@@ -967,6 +1076,11 @@ function renderMembersCard(team, members) {
                           </strong>
 
                           <small>${escapeHtml(member.nickname || "Membro")}</small>
+
+                          <div class="sbw-admin-member-pills">
+                            <span>${escapeHtml(getRoleLabel(member.role))}</span>
+                            ${isCurrentMember(member) ? `<span class="is-you">Você</span>` : ""}
+                          </div>
                         </div>
                       </div>
 

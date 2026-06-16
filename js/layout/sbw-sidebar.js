@@ -6,12 +6,12 @@
     { id: "news", label: "Notícias", href: "/blog/noticias.html", icon: "▤" },
     { id: "about", label: "Sobre", href: "/pages/sobre.html", icon: "ⓘ" },
     { id: "creators", label: "Creators", href: "/creators/creators.html", icon: "✦" },
-    { id: "profiles", label: "Perfis", href: "/perfis/perfis.html", icon: "♙" },
-    { id: "teams", label: "Equipes", href: "/equipes/equipes.html", icon: "♟" },
-    { id: "tournaments", label: "Torneios", href: "/torneios/torneios.html", icon: "🏆" },
+    { id: "profiles", label: "Perfis", href: "/perfis/perfis.html", icon: "♙", beta: true },
+    { id: "teams", label: "Equipes", href: "/equipes/equipes.html", icon: "♟", beta: true },
+    { id: "tournaments", label: "Torneios", href: "/torneios/torneios.html", icon: "🏆", beta: true },
     { id: "communities", label: "Comunidades", href: "/comunidades/comunidades.html", icon: "◎" },
-    { id: "rankings", label: "Rankings", href: "/rankings/rankings.html", icon: "▥" },
-    { id: "transfers", label: "Transferências", href: "/transferencias/transferencias.html", icon: "⇄" },
+    { id: "rankings", label: "Rankings", href: "/rankings/rankings.html", icon: "▥", beta: true },
+    { id: "transfers", label: "Transferências", href: "/transferencias/transferencias.html", icon: "⇄", beta: true },
     { id: "shop", label: "Loja", href: "/pages/loja.html", icon: "🛒" }
   ];
 
@@ -151,11 +151,17 @@
     return sidebarLinks
       .map((link) => {
         const isActive = link.id === activePage ? "is-active" : "";
+        const betaBadge = link.beta
+          ? `<span class="sbw-sidebar__beta-badge" aria-label="Área em beta">Beta</span>`
+          : "";
 
         return `
           <a class="sbw-sidebar__link ${isActive}" href="${link.href}" data-sbw-sidebar-nav>
             <span class="sbw-sidebar__icon">${link.icon}</span>
-            <span>${link.label}</span>
+            <span class="sbw-sidebar__label">
+              <span>${link.label}</span>
+              ${betaBadge}
+            </span>
           </a>
         `;
       })

@@ -1185,3 +1185,39 @@ body.sbw-has-sidebar :where(
     font-size: 14px !important;
   }
 }
+
+/* v1.6.41 - selo beta em áreas públicas ainda em teste */
+.sbw-sidebar__label {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+
+.sbw-sidebar__label > span:first-child {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.sbw-sidebar__beta-badge {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 17px !important;
+  padding: 3px 6px !important;
+  border: 1px solid rgba(34, 211, 238, 0.30) !important;
+  border-radius: 999px !important;
+  background: rgba(34, 211, 238, 0.10) !important;
+  color: rgba(165, 243, 252, 0.94) !important;
+  font-size: 9px !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.08) !important;
+}
