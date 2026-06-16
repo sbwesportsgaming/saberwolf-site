@@ -164,6 +164,22 @@
     return haystack.includes(needle);
   }
 
+  function sortProfilesByName(profiles = []) {
+    return [...profiles].sort((a, b) => {
+      const nameA = normalizeSearch(getProfileName(a));
+      const nameB = normalizeSearch(getProfileName(b));
+      return nameA.localeCompare(nameB, "pt-BR");
+    });
+  }
+
+  function sortTeamsByName(teams = []) {
+    return [...teams].sort((a, b) => {
+      const nameA = normalizeSearch(getTeamName(a));
+      const nameB = normalizeSearch(getTeamName(b));
+      return nameA.localeCompare(nameB, "pt-BR");
+    });
+  }
+
   function setStatus(message, tone = "muted") {
     const el = $("#sbwAdminSessionStatus");
     if (!el) return;
@@ -500,8 +516,8 @@
       if (key && !profilesByKey.has(key)) profilesByKey.set(key, profile);
     });
 
-    state.profiles = Array.from(profilesByKey.values());
-    state.teams = teams;
+    state.profiles = sortProfilesByName(Array.from(profilesByKey.values()));
+    state.teams = sortTeamsByName(teams);
 
     renderStats(organizerCount);
   }
@@ -729,7 +745,7 @@
 
     if (saved) {
       addLog(`Permissão ${permissionKey} alternada para ${getProfileName(profile)}.`);
-      renderProfileResults(state.profiles.filter((item) => matchesProfile(item, $("[data-sbw-admin-profile-search] input")?.value || "")));
+      renderProfileResults(sortProfilesByName(state.profiles.filter((item) => matchesProfile(item, $("[data-sbw-admin-profile-search] input")?.value || ""))));
 
       if (profile?.auth_user_id === state.context?.user?.id || profile?.id === state.context?.profile?.id) {
         window.SBWSessionContext?.clearCache?.();
@@ -860,7 +876,7 @@
     if (saved) {
       addLog(`${shouldVerify ? "Verificação concedida" : "Verificação removida"} para ${getTeamName(team)}.`);
       await refreshData();
-      renderTeamResults(state.teams.filter((item) => matchesTeam(item, $("[data-sbw-admin-team-search] input")?.value || "")));
+      renderTeamResults(sortTeamsByName(state.teams.filter((item) => matchesTeam(item, $("[data-sbw-admin-team-search] input")?.value || ""))));
     }
   }
 
@@ -895,7 +911,7 @@
           return;
         }
 
-        renderProfileResults(state.profiles.filter((profile) => matchesProfile(profile, query)));
+        renderProfileResults(sortProfilesByName(state.profiles.filter((profile) => matchesProfile(profile, query))));
       });
     }
 
@@ -910,7 +926,7 @@
           return;
         }
 
-        renderTeamResults(state.teams.filter((team) => matchesTeam(team, query)));
+        renderTeamResults(sortTeamsByName(state.teams.filter((team) => matchesTeam(team, query))));
       });
     }
   }
@@ -928,8 +944,13 @@
           await runRlsDiagnostics();
         }
 
+        if (action === "show-all-profiles") {
+          renderProfileResults(sortProfilesByName(state.profiles));
+          addLog(`Listando ${state.profiles.length} perfil(is) carregado(s) para a conta Admin.`);
+        }
+
         if (action === "show-all-teams") {
-          renderTeamResults(state.teams);
+          renderTeamResults(sortTeamsByName(state.teams));
           addLog(`Listando ${state.teams.length} equipe(s) carregada(s) para a conta Admin.`);
         }
 
