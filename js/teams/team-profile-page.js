@@ -401,15 +401,11 @@
     const meta = getMeta(team);
     const bannerUrl = safeUrl(team.bannerUrl || team.banner_url || "");
     const verified = isTeamVerified(team);
-    const memberLimit = Number(team.memberLimit || (verified ? getVerifiedTeamLimit() : getCommonTeamLimit()));
-    const activeMembers = getActiveMembers(members);
-    const focusTags = getFocusTags(team);
     const website = safeUrl(team.website || meta.website || team.socialLinks?.website || "");
-    const recruitmentOpen = Boolean(team.recruitment?.isOpen || meta.recruitment?.isOpen || team.recruiting === true || meta.recruiting === true);
     const heroStyle = bannerUrl ? `style="--team-banner-image: url('${escapeHtml(bannerUrl)}');"` : "";
 
     return `
-      <section class="sbw-team-v2-hero sbw-team-v2-hero-clean sbw-team-v2-hero-social sbw-team-v2-hero-facebook ${bannerUrl ? "has-team-banner" : "is-team-banner-placeholder"}" ${heroStyle}>
+      <section class="sbw-team-v2-hero sbw-team-v2-hero-clean sbw-team-v2-hero-social sbw-team-v2-hero-facebook sbw-team-v2-hero-minimal ${bannerUrl ? "has-team-banner" : "is-team-banner-placeholder"}" ${heroStyle}>
         <div class="sbw-team-v2-cover" aria-label="Banner público da equipe"></div>
 
         <div class="sbw-team-v2-profile-strip">
@@ -420,34 +416,6 @@
               ${escapeHtml(team.name || "Equipe SaberWolf")}
               ${verified ? `<span class="sbw-verified-badge" title="${escapeHtml(getVerificationLabel(team))}">✓</span>` : ""}
             </h1>
-
-            <div class="sbw-team-v2-kicker-row">
-              ${renderVerifiedBadge(team)}
-              ${renderPill(getPublicTypeLabel(team), "")}
-              ${renderPill(isSubteam(team) ? "Subequipe" : "Equipe principal", "")}
-              ${recruitmentOpen ? renderPill("Recrutamento aberto", "sbw-team-v2-pill-success") : renderPill("Recrutamento fechado", "")}
-            </div>
-
-            <div class="sbw-team-v2-meta-line">
-              <span>${escapeHtml(team.tag || "TAG")}</span>
-              <span>${escapeHtml(getLocationLabel(team))}</span>
-              <span>${activeMembers.length}/${memberLimit} membros</span>
-            </div>
-
-            <p class="sbw-team-v2-tagline">
-              ${escapeHtml(team.description || team.bio || "Perfil público da equipe dentro do ecossistema competitivo -SBW-.")}
-            </p>
-
-            ${
-              focusTags.length
-                ? `
-                  <div class="sbw-team-v2-tags">
-                    ${focusTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
-                  </div>
-                `
-                : ""
-            }
-
             ${renderParentTeamBox(parentTeam)}
           </div>
 
@@ -825,11 +793,15 @@
     `;
   }
 
-  function renderAbout(team) {
+  function renderAbout(team, members) {
     const meta = getMeta(team);
     const foundedAt = team.foundedAt || team.createdAt || meta.foundedAt || meta.foundationDate || "";
     const type = getPublicTypeLabel(team);
     const location = getLocationLabel(team);
+    const verified = isTeamVerified(team);
+    const memberLimit = Number(team.memberLimit || (verified ? getVerifiedTeamLimit() : getCommonTeamLimit()));
+    const activeMembers = getActiveMembers(members || []);
+    const recruitmentOpen = Boolean(team.recruitment?.isOpen || meta.recruitment?.isOpen || team.recruiting === true || meta.recruiting === true);
 
     return `
       <section class="sbw-team-v2-panel">
@@ -846,6 +818,9 @@
           <div><dt>Fundada em</dt><dd>${escapeHtml(formatDate(foundedAt))}</dd></div>
           <div><dt>Sede / região</dt><dd>${escapeHtml(location)}</dd></div>
           <div><dt>Tipo</dt><dd>${escapeHtml(type)}</dd></div>
+          <div><dt>Identidade</dt><dd>${escapeHtml(isSubteam(team) ? "Subequipe" : "Equipe principal")}</dd></div>
+          <div><dt>Membros</dt><dd>${escapeHtml(`${activeMembers.length}/${memberLimit}`)}</dd></div>
+          <div><dt>Recrutamento</dt><dd>${escapeHtml(recruitmentOpen ? "Aberto" : "Fechado")}</dd></div>
           <div><dt>Status</dt><dd>${escapeHtml(getVerificationLabel(team))}</dd></div>
         </dl>
       </section>
@@ -879,10 +854,10 @@
     `;
   }
 
-  function renderSide(team, subteams, parentTeam) {
+  function renderSide(team, subteams, parentTeam, members) {
     return `
       <aside class="sbw-team-v2-side">
-        ${renderAbout(team)}
+        ${renderAbout(team, members)}
 
         <section class="sbw-team-v2-panel">
           <header class="sbw-team-v2-panel-head">
@@ -959,7 +934,7 @@
             ${renderRecentResults(team)}
           </main>
 
-          ${renderSide(team, subteams, parentTeam)}
+          ${renderSide(team, subteams, parentTeam, members)}
         </div>
       </section>
     `;

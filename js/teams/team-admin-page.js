@@ -38,6 +38,13 @@
     { id: "variety", name: "Variedade / Outros jogos", category: "Casual / Multigaming" }
   ];
 
+  const teamAssetUploadConfig = {
+    bucket: "sbw-team-assets",
+    allowedTypes: ["image/png", "image/jpeg", "image/webp"],
+    logoMaxBytes: 2 * 1024 * 1024,
+    bannerMaxBytes: 4 * 1024 * 1024
+  };
+
   const publicTitleOptions = [
     {
       value: "",
@@ -1382,6 +1389,199 @@ function renderMembersCard(team, members) {
     return team?.bannerUrl || team?.banner_url || team?.banner || "";
   }
 
+  function getTeamAssetUrl(team, assetType) {
+    return assetType === "logo" ? getTeamLogoUrl(team) : getTeamBannerUrl(team);
+  }
+
+  function getSupabaseStorageClient() {
+    return window.SBWSupabase?.client?.storage || null;
+  }
+
+  function formatBytes(bytes) {
+    const safeBytes = Number(bytes || 0);
+    if (safeBytes >= 1024 * 1024) {
+      return `${(safeBytes / (1024 * 1024)).toFixed(1).replace(".0", "")} MB`;
+    }
+
+    return `${Math.max(1, Math.round(safeBytes / 1024))} KB`;
+  }
+
+  function getAssetMaxBytes(assetType) {
+    return assetType === "logo" ? teamAssetUploadConfig.logoMaxBytes : teamAssetUploadConfig.bannerMaxBytes;
+  }
+
+  function getAssetLabel(assetType) {
+    return assetType === "logo" ? "logo" : "banner";
+  }
+
+  function getFileExtension(file) {
+    const byName = String(file?.name || "").split(".").pop().toLowerCase();
+
+    if (["png", "jpg", "jpeg", "webp"].includes(byName)) {
+      return byName === "jpeg" ? "jpg" : byName;
+    }
+
+    if (file?.type === "image/png") return "png";
+    if (file?.type === "image/webp") return "webp";
+
+    return "jpg";
+  }
+
+  function getSafeAssetTeamSlug(team) {
+    return String(team?.slug || team?.id || "team")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "team";
+  }
+
+  function buildTeamAssetPath(team, assetType, file) {
+    const teamSlug = getSafeAssetTeamSlug(team);
+    const extension = getFileExtension(file);
+    const randomSuffix = Math.random().toString(36).slice(2, 8);
+
+    return `teams/${teamSlug}/${assetType}/${assetType}-${Date.now()}-${randomSuffix}.${extension}`;
+  }
+
+  function validateTeamAssetFile(file, assetType) {
+    if (!file) {
+      return `Selecione uma imagem para alterar o ${getAssetLabel(assetType)}.`;
+    }
+
+    if (!teamAssetUploadConfig.allowedTypes.includes(file.type)) {
+      return "Formato inválido. Use PNG, JPG ou WebP.";
+    }
+
+    const maxBytes = getAssetMaxBytes(assetType);
+
+    if (file.size > maxBytes) {
+      return `Arquivo muito grande. O limite para ${getAssetLabel(assetType)} é ${formatBytes(maxBytes)}.`;
+    }
+
+    return "";
+  }
+
+  function setTeamAssetFeedback(assetType, message, status) {
+    const feedback = document.querySelector(`[data-team-asset-feedback="${assetType}"]`);
+
+    if (!feedback) return;
+
+    feedback.textContent = message || "";
+    feedback.classList.remove("is-error", "is-success", "is-loading");
+
+    if (status) {
+      feedback.classList.add(`is-${status}`);
+    }
+  }
+
+  function setTeamAssetUploading(assetType, isUploading) {
+    const inputs = document.querySelectorAll(`[data-team-asset-input="${assetType}"]`);
+    const labels = document.querySelectorAll(`[data-team-asset-trigger="${assetType}"]`);
+
+    inputs.forEach((input) => {
+      input.disabled = Boolean(isUploading);
+    });
+
+    labels.forEach((label) => {
+      label.classList.toggle("is-uploading", Boolean(isUploading));
+      label.setAttribute("aria-busy", isUploading ? "true" : "false");
+    });
+  }
+
+  async function uploadTeamAssetToSupabase(file, assetType) {
+    const storageClient = getSupabaseStorageClient();
+
+    if (!storageClient) {
+      throw new Error("Supabase Storage indisponível nesta sessão.");
+    }
+
+    const path = buildTeamAssetPath(state.activeTeam, assetType, file);
+    const bucket = storageClient.from(teamAssetUploadConfig.bucket);
+    const uploadResult = await bucket.upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: false
+    });
+
+    if (uploadResult.error) {
+      throw uploadResult.error;
+    }
+
+    const publicUrlResult = bucket.getPublicUrl(path);
+    const publicUrl = publicUrlResult?.data?.publicUrl || "";
+
+    if (!publicUrl) {
+      throw new Error("Upload concluído, mas não foi possível gerar a URL pública.");
+    }
+
+    return publicUrl;
+  }
+
+  async function saveTeamAssetUrl(assetType, publicUrl) {
+    if (!state.activeTeam || !publicUrl) {
+      throw new Error("Equipe ou URL inválida.");
+    }
+
+    const client = await waitForSupabaseClient();
+    const teamKey = getSafeAssetTeamSlug(state.activeTeam);
+
+    if (!client?.rpc) {
+      throw new Error("Imagem enviada, mas a sessão Supabase não está disponível para salvar o link.");
+    }
+
+    const result = await client.rpc("sbw_update_team_asset_url", {
+      team_key: teamKey,
+      asset_type: assetType,
+      asset_url: publicUrl
+    });
+
+    if (result.error) {
+      console.error("[SBW Team Admin] Falha ao salvar URL da mídia da equipe:", result.error);
+      throw new Error(result.error.message || "Imagem enviada, mas não foi possível salvar o link na equipe.");
+    }
+
+    const savedTeam = result.data
+      ? (typeof storage.normalizeSupabaseTeam === "function" ? storage.normalizeSupabaseTeam(result.data) : result.data)
+      : null;
+
+    if (!savedTeam) {
+      throw new Error("Imagem enviada, mas o banco não retornou a equipe atualizada.");
+    }
+
+    state.activeTeam = savedTeam;
+    await reloadState(savedTeam.id || savedTeam.slug || getTeamKey(savedTeam));
+    renderAdminPanel();
+  }
+
+  async function handleTeamAssetInputChange(event) {
+    const input = event.currentTarget;
+    const assetType = input.dataset.teamAssetInput;
+    const file = input.files?.[0] || null;
+    const validationError = validateTeamAssetFile(file, assetType);
+
+    if (validationError) {
+      setTeamAssetFeedback(assetType, validationError, "error");
+      input.value = "";
+      return;
+    }
+
+    setTeamAssetUploading(assetType, true);
+    setTeamAssetFeedback(assetType, `Enviando ${getAssetLabel(assetType)}...`, "loading");
+
+    try {
+      const publicUrl = await uploadTeamAssetToSupabase(file, assetType);
+      setTeamAssetFeedback(assetType, "Upload concluído. Salvando no perfil da equipe...", "loading");
+      await saveTeamAssetUrl(assetType, publicUrl);
+      setTeamAssetFeedback(assetType, `${getAssetLabel(assetType).replace(/^./, (letter) => letter.toUpperCase())} atualizado com sucesso.`, "success");
+    } catch (error) {
+      console.error(`[SBW Team Admin] Falha ao enviar ${assetType}:`, error);
+      setTeamAssetFeedback(assetType, error?.message || "Não foi possível enviar a imagem.", "error");
+    } finally {
+      setTeamAssetUploading(assetType, false);
+      input.value = "";
+    }
+  }
+
   function renderTeamLogoVisual(team) {
     const logoUrl = getTeamLogoUrl(team);
 
@@ -1582,26 +1782,32 @@ function renderMembersCard(team, members) {
           </div>
         </div>
 
-        <input type="hidden" name="logoUrl" value="${escapeHtml(team.logoUrl || "")}" />
-        <input type="hidden" name="bannerUrl" value="${escapeHtml(team.bannerUrl || "")}" />
+        <input type="hidden" name="logoUrl" value="${escapeHtml(getTeamLogoUrl(team))}" />
+        <input type="hidden" name="bannerUrl" value="${escapeHtml(getTeamBannerUrl(team))}" />
 
-        <div id="sbw-team-media-editor" class="sbw-team-media-prep" aria-label="Preparação de logo e banner">
+        <div id="sbw-team-media-editor" class="sbw-team-media-prep" aria-label="Upload de logo e banner">
           <div class="sbw-team-media-prep__item sbw-team-media-prep__item--cover">
-            <div class="sbw-team-media-prep__preview ${getTeamBannerUrl(team) ? "has-image" : ""}" ${getTeamBannerUrl(team) ? `style="background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.12), rgba(2, 6, 18, 0.48)), url('${escapeHtml(getTeamBannerUrl(team))}');"` : ""}>
+            <div class="sbw-team-media-prep__preview ${getTeamBannerUrl(team) ? "has-image" : ""}" data-team-media-preview="banner" ${getTeamBannerUrl(team) ? `style="background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.12), rgba(2, 6, 18, 0.48)), url('${escapeHtml(getTeamBannerUrl(team))}');"` : ""}>
               ${!getTeamBannerUrl(team) ? `<span>Prévia do banner</span>` : ""}
             </div>
 
             <div class="sbw-team-media-prep__body">
               <span>Imagem de capa</span>
               <strong>Banner da equipe</strong>
-              <p>Área preparada para receber upload, recorte e reposicionamento na próxima etapa.</p>
+              <p>Envie a capa pública da equipe. Ela aparece no painel Minha Equipe e no perfil público.</p>
               <small>Recomendado: 1920×640px · JPG, PNG ou WebP · até 4 MB.</small>
-              <button class="sbw-team-btn" type="button" disabled aria-disabled="true">Alterar banner em breve</button>
+
+              <label class="sbw-team-btn sbw-team-btn-primary sbw-team-upload-trigger" data-team-asset-trigger="banner">
+                <input type="file" accept="image/png,image/jpeg,image/webp" data-team-asset-input="banner" />
+                <span>Alterar banner</span>
+              </label>
+
+              <small class="sbw-media-upload-feedback" data-team-asset-feedback="banner"></small>
             </div>
           </div>
 
           <div class="sbw-team-media-prep__item sbw-team-media-prep__item--logo">
-            <div class="sbw-team-media-prep__logo">
+            <div class="sbw-team-media-prep__logo" data-team-media-preview="logo">
               ${renderTeamLogoVisual(team)}
             </div>
 
@@ -1610,13 +1816,19 @@ function renderMembersCard(team, members) {
               <strong>Logo da equipe</strong>
               <p>O logo será usado no painel, perfil público, cards de equipe e rankings.</p>
               <small>Recomendado: imagem quadrada 800×800px · PNG, JPG ou WebP · até 2 MB.</small>
-              <button class="sbw-team-btn" type="button" disabled aria-disabled="true">Alterar logo em breve</button>
+
+              <label class="sbw-team-btn sbw-team-btn-primary sbw-team-upload-trigger" data-team-asset-trigger="logo">
+                <input type="file" accept="image/png,image/jpeg,image/webp" data-team-asset-input="logo" />
+                <span>Alterar logo</span>
+              </label>
+
+              <small class="sbw-media-upload-feedback" data-team-asset-feedback="logo"></small>
             </div>
           </div>
         </div>
 
         <p class="sbw-admin-note sbw-admin-note-tight">
-          Esta etapa é apenas visual. O envio real para o Supabase Storage, validação de tamanho e recorte ficam para o próximo patch.
+          Upload real ativo via Supabase Storage. Após selecionar a imagem, o sistema envia o arquivo e salva automaticamente o link na equipe. Recorte e reposicionamento ficam para uma etapa futura.
         </p>
 
         <div class="sbw-form-grid">
@@ -2693,6 +2905,10 @@ function renderMembersCard(team, members) {
         });
       });
     }
+
+    document.querySelectorAll("[data-team-asset-input]").forEach((input) => {
+      input.addEventListener("change", handleTeamAssetInputChange);
+    });
 
     document.querySelectorAll("[data-member-role-select]").forEach((select) => {
       select.addEventListener("change", handleMemberRoleChange);

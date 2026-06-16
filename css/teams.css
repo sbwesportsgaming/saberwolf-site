@@ -5637,8 +5637,53 @@ body.sbw-team-public-body .sbw-team-v2-hero-facebook .sbw-team-v2-button-primary
 .sbw-team-media-prep__body .sbw-team-btn {
   width: fit-content;
   margin-top: 4px;
-  opacity: 0.66;
-  cursor: not-allowed;
+}
+
+.sbw-team-upload-trigger {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sbw-team-upload-trigger input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sbw-team-upload-trigger.is-uploading {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.sbw-team-upload-trigger.is-uploading span::after {
+  content: "...";
+}
+
+.sbw-media-upload-feedback {
+  display: block;
+  min-height: 1.1rem;
+  color: rgba(148, 163, 184, 0.96);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.sbw-media-upload-feedback:empty {
+  display: none;
+}
+
+.sbw-media-upload-feedback.is-loading {
+  color: rgba(125, 211, 252, 0.96);
+}
+
+.sbw-media-upload-feedback.is-success {
+  color: rgba(134, 239, 172, 0.98);
+}
+
+.sbw-media-upload-feedback.is-error {
+  color: rgba(252, 165, 165, 0.98);
 }
 
 @media (max-width: 980px) {
@@ -5662,5 +5707,191 @@ body.sbw-team-public-body .sbw-team-v2-hero-facebook .sbw-team-v2-button-primary
     width: 96px;
     height: 96px;
     border-radius: 24px;
+  }
+}
+
+/* =========================================================
+   SaberWolf v1.6.44.2 — Perfil público: capa limpa e identidade mínima
+   Escopo: /equipes/equipe.html
+   Mantém o upload real funcionando e melhora a apresentação pública:
+   banner maior, logo menor/sem corte e informações duplicadas fora do hero.
+   ========================================================= */
+body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-facebook.sbw-team-v2-hero-minimal {
+  border-radius: 34px;
+  background: rgba(3, 8, 20, 0.96);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
+  min-height: clamp(310px, 30vw, 455px);
+  background:
+    linear-gradient(90deg, rgba(3, 8, 20, 0.12) 0%, rgba(3, 8, 20, 0.02) 46%, rgba(3, 8, 20, 0.20) 100%),
+    linear-gradient(180deg, rgba(3, 8, 20, 0.02) 0%, rgba(3, 8, 20, 0.10) 58%, rgba(3, 8, 20, 0.36) 100%),
+    var(--team-banner-image, radial-gradient(circle at 78% 24%, color-mix(in srgb, var(--team-primary) 34%, transparent), transparent 20rem)),
+    linear-gradient(135deg, rgba(8, 19, 36, 0.98), rgba(2, 6, 23, 0.98));
+  background-size: cover;
+  background-position: center;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover::before {
+  background:
+    linear-gradient(180deg, transparent 66%, rgba(3, 8, 20, 0.48) 100%);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+  grid-template-columns: clamp(112px, 9vw, 144px) minmax(0, 1fr) auto;
+  gap: clamp(18px, 2.4vw, 34px);
+  align-items: center;
+  padding: 0 clamp(28px, 4.2vw, 64px) clamp(22px, 2.5vw, 34px);
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.90) 0%, rgba(2, 6, 23, 0.98) 100%),
+    radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--team-primary) 10%, transparent), transparent 18rem);
+}
+
+body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo {
+  width: clamp(112px, 9vw, 144px);
+  height: clamp(112px, 9vw, 144px);
+  margin-top: clamp(-72px, -4.8vw, -52px);
+  border-radius: clamp(22px, 1.7vw, 28px);
+  background: rgba(2, 6, 23, 0.94);
+  box-shadow:
+    0 0 0 7px rgba(2, 6, 23, 0.84),
+    0 20px 50px rgba(0, 0, 0, 0.48),
+    0 0 34px color-mix(in srgb, var(--team-primary) 22%, transparent);
+}
+
+body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8px;
+  background: rgba(2, 6, 23, 0.92);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-identity-main {
+  align-self: center;
+  padding: clamp(18px, 2vw, 28px) 0 0;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 4.45rem);
+  line-height: 0.98;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-kicker-row,
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-meta-line,
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-tagline,
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-tags {
+  display: none !important;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+  align-self: center;
+  margin: clamp(18px, 2vw, 28px) 0 0;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-parent {
+  margin-top: 10px;
+}
+
+@media (max-width: 1180px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+    grid-template-columns: clamp(104px, 13vw, 132px) minmax(0, 1fr);
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
+    min-height: 220px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+    grid-template-columns: 1fr;
+    padding: 0 20px 24px;
+  }
+
+  body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo {
+    width: 104px;
+    height: 104px;
+    margin-top: -52px;
+    border-radius: 22px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-identity-main {
+    padding-top: 0;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+    grid-column: auto;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+}
+
+/* =========================================================
+   SaberWolf v1.6.44.3 — Perfil público: encaixe da logo
+   Escopo: /equipes/equipe.html
+   Ajuste visual fino: deixa a logo menor, bem encaixada no frame
+   e evita sobra/rebarba visual dentro da área de identidade.
+   ========================================================= */
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+  grid-template-columns: clamp(96px, 7.4vw, 118px) minmax(0, 1fr) auto;
+  gap: clamp(20px, 2.2vw, 34px);
+  align-items: center;
+}
+
+body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo {
+  width: clamp(96px, 7.4vw, 118px);
+  height: clamp(96px, 7.4vw, 118px);
+  margin-top: clamp(-58px, -4vw, -44px);
+  padding: 0;
+  overflow: hidden;
+  border-radius: clamp(18px, 1.45vw, 24px);
+  background: rgba(2, 6, 23, 0.98);
+  border: 1px solid color-mix(in srgb, var(--team-primary) 72%, rgba(255, 255, 255, 0.08));
+  box-shadow:
+    0 0 0 5px rgba(2, 6, 23, 0.92),
+    0 18px 40px rgba(0, 0, 0, 0.48),
+    0 0 24px color-mix(in srgb, var(--team-primary) 18%, transparent);
+}
+
+body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0 !important;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: center;
+  background: transparent;
+}
+
+body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo span {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  font-size: clamp(1.45rem, 2vw, 2.25rem);
+}
+
+@media (max-width: 1180px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+    grid-template-columns: clamp(92px, 12vw, 112px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo {
+    width: 92px;
+    height: 92px;
+    margin-top: -46px;
+    border-radius: 20px;
   }
 }
