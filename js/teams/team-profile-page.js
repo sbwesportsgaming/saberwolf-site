@@ -406,19 +406,21 @@
     const focusTags = getFocusTags(team);
     const website = safeUrl(team.website || meta.website || team.socialLinks?.website || "");
     const recruitmentOpen = Boolean(team.recruitment?.isOpen || meta.recruitment?.isOpen || team.recruiting === true || meta.recruiting === true);
+    const heroStyle = bannerUrl ? `style="--team-banner-image: url('${escapeHtml(bannerUrl)}');"` : "";
 
     return `
-      <section class="sbw-team-v2-hero" ${bannerUrl ? `style="--team-banner-image: url('${escapeHtml(bannerUrl)}');"` : ""}>
-        <div class="sbw-team-v2-hero-bg"></div>
-        <div class="sbw-team-v2-hero-inner">
+      <section class="sbw-team-v2-hero sbw-team-v2-hero-clean ${bannerUrl ? "has-team-banner" : "is-team-banner-placeholder"}" ${heroStyle}>
+        <div class="sbw-team-v2-cover" aria-label="Banner público da equipe"></div>
+
+        <div class="sbw-team-v2-identity">
           ${renderLogo(team, "sbw-team-v2-logo")}
 
-          <div class="sbw-team-v2-hero-content">
+          <div class="sbw-team-v2-identity-main">
             <div class="sbw-team-v2-kicker-row">
               ${renderVerifiedBadge(team)}
               ${renderPill(getPublicTypeLabel(team), "")}
               ${renderPill(isSubteam(team) ? "Subequipe" : "Equipe principal", "")}
-              ${recruitmentOpen ? renderPill("Recrutamento aberto", "sbw-team-v2-pill-success") : ""}
+              ${recruitmentOpen ? renderPill("Recrutamento aberto", "sbw-team-v2-pill-success") : renderPill("Recrutamento fechado", "")}
             </div>
 
             <h1>
@@ -426,15 +428,15 @@
               ${verified ? `<span class="sbw-verified-badge" title="${escapeHtml(getVerificationLabel(team))}">✓</span>` : ""}
             </h1>
 
-            <p class="sbw-team-v2-tagline">
-              ${escapeHtml(team.description || team.bio || "Perfil público da equipe dentro do ecossistema competitivo -SBW-.")}
-            </p>
-
             <div class="sbw-team-v2-meta-line">
               <span>${escapeHtml(team.tag || "TAG")}</span>
               <span>${escapeHtml(getLocationLabel(team))}</span>
               <span>${activeMembers.length}/${memberLimit} membros</span>
             </div>
+
+            <p class="sbw-team-v2-tagline">
+              ${escapeHtml(team.description || team.bio || "Perfil público da equipe dentro do ecossistema competitivo -SBW-.")}
+            </p>
 
             ${
               focusTags.length
@@ -448,7 +450,7 @@
 
             <div class="sbw-team-v2-actions">
               ${website ? `<a class="sbw-team-v2-button sbw-team-v2-button-primary" href="${escapeHtml(website)}" target="_blank" rel="noopener noreferrer">Site oficial</a>` : ""}
-              <a class="sbw-team-v2-button" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "equipes.html")}">Ver equipes</a>
+              <a class="sbw-team-v2-button" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "equipes.html")}">Ver outras equipes</a>
             </div>
 
             ${renderParentTeamBox(parentTeam)}
@@ -473,21 +475,23 @@
 
   function renderMetrics(team, members) {
     const stats = team.stats || {};
+    const meta = getMeta(team);
     const activeMembers = getActiveMembers(members);
-    const players = getPlayerMembers(members);
     const games = Array.isArray(team.games) ? team.games : [];
     const verified = isTeamVerified(team);
     const limit = Number(team.memberLimit || (verified ? getVerifiedTeamLimit() : getCommonTeamLimit()));
     const rank = stats.rankPosition || stats.rankingPosition || stats.globalRank || team.rankingPosition || "—";
+    const recruitment = asObject(team.recruitment || meta.recruitment);
+    const recruitmentOpen = Boolean(recruitment.isOpen || team.recruiting === true || meta.recruiting === true);
 
     return `
       <section class="sbw-team-v2-metrics" aria-label="Métricas da equipe">
         ${renderMetric("👥", "Membros", activeMembers.length, `limite ${limit}`)}
-        ${renderMetric("🎮", "Jogadores ativos", players.length, "roster atual")}
-        ${renderMetric("▦", "Jogos / divisões", games.length, "modalidades")}
+        ${renderMetric("🎮", "Jogos / divisões", games.length, "modalidades")}
         ${renderMetric("🏆", "Títulos -SBW-", Number(stats.titles || 0), `${Number(stats.podiums || 0)} pódios`)}
-        ${renderMetric("📅", "Torneios", Number(stats.tournamentsPlayed || 0), "histórico interno")}
-        ${renderMetric("#", "Ranking", rank === "—" ? "—" : `#${rank}`, "global/equipe")}
+        ${renderMetric("📅", "Torneios", Number(stats.tournamentsPlayed || 0), "histórico")}
+        ${renderMetric("#", "Ranking", rank === "—" ? "—" : `#${rank}`, "global SBW")}
+        ${renderMetric("🔎", "Recrutamento", recruitmentOpen ? "Aberto" : "Fechado", "status público")}
       </section>
     `;
   }
@@ -646,7 +650,7 @@
         <header class="sbw-team-v2-panel-head">
           <div>
             <span>Conquistas -SBW-</span>
-            <h2>Títulos e pódios internos</h2>
+            <h2>Títulos</h2>
           </div>
         </header>
 
@@ -655,7 +659,7 @@
             ? `<div class="sbw-team-v2-achievement-list">${items.slice(0, 6).map(renderAchievementItem).join("")}</div>`
             : `
               <div class="sbw-team-v2-empty">
-                Nenhuma conquista interna registrada ainda. Resultados de torneios da plataforma poderão aparecer aqui conforme forem finalizados.
+                Nenhum título registrado ainda. Resultados oficiais da plataforma poderão aparecer aqui conforme forem finalizados.
               </div>
             `
         }
