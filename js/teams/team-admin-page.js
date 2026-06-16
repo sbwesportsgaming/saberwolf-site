@@ -534,99 +534,12 @@
       .toUpperCase();
   }
 
-  function localDemoFallbackAllowed() {
-    const host = String(window.location?.hostname || "").toLowerCase();
-    return host === "localhost" || host === "127.0.0.1" || host === "" || window.SBW_TEAMS_CONFIG?.allowLocalDemoFallback === true;
-  }
-
-  function isLocalDemoTeam(team) {
-    const source = String(team?.source || "").toLowerCase();
-    const id = String(team?.id || team?.slug || "").toLowerCase();
-
-    return (
-      source.includes("local") ||
-      source.includes("demo") ||
-      id.includes("demo") ||
-      id.includes("team-sbw-fgc")
-    );
-  }
-
-  function teamMatchesContextCurrentTeam(team) {
-    const currentTeam = state.currentAccount?.context?.currentTeam || null;
-    if (!team || !currentTeam) return false;
-
-    const currentKeys = [
-      currentTeam.id,
-      currentTeam.slug,
-      currentTeam.teamId,
-      currentTeam.teamSlug,
-      currentTeam.supabaseId
-    ].map((value) => String(value || "")).filter(Boolean);
-
-    const teamKeys = [
-      team.id,
-      team.slug,
-      team.teamId,
-      team.teamSlug,
-      team.supabaseId
-    ].map((value) => String(value || "")).filter(Boolean);
-
-    return teamKeys.some((key) => currentKeys.includes(key));
-  }
-
-  function teamBelongsDirectlyToCurrentProfile(team) {
-    const context = state.currentAccount?.context || null;
-
-    if (!team || !context) return false;
-
-    if (teamMatchesContextCurrentTeam(team)) return true;
-
-    if (window.SBWSessionContext?.teamBelongsToProfile) {
-      try {
-        return window.SBWSessionContext.teamBelongsToProfile(team, context);
-      } catch (error) {
-        return false;
-      }
-    }
-
-    return false;
-  }
-
-  function sortTeamsForMyTeamPage(teams) {
-    return [...teams].sort((a, b) => {
-      const aCurrent = teamMatchesContextCurrentTeam(a) ? 0 : 1;
-      const bCurrent = teamMatchesContextCurrentTeam(b) ? 0 : 1;
-      if (aCurrent !== bCurrent) return aCurrent - bCurrent;
-
-      const aDirect = teamBelongsDirectlyToCurrentProfile(a) ? 0 : 1;
-      const bDirect = teamBelongsDirectlyToCurrentProfile(b) ? 0 : 1;
-      if (aDirect !== bDirect) return aDirect - bDirect;
-
-      const aDemo = isLocalDemoTeam(a) ? 1 : 0;
-      const bDemo = isLocalDemoTeam(b) ? 1 : 0;
-      if (aDemo !== bDemo) return aDemo - bDemo;
-
-      return String(a.name || "").localeCompare(String(b.name || ""), "pt-BR");
-    });
-  }
-
   function getOwnedTeams() {
     const user = state.currentUser;
-    const manageable = state.teams.filter((team) => {
+
+    return state.teams.filter((team) => {
       return canManageTeam(user, team);
     });
-
-    const directTeams = manageable.filter(teamBelongsDirectlyToCurrentProfile);
-
-    if (directTeams.length) {
-      return sortTeamsForMyTeamPage(directTeams);
-    }
-
-    if (!localDemoFallbackAllowed()) {
-      return sortTeamsForMyTeamPage(manageable.filter((team) => !isLocalDemoTeam(team)));
-    }
-
-    return sortTeamsForMyTeamPage(manageable);
   }
 
   function getGameIds(team) {
@@ -683,7 +596,7 @@
       return member.role === config.memberRoles.captain;
     });
 
-    if (!hasCaptain && (localDemoFallbackAllowed() || String(team.source || "").toLowerCase() !== "supabase")) {
+    if (!hasCaptain) {
       const captainMember = saveLocalMember({
         id: `member-${team.slug || team.id}-${team.captainUserId || "captain"}`,
         teamId: team.slug || team.id,
@@ -1214,7 +1127,10 @@ function renderMembersCard(team, members) {
 
   function renderGamesCard(team) {
     const selectedGameIds = getGameIds(team);
-    const gameOptions = getMergedGameOptions(team);
+    const gameOptions = getMergedGameOptions(team)
+      .slice()
+      .sort((a, b) => String(a.name || a.id || "").localeCompare(String(b.name || b.id || ""), "pt-BR"));
+    const selectedGames = gameOptions.filter((game) => selectedGameIds.has(game.id));
 
     return `
       <div class="sbw-admin-card">
@@ -1227,29 +1143,50 @@ function renderMembersCard(team, members) {
           <small>${selectedGameIds.size} selecionado${selectedGameIds.size === 1 ? "" : "s"}</small>
         </div>
 
-        <div class="sbw-admin-game-picker">
-          ${gameOptions
-            .map((game) => {
-              const checked = selectedGameIds.has(game.id) ? "checked" : "";
-
-              return `
-                <label class="sbw-game-option">
-                  <input
-                    type="checkbox"
-                    value="${escapeHtml(game.id)}"
-                    data-admin-game-option
-                    ${checked}
-                  />
-
-                  <span>
-                    <strong>${escapeHtml(game.name)}</strong>
-                    <small>${escapeHtml(game.category || "Modalidade")}</small>
-                  </span>
-                </label>
-              `;
-            })
-            .join("")}
+        <div class="sbw-admin-selected-games">
+          ${
+            selectedGames.length
+              ? selectedGames
+                  .map((game) => `<span>${escapeHtml(game.name || game.id || "Modalidade")}</span>`)
+                  .join("")
+              : `<small>Nenhum jogo selecionado ainda.</small>`
+          }
         </div>
+
+        <div class="sbw-admin-game-tools">
+          <label class="sbw-form-field">
+            <span>Buscar jogo</span>
+            <input type="search" placeholder="Digite o nome do jogo" data-admin-game-search />
+          </label>
+        </div>
+
+        <details class="sbw-admin-game-browser">
+          <summary>Selecionar jogos em ordem alfabética</summary>
+
+          <div class="sbw-admin-game-picker" data-admin-game-list>
+            ${gameOptions
+              .map((game) => {
+                const checked = selectedGameIds.has(game.id) ? "checked" : "";
+
+                return `
+                  <label class="sbw-game-option" data-game-name="${escapeHtml(String(game.name || game.id || "").toLowerCase())}">
+                    <input
+                      type="checkbox"
+                      value="${escapeHtml(game.id)}"
+                      data-admin-game-option
+                      ${checked}
+                    />
+
+                    <span>
+                      <strong>${escapeHtml(game.name)}</strong>
+                      <small>${escapeHtml(game.category || "Modalidade")}</small>
+                    </span>
+                  </label>
+                `;
+              })
+              .join("")}
+          </div>
+        </details>
       </div>
     `;
   }
@@ -1323,6 +1260,82 @@ function renderMembersCard(team, members) {
     `;
   }
 
+  function getTeamLogoUrl(team) {
+    return team?.logoUrl || team?.logo_url || team?.logo || "";
+  }
+
+  function getTeamBannerUrl(team) {
+    return team?.bannerUrl || team?.banner_url || team?.banner || "";
+  }
+
+  function renderTeamLogoVisual(team) {
+    const logoUrl = getTeamLogoUrl(team);
+
+    if (logoUrl) {
+      return `<img src="${escapeHtml(logoUrl)}" alt="Logo ${escapeHtml(team.name || "da equipe")}" />`;
+    }
+
+    return `<span>${escapeHtml(getTeamInitials(team))}</span>`;
+  }
+
+  function renderTeamAdminCover(team) {
+    const bannerUrl = getTeamBannerUrl(team);
+    const teamKey = getTeamKey(team);
+    const isVerified = team.verificationStatus === config.verificationStatus.verified || team.isVerified || team.is_verified;
+    const typeLabel = models.getTeamTypeLabel(team);
+    const memberLimit = Number(team.memberLimit || config.limits.commonTeamMembers || 50);
+    const activeMembers = getActiveMembers(state.members || []);
+    const coverStyle = bannerUrl
+      ? `style="background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.10), rgba(2, 6, 18, 0.70)), url('${escapeHtml(bannerUrl)}');"`
+      : "";
+
+    return `
+      <section class="sbw-admin-team-cover-block" aria-label="Identidade da equipe">
+        <div class="sbw-admin-team-cover ${bannerUrl ? "has-banner" : ""}" ${coverStyle}>
+          <div class="sbw-admin-team-cover__shade"></div>
+          <a class="sbw-admin-cover-edit" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}">
+            Editar banner
+          </a>
+        </div>
+
+        <div class="sbw-admin-team-identity-strip">
+          <div class="sbw-admin-team-avatar-wrap">
+            <div class="sbw-admin-team-cover__logo">
+              ${renderTeamLogoVisual(team)}
+            </div>
+
+            <a class="sbw-admin-logo-edit" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}">
+              Editar logo
+            </a>
+          </div>
+
+          <div class="sbw-admin-team-cover__info">
+            <span class="sbw-admin-kicker">Minha equipe</span>
+
+            <h1>
+              ${escapeHtml(team.name || "Equipe")}
+              ${isVerified ? `<span class="sbw-verified-badge">✓</span>` : ""}
+            </h1>
+
+            <p>
+              ${escapeHtml(team.tag || "SBW")} · ${escapeHtml(typeLabel)} · ${activeMembers.length}/${memberLimit} membros
+            </p>
+          </div>
+
+          <div class="sbw-admin-team-cover__actions">
+            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(teamKey)}">
+              Ver perfil público
+            </a>
+
+            <a class="sbw-team-btn" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}">
+              Editar identidade
+            </a>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
   function getRecruitmentLabel(team) {
     return team?.recruitment?.isOpen || team?.metadata?.recruitmentOpen ? "Aberto" : "Fechado";
   }
@@ -1375,35 +1388,25 @@ function renderMembersCard(team, members) {
         <div class="sbw-admin-status-box">
           <strong>${escapeHtml(verifiedLabel)}</strong>
           <span>
-            Este painel é a central privada da equipe. Use as abas para editar perfil público,
-            membros, convites, títulos, rankings e redes sociais sem misturar com a página pública.
+            Visão geral privada da equipe. Membros, convites, títulos, rankings e redes sociais ficam organizados nas abas laterais.
           </span>
-        </div>
-
-        <div class="sbw-admin-actions">
-          <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(getTeamKey(team))}">
-            Ver perfil público
-          </a>
-
-          <a class="sbw-team-btn" href="equipes.html">
-            Lista de equipes
-          </a>
         </div>
       </div>
 
       <div class="sbw-admin-card">
         <div class="sbw-admin-card-heading">
           <div>
-            <span>Próximas áreas</span>
-            <h3>Estrutura do painel</h3>
+            <span>Recrutamento</span>
+            <h3>Regras e disponibilidade</h3>
           </div>
+
+          <small>${escapeHtml(getRecruitmentLabel(team) === "Aberto" ? "Recrutamento aberto" : "Recrutamento fechado")}</small>
         </div>
 
         <div class="sbw-admin-feature-list">
-          <div><strong>Perfil público</strong><span>Nome, tag, descrição, identidade visual, modalidades e recrutamento.</span></div>
-          <div><strong>Membros</strong><span>Capitão, staff, cargos internos e funções públicas.</span></div>
-          <div><strong>Convites</strong><span>Busca de jogadores, convites enviados e solicitações recebidas.</span></div>
-          <div><strong>Rankings</strong><span>Posição global da equipe e leitura por modalidade.</span></div>
+          <div><strong>Modalidades com vagas</strong><span>${escapeHtml(arrayToCsv(team.recruitment?.games || team.metadata?.recruitmentGames || []) || "Nenhuma modalidade informada.")}</span></div>
+          <div><strong>Regras de entrada</strong><span>${escapeHtml(team.recruitment?.description || team.metadata?.recruitmentDescription || "Nenhuma regra pública informada ainda.")}</span></div>
+          <a class="sbw-admin-feature-link" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}"><strong>Editar recrutamento</strong><span>Ajuste status, modalidades e regras no perfil público da equipe.</span></a>
         </div>
       </div>
     `;
@@ -1454,23 +1457,18 @@ function renderMembersCard(team, members) {
         <div class="sbw-admin-card-heading">
           <div>
             <span>Identidade visual</span>
-            <h3>Logo, banner e cores</h3>
+            <h3>Cores do perfil</h3>
           </div>
         </div>
 
+        <input type="hidden" name="logoUrl" value="${escapeHtml(team.logoUrl || "")}" />
+        <input type="hidden" name="bannerUrl" value="${escapeHtml(team.bannerUrl || "")}" />
+
+        <p class="sbw-admin-note sbw-admin-note-tight">
+          Logo e banner serão editados no topo do painel, com upload e enquadramento em etapa futura. Por enquanto, esta área mantém apenas as cores públicas da equipe.
+        </p>
+
         <div class="sbw-form-grid">
-          <label class="sbw-form-field">
-            <span>Logo da equipe</span>
-            <input type="url" name="logoUrl" value="${escapeHtml(team.logoUrl || "")}" placeholder="https://.../logo.png" />
-            <small class="sbw-form-help">Por enquanto use uma URL pública. Upload via Storage será conectado depois.</small>
-          </label>
-
-          <label class="sbw-form-field">
-            <span>Banner da equipe</span>
-            <input type="url" name="bannerUrl" value="${escapeHtml(team.bannerUrl || "")}" placeholder="https://.../banner.jpg" />
-            <small class="sbw-form-help">Imagem larga recomendada para o topo do perfil público.</small>
-          </label>
-
           <label class="sbw-form-field">
             <span>Cor principal</span>
             <input type="color" name="primaryColor" value="${escapeHtml(primary)}" />
@@ -1481,6 +1479,10 @@ function renderMembersCard(team, members) {
             <input type="color" name="secondaryColor" value="${escapeHtml(secondary)}" />
           </label>
         </div>
+
+        <small class="sbw-form-help">
+          No futuro, o sistema poderá sugerir cores automaticamente a partir da logo/banner carregados.
+        </small>
       </div>
 
       ${renderGamesCard(team)}
@@ -1495,7 +1497,7 @@ function renderMembersCard(team, members) {
 
         <label class="sbw-admin-checkline">
           <input type="checkbox" name="recruitmentOpen" ${(team.recruitment?.isOpen || team.metadata?.recruitmentOpen) ? "checked" : ""} />
-          <span>Equipe aberta para receber novos jogadores</span>
+          <span>Recrutamento aberto para receber novos jogadores</span>
         </label>
 
         <div class="sbw-form-grid">
@@ -1667,7 +1669,7 @@ function renderMembersCard(team, members) {
         <div class="sbw-admin-card-heading">
           <div>
             <span>Títulos</span>
-            <h3>Conquistas -SBW-</h3>
+            <h3>Títulos da equipe</h3>
           </div>
         </div>
 
@@ -1799,7 +1801,6 @@ function renderMembersCard(team, members) {
     if (!root || !state.activeTeam) return;
 
     const team = state.activeTeam;
-    const ownedTeams = getOwnedTeams();
     const activeTab = getActiveAdminTab();
 
     const primary = team.theme?.primaryColor || "#00e5ff";
@@ -1807,51 +1808,31 @@ function renderMembersCard(team, members) {
 
     root.innerHTML = `
       <section 
-        class="sbw-admin-layout"
+        class="sbw-admin-shell"
         style="--team-primary: ${escapeHtml(primary)}; --team-secondary: ${escapeHtml(secondary)};"
       >
-        <aside class="sbw-admin-sidebar">
-          <div class="sbw-admin-team-card">
-            <div class="sbw-admin-team-logo">
-              ${escapeHtml(getTeamInitials(team))}
+        ${renderTeamAdminCover(team)}
+
+        <section class="sbw-admin-layout">
+          <aside class="sbw-admin-sidebar">
+            ${renderAdminTabNavigation(team, activeTab)}
+
+            <div class="sbw-admin-side-links">
+              <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(getTeamKey(team))}">
+                Ver perfil público
+              </a>
+
+              <a class="sbw-team-btn" href="equipes.html">
+                Lista de equipes
+              </a>
             </div>
+          </aside>
 
-            <div>
-              <span class="sbw-admin-kicker">${escapeHtml(models.getTeamTypeLabel(team))}</span>
-
-              <h2>
-                ${escapeHtml(team.name)}
-                ${
-                  team.verificationStatus === config.verificationStatus.verified
-                    ? `<span class="sbw-verified-badge">✓</span>`
-                    : ""
-                }
-              </h2>
-
-              <p>${escapeHtml(team.tag)} | Painel privado</p>
+          <section class="sbw-admin-content">
+            <div class="sbw-admin-tab-heading">
+              <span>Área da equipe</span>
+              <h2>${escapeHtml(adminPanelTabs.find((tab) => tab.id === activeTab)?.label || "Geral")}</h2>
             </div>
-          </div>
-
-          ${renderAdminTabNavigation(team, activeTab)}
-
-          <div class="sbw-admin-side-links">
-            <a class="sbw-team-btn sbw-team-btn-primary" href="equipe.html?id=${encodeURIComponent(getTeamKey(team))}">
-              Ver perfil público
-            </a>
-
-            <a class="sbw-team-btn" href="equipes.html">
-              Lista de equipes
-            </a>
-          </div>
-
-          ${renderTeamSelector(ownedTeams, team)}
-        </aside>
-
-        <section class="sbw-admin-content">
-          <div class="sbw-admin-tab-heading">
-            <span>Painel da equipe</span>
-            <h2>${escapeHtml(adminPanelTabs.find((tab) => tab.id === activeTab)?.label || "Geral")}</h2>
-          </div>
 
           <form class="sbw-admin-form" data-admin-team-form>
             <div class="${getAdminTabPanelClass("geral", activeTab)}" data-admin-tab-panel="geral">
@@ -1894,6 +1875,7 @@ function renderMembersCard(team, members) {
               <span data-admin-save-result></span>
             </div>
           </form>
+          </section>
         </section>
       </section>
     `;
@@ -2516,6 +2498,7 @@ function renderMembersCard(team, members) {
     const addDemoMemberButton = document.querySelector("[data-add-demo-member]");
     const playerSearchButton = document.querySelector("[data-player-search-button]");
     const playerSearchInput = document.querySelector("[data-player-search-input]");
+    const gameSearchInput = document.querySelector("[data-admin-game-search]");
 
     if (form) {
       form.addEventListener("submit", handleSaveTeam);
@@ -2554,6 +2537,17 @@ function renderMembersCard(team, members) {
       });
     }
 
+    if (gameSearchInput) {
+      gameSearchInput.addEventListener("input", function () {
+        const query = gameSearchInput.value.trim().toLowerCase();
+
+        document.querySelectorAll("[data-game-name]").forEach((option) => {
+          const name = option.getAttribute("data-game-name") || "";
+          option.hidden = Boolean(query) && !name.includes(query);
+        });
+      });
+    }
+
     document.querySelectorAll("[data-member-role-select]").forEach((select) => {
       select.addEventListener("change", handleMemberRoleChange);
     });
@@ -2584,25 +2578,6 @@ function renderMembersCard(team, members) {
     );
   }
 
-  async function loadTeamsForManagement() {
-    if (!storage) return [];
-
-    if (typeof storage.getAllTeamsForSession === "function") {
-      return await storage.getAllTeamsForSession();
-    }
-
-    if (typeof storage.getAllTeamsForAdmin === "function") {
-      return await storage.getAllTeamsForAdmin();
-    }
-
-    if (typeof storage.getAllTeams === "function") {
-      return await storage.getAllTeams({ publicOnly: false });
-    }
-
-    return [];
-  }
-
-
   function buildCurrentManagerUser(account) {
     const fallbackUser = account?.fallbackUser || null;
     const authUser = account?.authUser || null;
@@ -2629,7 +2604,7 @@ function renderMembersCard(team, members) {
 
     state.currentAccount = await getCurrentAccount();
     state.currentUser = buildCurrentManagerUser(state.currentAccount);
-    state.teams = await loadTeamsForManagement();
+    state.teams = await storage.getAllTeams();
 
     const team = findTeamByAnyId(activeTeamId);
 
@@ -2658,11 +2633,11 @@ function renderMembersCard(team, members) {
 
       state.currentAccount = await getCurrentAccount();
       state.currentUser = buildCurrentManagerUser(state.currentAccount);
-      state.teams = await loadTeamsForManagement();
+      state.teams = await storage.getAllTeams();
 
       const requestedTeamId = getParam("id");
       const ownedTeams = getOwnedTeams();
-
+  
       if (!ownedTeams.length) {
         renderNoTeamState();
         return;
@@ -2680,7 +2655,7 @@ function renderMembersCard(team, members) {
       }
 
       if (!activeTeam) {
-        activeTeam = ownedTeams.find(teamMatchesContextCurrentTeam) || ownedTeams[0];
+        activeTeam = ownedTeams[0];
       }
 
       state.activeTeam = activeTeam;
