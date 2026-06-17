@@ -6244,3 +6244,92 @@ body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
     min-height: 200px !important;
   }
 }
+
+/* =========================================================
+   SBW v1.6.46 - Sair da equipe
+   ========================================================= */
+.sbw-admin-danger-zone {
+  border-color: rgba(251, 113, 133, 0.30);
+  background:
+    radial-gradient(circle at top left, rgba(251, 113, 133, 0.12), transparent 22rem),
+    rgba(7, 13, 28, 0.86);
+}
+
+.sbw-admin-danger-zone__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px;
+  border: 1px solid rgba(251, 113, 133, 0.18);
+  border-radius: 18px;
+  background: rgba(251, 113, 133, 0.06);
+}
+
+.sbw-admin-danger-zone__body > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sbw-admin-danger-zone__body strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.sbw-admin-danger-zone__body span {
+  color: rgba(226, 232, 240, 0.74);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sbw-team-btn-danger {
+  border-color: rgba(251, 113, 133, 0.52);
+  background: rgba(251, 113, 133, 0.12);
+  color: #fecdd3;
+  box-shadow: 0 14px 34px rgba(251, 113, 133, 0.08);
+}
+
+.sbw-team-btn-danger:hover:not(:disabled) {
+  border-color: rgba(251, 113, 133, 0.75);
+  background: rgba(251, 113, 133, 0.20);
+  color: #fff;
+}
+
+.sbw-team-btn-danger:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.sbw-admin-danger-zone__feedback {
+  display: block;
+  min-height: 18px;
+  margin-top: 10px;
+  color: rgba(226, 232, 240, 0.70);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sbw-admin-danger-zone__feedback.is-error {
+  color: #fb7185;
+}
+
+.sbw-admin-danger-zone__feedback.is-success {
+  color: #67e8f9;
+}
+
+.sbw-admin-danger-zone__feedback.is-loading {
+  color: #facc15;
+}
+
+@media (max-width: 720px) {
+  .sbw-admin-danger-zone__body {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sbw-admin-danger-zone__body .sbw-team-btn {
+    width: 100%;
+  }
+}

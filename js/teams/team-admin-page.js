@@ -970,6 +970,28 @@ function countMembersByRole(members, role) {
   return members.filter((member) => member.role === role).length;
 }
 
+
+function getCurrentMembership() {
+  return getActiveMembers(state.members || []).find((member) => isCurrentMember(member)) || null;
+}
+
+function isProtectedLeaveRole(member) {
+  const role = String(member?.role || "").toLowerCase();
+  return isCaptain(member) || ["owner", "captain", "capitao", "capitão"].includes(role);
+}
+
+function getLeaveTeamRestriction(member) {
+  if (!member) {
+    return "Sua sessão não foi encontrada como membro ativo desta equipe.";
+  }
+
+  if (isProtectedLeaveRole(member)) {
+    return "Capitão principal/dono não pode sair por aqui. Transfira o comando antes de sair da equipe.";
+  }
+
+  return "";
+}
+
 function renderMembersSummary(team, members) {
   const memberLimit = Number(team.memberLimit || config.limits.commonTeamMembers || 50);
   const captain = members.find((member) => isCaptain(member));
@@ -2472,6 +2494,45 @@ function renderMembersCard(team, members) {
     `;
   }
 
+  function renderLeaveTeamCard(team) {
+    const currentMember = getCurrentMembership();
+    const restriction = getLeaveTeamRestriction(currentMember);
+    const disabled = Boolean(restriction);
+
+    return `
+      <div class="sbw-admin-card sbw-admin-danger-zone">
+        <div class="sbw-admin-card-heading">
+          <div>
+            <span>Saída da equipe</span>
+            <h3>Sair desta equipe</h3>
+          </div>
+
+          <small>${disabled ? "Bloqueado" : "Disponível"}</small>
+        </div>
+
+        <div class="sbw-admin-danger-zone__body">
+          <div>
+            <strong>${disabled ? "Ação indisponível para esta conta" : "Você pode sair da equipe"}</strong>
+            <span>
+              ${escapeHtml(restriction || "Ao sair, seu vínculo ativo com esta equipe será encerrado e ela deixará de aparecer como sua equipe atual.")}
+            </span>
+          </div>
+
+          <button
+            class="sbw-team-btn sbw-team-btn-danger"
+            type="button"
+            data-leave-team
+            ${disabled ? "disabled" : ""}
+          >
+            Sair da equipe
+          </button>
+        </div>
+
+        <small class="sbw-admin-danger-zone__feedback" data-leave-team-result></small>
+      </div>
+    `;
+  }
+
   function renderSettingsTab(team) {
     return `
       ${renderVerificationCard(team)}
@@ -2490,6 +2551,8 @@ function renderMembersCard(team, members) {
           <div><strong>Aprovação -SBW-</strong><span>Verificação e permissões especiais dependem da administração da plataforma.</span></div>
         </div>
       </div>
+
+      ${renderLeaveTeamCard(team)}
     `;
   }
 
@@ -2906,6 +2969,87 @@ function renderMembersCard(team, members) {
     renderAdminPanel();
   }
 
+
+  function setLeaveTeamFeedback(message, type) {
+    const feedback = document.querySelector("[data-leave-team-result]");
+    if (!feedback) return;
+
+    feedback.classList.remove("is-error", "is-success", "is-loading");
+
+    if (type) {
+      feedback.classList.add(`is-${type}`);
+    }
+
+    feedback.textContent = message || "";
+  }
+
+  async function leaveTeamInSupabase(team) {
+    const client = await waitForSupabaseClient();
+
+    if (!client?.rpc) {
+      throw new Error("Cliente Supabase indisponível para sair da equipe.");
+    }
+
+    const result = await client.rpc("sbw_leave_team", {
+      team_key: getTeamKey(team)
+    });
+
+    if (result.error) {
+      throw new Error(result.error.message || "Não foi possível sair da equipe.");
+    }
+
+    return result.data;
+  }
+
+  async function handleLeaveTeam(event) {
+    const button = event.currentTarget;
+    const team = state.activeTeam;
+    const currentMember = getCurrentMembership();
+    const restriction = getLeaveTeamRestriction(currentMember);
+
+    if (!team) return;
+
+    if (restriction) {
+      setLeaveTeamFeedback(restriction, "error");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Sair da equipe ${team.name || "atual"}? Seu vínculo ativo será encerrado.`
+    );
+
+    if (!confirmed) return;
+
+    button.disabled = true;
+    setLeaveTeamFeedback("Saindo da equipe...", "loading");
+
+    try {
+      if (currentMember?.source === "supabase") {
+        await leaveTeamInSupabase(team);
+      } else {
+        removeLocalMember(currentMember.id);
+      }
+
+      setLeaveTeamFeedback("Você saiu da equipe. Atualizando painel...", "success");
+      await wait(450);
+      await reloadState(getTeamKey(team));
+
+      const ownedTeams = getOwnedTeams();
+      if (!ownedTeams.length) {
+        renderNoTeamState();
+        return;
+      }
+
+      state.activeTeam = ownedTeams[0];
+      state.members = await loadMembersForTeam(state.activeTeam);
+      renderAdminPanel();
+    } catch (error) {
+      console.error("[SBW Team Admin] Falha ao sair da equipe:", error);
+      setLeaveTeamFeedback(error?.message || "Não foi possível sair da equipe.", "error");
+      button.disabled = false;
+    }
+  }
+
   function getProfileName(profile) {
     return (
       profile?.displayName ||
@@ -3221,6 +3365,7 @@ function renderMembersCard(team, members) {
     const playerSearchButton = document.querySelector("[data-player-search-button]");
     const playerSearchInput = document.querySelector("[data-player-search-input]");
     const gameSearchInput = document.querySelector("[data-admin-game-search]");
+    const leaveTeamButton = document.querySelector("[data-leave-team]");
 
     if (form) {
       form.addEventListener("submit", handleSaveTeam);
@@ -3268,6 +3413,11 @@ function renderMembersCard(team, members) {
           option.hidden = Boolean(query) && !name.includes(query);
         });
       });
+    }
+
+
+    if (leaveTeamButton) {
+      leaveTeamButton.addEventListener("click", handleLeaveTeam);
     }
 
     document.querySelectorAll("[data-team-asset-input]").forEach((input) => {
