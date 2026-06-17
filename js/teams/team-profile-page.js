@@ -178,6 +178,51 @@
     return asObject(team?.metadata);
   }
 
+
+
+  function clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function getTeamAssetFrame(team, assetType) {
+    const metadata = getMeta(team);
+    const teamAssets = metadata.teamAssets && typeof metadata.teamAssets === "object" && !Array.isArray(metadata.teamAssets)
+      ? metadata.teamAssets
+      : {};
+    const fallbackAssets = metadata.assetFrames && typeof metadata.assetFrames === "object" && !Array.isArray(metadata.assetFrames)
+      ? metadata.assetFrames
+      : {};
+    const raw = teamAssets[assetType] || fallbackAssets[assetType] || {};
+
+    return {
+      positionX: clampNumber(raw.positionX ?? raw.x ?? raw.objectPositionX, 0, 100, 50),
+      positionY: clampNumber(raw.positionY ?? raw.y ?? raw.objectPositionY, 0, 100, 50),
+      zoom: clampNumber(raw.zoom ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function getTeamAssetFrameStyle(team) {
+    const banner = getTeamAssetFrame(team, "banner");
+    const logo = getTeamAssetFrame(team, "logo");
+    const bannerSize = banner.zoom <= 100 ? "cover" : `${banner.zoom}% auto`;
+
+    return [
+      `--sbw-team-banner-x:${banner.positionX}%`,
+      `--sbw-team-banner-y:${banner.positionY}%`,
+      `--sbw-team-banner-size:${bannerSize}`,
+      `--sbw-team-logo-x:${logo.positionX}%`,
+      `--sbw-team-logo-y:${logo.positionY}%`,
+      `--sbw-team-logo-scale:${(logo.zoom / 100).toFixed(2)}`
+    ].join("; ") + ";";
+  }
+
+  function styleAttribute(value) {
+    const safeValue = String(value || "").trim();
+    return safeValue ? `style="${escapeHtml(safeValue)}"` : "";
+  }
+
   function formatDate(value) {
     if (!value) return "—";
 
@@ -402,7 +447,10 @@
     const bannerUrl = safeUrl(team.bannerUrl || team.banner_url || "");
     const verified = isTeamVerified(team);
     const website = safeUrl(team.website || meta.website || team.socialLinks?.website || "");
-    const heroStyle = bannerUrl ? `style="--team-banner-image: url('${escapeHtml(bannerUrl)}');"` : "";
+    const heroStyle = styleAttribute([
+      bannerUrl ? `--team-banner-image: url('${bannerUrl}')` : "",
+      getTeamAssetFrameStyle(team)
+    ].filter(Boolean).join("; "));
 
     return `
       <section class="sbw-team-v2-hero sbw-team-v2-hero-clean sbw-team-v2-hero-social sbw-team-v2-hero-facebook sbw-team-v2-hero-minimal ${bannerUrl ? "has-team-banner" : "is-team-banner-placeholder"}" ${heroStyle}>

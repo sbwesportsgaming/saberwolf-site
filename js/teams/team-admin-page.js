@@ -1393,6 +1393,48 @@ function renderMembersCard(team, members) {
     return assetType === "logo" ? getTeamLogoUrl(team) : getTeamBannerUrl(team);
   }
 
+
+  function clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function getTeamAssetFrame(team, assetType) {
+    const metadata = team?.metadata && typeof team.metadata === "object" && !Array.isArray(team.metadata)
+      ? team.metadata
+      : {};
+    const teamAssets = metadata.teamAssets && typeof metadata.teamAssets === "object" && !Array.isArray(metadata.teamAssets)
+      ? metadata.teamAssets
+      : {};
+    const fallbackAssets = metadata.assetFrames && typeof metadata.assetFrames === "object" && !Array.isArray(metadata.assetFrames)
+      ? metadata.assetFrames
+      : {};
+    const raw = teamAssets[assetType] || fallbackAssets[assetType] || {};
+
+    return {
+      positionX: clampNumber(raw.positionX ?? raw.x ?? raw.objectPositionX, 0, 100, 50),
+      positionY: clampNumber(raw.positionY ?? raw.y ?? raw.objectPositionY, 0, 100, 50),
+      zoom: clampNumber(raw.zoom ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function getTeamAssetFrameStyle(team, assetType) {
+    const frame = getTeamAssetFrame(team, assetType);
+
+    if (assetType === "banner") {
+      const size = frame.zoom <= 100 ? "cover" : `${frame.zoom}% auto`;
+      return `--sbw-team-banner-x:${frame.positionX}%; --sbw-team-banner-y:${frame.positionY}%; --sbw-team-banner-size:${size};`;
+    }
+
+    return `--sbw-team-logo-x:${frame.positionX}%; --sbw-team-logo-y:${frame.positionY}%; --sbw-team-logo-scale:${(frame.zoom / 100).toFixed(2)};`;
+  }
+
+  function styleAttribute(...parts) {
+    const value = parts.filter(Boolean).join(" ").trim();
+    return value ? `style="${escapeHtml(value)}"` : "";
+  }
+
   function getSupabaseStorageClient() {
     return window.SBWSupabase?.client?.storage || null;
   }
@@ -1553,6 +1595,257 @@ function renderMembersCard(team, members) {
     renderAdminPanel();
   }
 
+  function getTeamAssetFrameForm(assetType) {
+    const controls = document.querySelector(`[data-team-asset-frame-group="${assetType}"]`);
+
+    if (!controls) {
+      return getTeamAssetFrame(state.activeTeam, assetType);
+    }
+
+    return {
+      positionX: clampNumber(controls.querySelector(`[data-team-asset-frame="positionX"]`)?.value, 0, 100, 50),
+      positionY: clampNumber(controls.querySelector(`[data-team-asset-frame="positionY"]`)?.value, 0, 100, 50),
+      zoom: clampNumber(controls.querySelector(`[data-team-asset-frame="zoom"]`)?.value, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function setTeamAssetFrameFeedback(assetType, message, status) {
+    const feedback = document.querySelector(`[data-team-asset-frame-feedback="${assetType}"]`);
+
+    if (!feedback) return;
+
+    feedback.textContent = message || "";
+    feedback.classList.remove("is-error", "is-success", "is-loading");
+
+    if (status) {
+      feedback.classList.add(`is-${status}`);
+    }
+  }
+
+  function setTeamAssetFrameForm(assetType, frame) {
+    const controls = document.querySelector(`[data-team-asset-frame-group="${assetType}"]`);
+
+    if (!controls) return;
+
+    const safeFrame = {
+      positionX: clampNumber(frame?.positionX, 0, 100, 50),
+      positionY: clampNumber(frame?.positionY, 0, 100, 50),
+      zoom: clampNumber(frame?.zoom, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+
+    const xInput = controls.querySelector(`[data-team-asset-frame="positionX"]`);
+    const yInput = controls.querySelector(`[data-team-asset-frame="positionY"]`);
+    const zoomInput = controls.querySelector(`[data-team-asset-frame="zoom"]`);
+
+    if (xInput) xInput.value = String(Math.round(safeFrame.positionX));
+    if (yInput) yInput.value = String(Math.round(safeFrame.positionY));
+    if (zoomInput) zoomInput.value = String(Math.round(safeFrame.zoom));
+
+    updateTeamAssetFrameOutputs(assetType, safeFrame);
+  }
+
+  function markTeamAssetFrameDirty(assetType) {
+    const frame = getTeamAssetFrameForm(assetType);
+    updateTeamAssetFrameOutputs(assetType, frame);
+    setTeamAssetFrameFeedback(assetType, "Ajuste alterado. Clique em Salvar enquadramento para aplicar no perfil público.", "loading");
+  }
+
+  function mergeActiveTeamAssetFrame(assetType, frame, savedTeam) {
+    const currentMetadata = state.activeTeam?.metadata && typeof state.activeTeam.metadata === "object" && !Array.isArray(state.activeTeam.metadata)
+      ? state.activeTeam.metadata
+      : {};
+    const savedMetadata = savedTeam?.metadata && typeof savedTeam.metadata === "object" && !Array.isArray(savedTeam.metadata)
+      ? savedTeam.metadata
+      : {};
+    const currentAssets = currentMetadata.teamAssets && typeof currentMetadata.teamAssets === "object" && !Array.isArray(currentMetadata.teamAssets)
+      ? currentMetadata.teamAssets
+      : {};
+    const savedAssets = savedMetadata.teamAssets && typeof savedMetadata.teamAssets === "object" && !Array.isArray(savedMetadata.teamAssets)
+      ? savedMetadata.teamAssets
+      : {};
+    const cleanFrame = {
+      positionX: clampNumber(frame?.positionX, 0, 100, 50),
+      positionY: clampNumber(frame?.positionY, 0, 100, 50),
+      zoom: clampNumber(frame?.zoom, 100, assetType === "banner" ? 180 : 160, 100),
+      updatedAt: new Date().toISOString()
+    };
+
+    state.activeTeam = {
+      ...(state.activeTeam || {}),
+      ...(savedTeam || {}),
+      metadata: {
+        ...currentMetadata,
+        ...savedMetadata,
+        teamAssets: {
+          ...currentAssets,
+          ...savedAssets,
+          [assetType]: savedAssets[assetType] || cleanFrame
+        }
+      }
+    };
+
+    return state.activeTeam.metadata.teamAssets[assetType];
+  }
+
+  function nudgeTeamAssetZoom(assetType, direction) {
+    const frame = getTeamAssetFrameForm(assetType);
+    const step = assetType === "banner" ? 5 : 4;
+    const next = {
+      ...frame,
+      zoom: clampNumber(frame.zoom + (direction * step), 100, assetType === "banner" ? 180 : 160, 100)
+    };
+
+    setTeamAssetFrameForm(assetType, next);
+    applyTeamAssetFramePreview(assetType);
+    markTeamAssetFrameDirty(assetType);
+  }
+
+  function getDragSensitivity(assetType, element) {
+    const rect = element.getBoundingClientRect();
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height);
+
+    // A capa pública usa um recorte largo, parecido com rede social.
+    // Por isso o movimento vertical precisa ser mais sensível que o horizontal.
+    return {
+      x: assetType === "banner" ? 72 / width : 90 / width,
+      y: assetType === "banner" ? 175 / height : 90 / height
+    };
+  }
+
+  function bindTeamAssetDragTarget(element) {
+    if (!element || element.dataset.assetDragReady === "true") return;
+
+    const assetType = element.dataset.teamAssetDragTarget;
+
+    if (!assetType) return;
+
+    element.dataset.assetDragReady = "true";
+    element.setAttribute("role", "button");
+    element.setAttribute("tabindex", "0");
+    element.setAttribute("aria-label", assetType === "banner" ? "Arraste para enquadrar o banner" : "Arraste para enquadrar a logo");
+
+    let drag = null;
+
+    const finishDrag = () => {
+      if (!drag) return;
+      element.classList.remove("is-dragging");
+      drag = null;
+    };
+
+    element.addEventListener("pointerdown", function (event) {
+      if (event.button !== undefined && event.button !== 0) return;
+
+      const frame = getTeamAssetFrameForm(assetType);
+      drag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        frame,
+        sensitivity: getDragSensitivity(assetType, element)
+      };
+
+      element.classList.add("is-dragging");
+      element.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+
+    element.addEventListener("pointermove", function (event) {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      const next = {
+        ...drag.frame,
+        positionX: clampNumber(drag.frame.positionX - dx * drag.sensitivity.x, 0, 100, 50),
+        positionY: clampNumber(drag.frame.positionY - dy * drag.sensitivity.y, 0, 100, 50)
+      };
+
+      setTeamAssetFrameForm(assetType, next);
+      applyTeamAssetFramePreview(assetType);
+      markTeamAssetFrameDirty(assetType);
+      event.preventDefault();
+    });
+
+    element.addEventListener("pointerup", finishDrag);
+    element.addEventListener("pointercancel", finishDrag);
+    element.addEventListener("lostpointercapture", finishDrag);
+  }
+
+  function updateTeamAssetFrameOutputs(assetType, frame) {
+    const controls = document.querySelector(`[data-team-asset-frame-group="${assetType}"]`);
+
+    if (!controls) return;
+
+    const zoomOutput = controls.querySelector(`[data-team-asset-frame-output="zoom"]`);
+    const xOutput = controls.querySelector(`[data-team-asset-frame-output="positionX"]`);
+    const yOutput = controls.querySelector(`[data-team-asset-frame-output="positionY"]`);
+
+    if (zoomOutput) zoomOutput.textContent = `${Math.round(frame.zoom)}%`;
+    if (xOutput) xOutput.textContent = `${Math.round(frame.positionX)}%`;
+    if (yOutput) yOutput.textContent = `${Math.round(frame.positionY)}%`;
+  }
+
+  function applyTeamAssetFramePreview(assetType) {
+    const frame = getTeamAssetFrameForm(assetType);
+    updateTeamAssetFrameOutputs(assetType, frame);
+
+    if (assetType === "banner") {
+      const size = frame.zoom <= 100 ? "cover" : `${frame.zoom}% auto`;
+
+      document.querySelectorAll(`[data-team-media-preview="banner"], .sbw-admin-team-cover`).forEach((element) => {
+        element.style.setProperty("--sbw-team-banner-x", `${frame.positionX}%`);
+        element.style.setProperty("--sbw-team-banner-y", `${frame.positionY}%`);
+        element.style.setProperty("--sbw-team-banner-size", size);
+      });
+      return;
+    }
+
+    document.querySelectorAll(`[data-team-media-preview="logo"], .sbw-admin-team-cover__logo`).forEach((element) => {
+      element.style.setProperty("--sbw-team-logo-x", `${frame.positionX}%`);
+      element.style.setProperty("--sbw-team-logo-y", `${frame.positionY}%`);
+      element.style.setProperty("--sbw-team-logo-scale", (frame.zoom / 100).toFixed(2));
+    });
+  }
+
+  async function saveTeamAssetFrame(assetType) {
+    if (!state.activeTeam) return;
+
+    const client = await waitForSupabaseClient();
+    const teamKey = getSafeAssetTeamSlug(state.activeTeam);
+    const frame = getTeamAssetFrameForm(assetType);
+
+    if (!client?.rpc) {
+      setTeamAssetFrameFeedback(assetType, "Não foi possível acessar o Supabase para salvar o enquadramento.", "error");
+      return;
+    }
+
+    setTeamAssetFrameFeedback(assetType, "Salvando enquadramento...", "loading");
+
+    const result = await client.rpc("sbw_update_team_asset_settings", {
+      team_key: teamKey,
+      asset_type: assetType,
+      position_x: frame.positionX,
+      position_y: frame.positionY,
+      zoom_value: frame.zoom
+    });
+
+    if (result.error) {
+      console.error("[SBW Team Admin] Falha ao salvar enquadramento:", result.error);
+      setTeamAssetFrameFeedback(assetType, result.error.message || "Não foi possível salvar o enquadramento.", "error");
+      return;
+    }
+
+    const savedTeam = result.data
+      ? (typeof storage.normalizeSupabaseTeam === "function" ? storage.normalizeSupabaseTeam(result.data) : result.data)
+      : null;
+
+    const savedFrame = mergeActiveTeamAssetFrame(assetType, frame, savedTeam);
+    setTeamAssetFrameForm(assetType, savedFrame);
+    applyTeamAssetFramePreview(assetType);
+    setTeamAssetFrameFeedback(assetType, "Enquadramento salvo. O perfil público usará exatamente este ajuste.", "success");
+  }
+
   async function handleTeamAssetInputChange(event) {
     const input = event.currentTarget;
     const assetType = input.dataset.teamAssetInput;
@@ -1582,6 +1875,44 @@ function renderMembersCard(team, members) {
     }
   }
 
+  function renderTeamAssetFrameControls(team, assetType) {
+    const frame = getTeamAssetFrame(team, assetType);
+    const label = assetType === "banner" ? "banner" : "logo";
+
+    return `
+      <div class="sbw-team-frame-controls sbw-team-frame-controls--drag" data-team-asset-frame-group="${escapeHtml(assetType)}">
+        <div class="sbw-team-frame-controls__head">
+          <strong>Enquadramento do ${escapeHtml(label)}</strong>
+          <span>Arraste a imagem para reposicionar</span>
+        </div>
+
+        <input type="hidden" value="${escapeHtml(frame.zoom)}" data-team-asset-frame="zoom" data-team-asset-type="${escapeHtml(assetType)}" />
+        <input type="hidden" value="${escapeHtml(frame.positionX)}" data-team-asset-frame="positionX" data-team-asset-type="${escapeHtml(assetType)}" />
+        <input type="hidden" value="${escapeHtml(frame.positionY)}" data-team-asset-frame="positionY" data-team-asset-type="${escapeHtml(assetType)}" />
+
+        <p class="sbw-team-frame-drag-help">
+          Clique e arraste como em uma capa de rede social. Salve para aplicar o mesmo enquadramento na Minha Equipe e no perfil público.
+        </p>
+
+        <div class="sbw-team-frame-zoom-row">
+          <button class="sbw-team-frame-zoom" type="button" data-team-asset-zoom="out" data-team-asset-type="${escapeHtml(assetType)}" aria-label="Diminuir zoom">−</button>
+          <span>Zoom <output data-team-asset-frame-output="zoom">${Math.round(frame.zoom)}%</output></span>
+          <button class="sbw-team-frame-zoom" type="button" data-team-asset-zoom="in" data-team-asset-type="${escapeHtml(assetType)}" aria-label="Aumentar zoom">+</button>
+        </div>
+
+        <div class="sbw-team-frame-position-readout">
+          <span>Horizontal <output data-team-asset-frame-output="positionX">${Math.round(frame.positionX)}%</output></span>
+          <span>Vertical <output data-team-asset-frame-output="positionY">${Math.round(frame.positionY)}%</output></span>
+        </div>
+
+        <button class="sbw-team-btn sbw-team-btn-ghost sbw-team-frame-save" type="button" data-team-asset-frame-save="${escapeHtml(assetType)}">
+          Salvar enquadramento
+        </button>
+        <small class="sbw-media-upload-feedback" data-team-asset-frame-feedback="${escapeHtml(assetType)}"></small>
+      </div>
+    `;
+  }
+
   function renderTeamLogoVisual(team) {
     const logoUrl = getTeamLogoUrl(team);
 
@@ -1599,9 +1930,10 @@ function renderMembersCard(team, members) {
     const typeLabel = models.getTeamTypeLabel(team);
     const memberLimit = Number(team.memberLimit || config.limits.commonTeamMembers || 50);
     const activeMembers = getActiveMembers(state.members || []);
-    const coverStyle = bannerUrl
-      ? `style="background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.10), rgba(2, 6, 18, 0.70)), url('${escapeHtml(bannerUrl)}');"`
-      : "";
+    const coverStyle = styleAttribute(
+      getTeamAssetFrameStyle(team, "banner"),
+      bannerUrl ? `background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.10), rgba(2, 6, 18, 0.70)), url('${bannerUrl}');` : ""
+    );
 
     return `
       <section class="sbw-admin-team-cover-block" aria-label="Identidade da equipe">
@@ -1621,7 +1953,7 @@ function renderMembersCard(team, members) {
 
         <div class="sbw-admin-team-identity-strip">
           <div class="sbw-admin-team-avatar-wrap">
-            <div class="sbw-admin-team-cover__logo">
+            <div class="sbw-admin-team-cover__logo" ${styleAttribute(getTeamAssetFrameStyle(team, "logo"))}>
               ${renderTeamLogoVisual(team)}
             </div>
 
@@ -1787,7 +2119,7 @@ function renderMembersCard(team, members) {
 
         <div id="sbw-team-media-editor" class="sbw-team-media-prep" aria-label="Upload de logo e banner">
           <div class="sbw-team-media-prep__item sbw-team-media-prep__item--cover">
-            <div class="sbw-team-media-prep__preview ${getTeamBannerUrl(team) ? "has-image" : ""}" data-team-media-preview="banner" ${getTeamBannerUrl(team) ? `style="background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.12), rgba(2, 6, 18, 0.48)), url('${escapeHtml(getTeamBannerUrl(team))}');"` : ""}>
+            <div class="sbw-team-media-prep__preview ${getTeamBannerUrl(team) ? "has-image" : ""}" data-team-media-preview="banner" data-team-asset-drag-target="banner" ${styleAttribute(getTeamAssetFrameStyle(team, "banner"), getTeamBannerUrl(team) ? `background-image: linear-gradient(180deg, rgba(2, 6, 18, 0.12), rgba(2, 6, 18, 0.48)), url('${getTeamBannerUrl(team)}');` : "")}>
               ${!getTeamBannerUrl(team) ? `<span>Prévia do banner</span>` : ""}
             </div>
 
@@ -1795,7 +2127,7 @@ function renderMembersCard(team, members) {
               <span>Imagem de capa</span>
               <strong>Banner da equipe</strong>
               <p>Envie a capa pública da equipe. Ela aparece no painel Minha Equipe e no perfil público.</p>
-              <small>Recomendado: 1920×640px · JPG, PNG ou WebP · até 4 MB.</small>
+              <small>Recomendado: 1920×1080px · JPG, PNG ou WebP · até 4 MB.</small>
 
               <label class="sbw-team-btn sbw-team-btn-primary sbw-team-upload-trigger" data-team-asset-trigger="banner">
                 <input type="file" accept="image/png,image/jpeg,image/webp" data-team-asset-input="banner" />
@@ -1803,11 +2135,12 @@ function renderMembersCard(team, members) {
               </label>
 
               <small class="sbw-media-upload-feedback" data-team-asset-feedback="banner"></small>
+              ${getTeamBannerUrl(team) ? renderTeamAssetFrameControls(team, "banner") : ""}
             </div>
           </div>
 
           <div class="sbw-team-media-prep__item sbw-team-media-prep__item--logo">
-            <div class="sbw-team-media-prep__logo" data-team-media-preview="logo">
+            <div class="sbw-team-media-prep__logo" data-team-media-preview="logo" data-team-asset-drag-target="logo" ${styleAttribute(getTeamAssetFrameStyle(team, "logo"))}>
               ${renderTeamLogoVisual(team)}
             </div>
 
@@ -1823,12 +2156,13 @@ function renderMembersCard(team, members) {
               </label>
 
               <small class="sbw-media-upload-feedback" data-team-asset-feedback="logo"></small>
+              ${getTeamLogoUrl(team) ? renderTeamAssetFrameControls(team, "logo") : ""}
             </div>
           </div>
         </div>
 
         <p class="sbw-admin-note sbw-admin-note-tight">
-          Upload real ativo via Supabase Storage. Após selecionar a imagem, o sistema envia o arquivo e salva automaticamente o link na equipe. Recorte e reposicionamento ficam para uma etapa futura.
+          Upload real ativo via Supabase Storage. Após selecionar a imagem, o sistema envia o arquivo e salva automaticamente o link na equipe. Use os controles de enquadramento para ajustar zoom e posição sem reenviar a imagem.
         </p>
 
         <div class="sbw-form-grid">
@@ -2241,6 +2575,26 @@ function renderMembersCard(team, members) {
     bindAdminEvents();
   }
 
+  function getTeamIdentityKeys(team) {
+    return [team?.id, team?.slug, team?.supabaseId, team?.supabase_id]
+      .filter(Boolean)
+      .map((value) => String(value));
+  }
+
+  function isCurrentTeamTag(normalizedTag) {
+    const activeKeys = new Set(getTeamIdentityKeys(state.activeTeam));
+    const directTag = models.normalizeTag(state.activeTeam?.tag || "");
+
+    if (directTag && normalizedTag === directTag) {
+      return true;
+    }
+
+    return (state.teams || []).some((team) => {
+      if (models.normalizeTag(team?.tag || "") !== normalizedTag) return false;
+      return getTeamIdentityKeys(team).some((key) => activeKeys.has(key));
+    });
+  }
+
   async function validateTag(tag, ignoredTeamId) {
     const help = document.querySelector("[data-admin-tag-help]");
 
@@ -2253,6 +2607,16 @@ function renderMembersCard(team, members) {
       help.className = "sbw-form-help";
       help.textContent = "Tags iguais ou reservadas não são permitidas.";
       return false;
+    }
+
+    if (isCurrentTeamTag(normalized)) {
+      state.tagStatus = {
+        available: true,
+        reason: "Tag atual da equipe."
+      };
+      help.className = "sbw-form-help sbw-form-help-success";
+      help.textContent = state.tagStatus.reason;
+      return true;
     }
 
     if (normalized.length < config.tagRules.minLength) {
@@ -2326,7 +2690,7 @@ function renderMembersCard(team, members) {
       return;
     }
 
-    const tagIsValid = await validateTag(tag, team.id);
+    const tagIsValid = await validateTag(tag, team.id || team.slug || team.supabaseId);
 
     if (!tagIsValid) {
       if (result) {
@@ -2908,6 +3272,27 @@ function renderMembersCard(team, members) {
 
     document.querySelectorAll("[data-team-asset-input]").forEach((input) => {
       input.addEventListener("change", handleTeamAssetInputChange);
+    });
+
+    document.querySelectorAll("[data-team-asset-frame]").forEach((input) => {
+      input.addEventListener("input", function () {
+        applyTeamAssetFramePreview(input.dataset.teamAssetType);
+      });
+    });
+
+    document.querySelectorAll("[data-team-asset-drag-target]").forEach(bindTeamAssetDragTarget);
+
+    document.querySelectorAll("[data-team-asset-zoom]").forEach((button) => {
+      button.addEventListener("click", function () {
+        const direction = button.dataset.teamAssetZoom === "in" ? 1 : -1;
+        nudgeTeamAssetZoom(button.dataset.teamAssetType, direction);
+      });
+    });
+
+    document.querySelectorAll("[data-team-asset-frame-save]").forEach((button) => {
+      button.addEventListener("click", function () {
+        saveTeamAssetFrame(button.dataset.teamAssetFrameSave);
+      });
     });
 
     document.querySelectorAll("[data-member-role-select]").forEach((select) => {

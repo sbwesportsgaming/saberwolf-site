@@ -5895,3 +5895,352 @@ body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-te
     border-radius: 20px;
   }
 }
+
+/* =========================================================
+   SaberWolf v1.6.45 — Enquadramento de logo e banner
+   Controles de zoom/posição para assets de equipe.
+   ========================================================= */
+.sbw-admin-team-cover,
+.sbw-team-media-prep__preview {
+  background-position: var(--sbw-team-banner-x, 50%) var(--sbw-team-banner-y, 50%) !important;
+  background-size: var(--sbw-team-banner-size, cover) !important;
+  background-repeat: no-repeat !important;
+}
+
+.sbw-admin-team-cover__logo,
+.sbw-team-media-prep__logo,
+body.sbw-team-public-body .sbw-team-v2-logo {
+  overflow: hidden;
+}
+
+.sbw-admin-team-cover__logo img,
+.sbw-team-media-prep__logo img,
+body.sbw-team-public-body .sbw-team-v2-logo img {
+  object-position: var(--sbw-team-logo-x, 50%) var(--sbw-team-logo-y, 50%) !important;
+  transform: scale(var(--sbw-team-logo-scale, 1));
+  transform-origin: var(--sbw-team-logo-x, 50%) var(--sbw-team-logo-y, 50%);
+  transition: transform 160ms ease, object-position 160ms ease;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover,
+body.sbw-team-public-body .sbw-team-v2-hero-facebook .sbw-team-v2-cover {
+  background-position: var(--sbw-team-banner-x, 50%) var(--sbw-team-banner-y, 50%) !important;
+  background-size: var(--sbw-team-banner-size, cover) !important;
+  background-repeat: no-repeat !important;
+}
+
+.sbw-team-frame-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(2, 6, 18, 0.44);
+}
+
+.sbw-team-frame-controls__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sbw-team-frame-controls__head strong {
+  color: #ffffff;
+  font-size: 0.86rem;
+  letter-spacing: -0.01em;
+}
+
+.sbw-team-frame-controls__head span {
+  color: rgba(148, 163, 184, 0.95);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.sbw-team-frame-control {
+  display: grid;
+  gap: 6px;
+}
+
+.sbw-team-frame-control span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(224, 235, 255, 0.76);
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sbw-team-frame-control output {
+  color: var(--sbw-cyan);
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.sbw-team-frame-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--sbw-cyan);
+  cursor: pointer;
+}
+
+.sbw-team-frame-save {
+  width: fit-content;
+  margin-top: 2px;
+}
+
+@media (max-width: 620px) {
+  .sbw-team-frame-controls__head {
+    display: grid;
+  }
+
+  .sbw-team-frame-controls__head span {
+    text-align: left;
+  }
+}
+
+/* =========================================================
+   SaberWolf v1.6.45.1 — Enquadramento por arraste
+   Substitui sliders por drag estilo rede social e melhora
+   a prévia do banner 1920x1080 no painel Minha Equipe.
+   ========================================================= */
+.sbw-team-media-prep {
+  grid-template-columns: 1fr;
+}
+
+.sbw-team-media-prep__item--cover {
+  grid-template-columns: 1fr;
+}
+
+.sbw-team-media-prep__item--cover .sbw-team-media-prep__preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: clamp(240px, 28vw, 520px);
+  max-height: 560px;
+  border-radius: 22px;
+}
+
+.sbw-team-media-prep__item--cover .sbw-team-media-prep__body {
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.52fr);
+  align-items: start;
+  column-gap: 18px;
+}
+
+.sbw-team-media-prep__logo[data-team-asset-drag-target] {
+  width: clamp(120px, 12vw, 168px);
+  height: clamp(120px, 12vw, 168px);
+}
+
+[data-team-asset-drag-target] {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+[data-team-asset-drag-target].is-dragging {
+  cursor: grabbing;
+  box-shadow:
+    inset 0 0 0 1px rgba(103, 232, 249, 0.70),
+    0 0 0 4px rgba(34, 211, 238, 0.10),
+    0 18px 42px rgba(0, 0, 0, 0.30);
+}
+
+[data-team-asset-drag-target].has-image::before,
+.sbw-team-media-prep__logo[data-team-asset-drag-target]::before {
+  content: "Arraste para enquadrar";
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 3;
+  padding: 7px 10px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.68);
+  color: rgba(224, 247, 255, 0.92);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+}
+
+[data-team-asset-drag-target].has-image:hover::before,
+[data-team-asset-drag-target].has-image.is-dragging::before,
+.sbw-team-media-prep__logo[data-team-asset-drag-target]:hover::before,
+.sbw-team-media-prep__logo[data-team-asset-drag-target].is-dragging::before {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sbw-team-media-prep__logo[data-team-asset-drag-target] {
+  position: relative;
+}
+
+.sbw-team-media-prep__logo[data-team-asset-drag-target]::before {
+  left: 50%;
+  bottom: 8px;
+  transform: translate(-50%, 4px);
+  white-space: nowrap;
+  font-size: 0.66rem;
+}
+
+.sbw-team-media-prep__logo[data-team-asset-drag-target]:hover::before,
+.sbw-team-media-prep__logo[data-team-asset-drag-target].is-dragging::before {
+  transform: translate(-50%, 0);
+}
+
+.sbw-team-frame-controls--drag {
+  align-self: stretch;
+  margin-top: 0;
+}
+
+.sbw-team-frame-drag-help {
+  margin: 0;
+  color: rgba(224, 235, 255, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.sbw-team-frame-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sbw-team-frame-zoom-row span {
+  min-width: 88px;
+  color: rgba(224, 235, 255, 0.82);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sbw-team-frame-zoom-row output,
+.sbw-team-frame-position-readout output {
+  color: var(--sbw-cyan);
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.sbw-team-frame-zoom {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(76, 202, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(5, 18, 35, 0.92);
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.sbw-team-frame-zoom:hover {
+  border-color: rgba(76, 202, 255, 0.50);
+  background: rgba(12, 34, 58, 0.98);
+}
+
+.sbw-team-frame-position-readout {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: rgba(148, 163, 184, 0.95);
+  font-size: 0.73rem;
+  font-weight: 850;
+}
+
+.sbw-team-frame-position-readout span {
+  padding: 6px 8px;
+  border: 1px solid rgba(76, 202, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(2, 6, 18, 0.40);
+}
+
+/* Pequeno ajuste para imagens 16:9 ficarem menos sacrificadas no perfil público. */
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
+  min-height: clamp(340px, 31vw, 500px);
+}
+
+@media (max-width: 900px) {
+  .sbw-team-media-prep__item--cover .sbw-team-media-prep__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .sbw-team-media-prep__item--cover .sbw-team-media-prep__preview {
+    min-height: 220px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
+    min-height: 240px;
+  }
+}
+
+
+/* =========================================================
+   SaberWolf v1.6.45.2 — Capa com enquadramento fiel
+   A prévia do banner passa a usar proporção de capa social,
+   igual ao perfil público, para o ajuste salvo aparecer igual.
+   ========================================================= */
+.sbw-team-media-prep__item--cover .sbw-team-media-prep__preview {
+  aspect-ratio: 2.85 / 1 !important;
+  min-height: clamp(230px, 22vw, 380px) !important;
+  max-height: 420px !important;
+  background-position: var(--sbw-team-banner-x, 50%) var(--sbw-team-banner-y, 50%) !important;
+  background-size: var(--sbw-team-banner-size, cover) !important;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
+  aspect-ratio: 2.85 / 1;
+  min-height: clamp(250px, 23vw, 390px) !important;
+  max-height: 420px;
+  background-position: var(--sbw-team-banner-x, 50%) var(--sbw-team-banner-y, 50%) !important;
+  background-size: var(--sbw-team-banner-size, cover) !important;
+}
+
+.sbw-team-frame-controls--drag {
+  border-color: rgba(34, 211, 238, 0.24);
+  background:
+    linear-gradient(180deg, rgba(8, 19, 36, 0.66), rgba(2, 6, 18, 0.70)),
+    rgba(2, 6, 18, 0.72);
+}
+
+.sbw-team-frame-drag-help {
+  margin: 0;
+  color: rgba(224, 247, 255, 0.76);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.sbw-media-upload-feedback.is-loading {
+  color: rgba(125, 211, 252, 0.96);
+}
+
+.sbw-media-upload-feedback.is-success {
+  color: rgba(103, 232, 249, 0.98);
+}
+
+.sbw-media-upload-feedback.is-error {
+  color: #fda4af;
+}
+
+@media (max-width: 620px) {
+  .sbw-team-media-prep__item--cover .sbw-team-media-prep__preview {
+    min-height: 190px !important;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
+    min-height: 200px !important;
+  }
+}
