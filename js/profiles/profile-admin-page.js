@@ -822,15 +822,19 @@
     const label = assetType === "avatar" ? "foto" : "banner";
 
     return `
-      <div class="sbw-profile-frame-controls sbw-profile-frame-controls--${escapeHtml(assetType)}" data-profile-asset-frame-group="${escapeHtml(assetType)}">
+      <div class="sbw-profile-frame-controls sbw-profile-frame-controls--drag sbw-profile-frame-controls--${escapeHtml(assetType)}" data-profile-asset-frame-group="${escapeHtml(assetType)}">
+        <div class="sbw-profile-frame-controls__head">
+          <strong>Enquadramento da ${escapeHtml(label)}</strong>
+          <span>Toque em editar para reposicionar</span>
+        </div>
+
         <input type="hidden" value="${escapeHtml(frame.zoom)}" data-profile-asset-frame="zoom" data-profile-asset-type="${escapeHtml(assetType)}" />
         <input type="hidden" value="${escapeHtml(frame.positionX)}" data-profile-asset-frame="positionX" data-profile-asset-type="${escapeHtml(assetType)}" />
         <input type="hidden" value="${escapeHtml(frame.positionY)}" data-profile-asset-frame="positionY" data-profile-asset-type="${escapeHtml(assetType)}" />
 
-        <div class="sbw-profile-frame-controls__head">
-          <strong>Enquadramento da ${escapeHtml(label)}</strong>
-          <span>Para evitar alterações acidentais no celular/tablet, ative a edição antes de arrastar.</span>
-        </div>
+        <p class="sbw-profile-frame-drag-help">
+          No celular/tablet, a imagem fica bloqueada para rolagem da página. Ative a edição, ajuste zoom/posição e salve o enquadramento.
+        </p>
 
         <button class="sbw-profile-btn sbw-profile-btn-ghost sbw-profile-frame-edit-toggle" type="button" data-profile-asset-frame-toggle="${escapeHtml(assetType)}" aria-pressed="false">
           Editar enquadramento da ${escapeHtml(label)}
@@ -867,30 +871,47 @@
               </div>
             </div>
 
-            <div class="sbw-profile-media-editor">
-              <div class="sbw-profile-banner-preview ${profile.bannerUrl ? "has-image" : ""}" data-profile-asset-preview="banner" data-profile-asset-drag-target="banner" ${getBannerStyle(profile)}>
-                <div class="sbw-player-avatar sbw-profile-avatar-preview" data-profile-asset-preview="avatar" data-profile-asset-drag-target="avatar" ${styleAttribute(getProfileAssetFrameStyle(profile, "avatar"))}>
-                  ${getAvatarHtml(profile)}
+            <div id="sbw-profile-media-editor" class="sbw-profile-media-editor sbw-profile-media-prep" aria-label="Upload de foto e banner do perfil">
+              <div class="sbw-profile-media-prep__item sbw-profile-media-prep__item--cover">
+                <div class="sbw-profile-media-prep__preview sbw-profile-banner-preview ${profile.bannerUrl ? "has-image" : ""}" data-profile-asset-preview="banner" data-profile-asset-drag-target="banner" ${getBannerStyle(profile)}>
+                  ${!profile.bannerUrl ? `<span>Prévia do banner</span>` : ""}
+                </div>
+
+                <div class="sbw-profile-media-prep__body">
+                  <span>Imagem de capa</span>
+                  <strong>Banner do perfil</strong>
+                  <p>Envie a capa pública do seu perfil. Ela aparece no Meu Perfil, no perfil público e nos cards de perfis.</p>
+                  <small>Recomendado: imagem horizontal · PNG, JPG ou WebP · até 4 MB.</small>
+
+                  <label class="sbw-profile-btn sbw-profile-btn-primary sbw-profile-upload-trigger">
+                    <input type="file" name="bannerFile" accept="image/png,image/jpeg,image/webp" data-profile-asset-input="banner" />
+                    <span>Alterar banner</span>
+                  </label>
+
+                  <small class="sbw-media-upload-feedback" data-profile-asset-feedback="banner"></small>
+                  ${renderProfileAssetFrameControls(profile, "banner")}
                 </div>
               </div>
 
-              <div class="sbw-profile-form-grid">
-                <label class="sbw-profile-field">
-                  <span>Foto de perfil</span>
-                  <input type="file" name="avatarFile" accept="image/png,image/jpeg,image/webp" data-profile-asset-input="avatar" />
+              <div class="sbw-profile-media-prep__item sbw-profile-media-prep__item--avatar">
+                <div class="sbw-profile-media-prep__logo sbw-profile-avatar-preview" data-profile-asset-preview="avatar" data-profile-asset-drag-target="avatar" ${styleAttribute(getProfileAssetFrameStyle(profile, "avatar"))}>
+                  ${getAvatarHtml(profile)}
+                </div>
+
+                <div class="sbw-profile-media-prep__body">
+                  <span>Imagem principal</span>
+                  <strong>Foto do perfil</strong>
+                  <p>A foto será usada no painel, perfil público, cards de perfis e rankings.</p>
                   <small>Recomendado: imagem quadrada · PNG, JPG ou WebP · até 2 MB.</small>
-                </label>
 
-                <label class="sbw-profile-field">
-                  <span>Banner de fundo</span>
-                  <input type="file" name="bannerFile" accept="image/png,image/jpeg,image/webp" data-profile-asset-input="banner" />
-                  <small>Recomendado: imagem horizontal · PNG, JPG ou WebP · até 4 MB.</small>
-                </label>
-              </div>
+                  <label class="sbw-profile-btn sbw-profile-btn-primary sbw-profile-upload-trigger">
+                    <input type="file" name="avatarFile" accept="image/png,image/jpeg,image/webp" data-profile-asset-input="avatar" />
+                    <span>Alterar foto</span>
+                  </label>
 
-              <div class="sbw-profile-frame-grid">
-                ${renderProfileAssetFrameControls(profile, "avatar")}
-                ${renderProfileAssetFrameControls(profile, "banner")}
+                  <small class="sbw-media-upload-feedback" data-profile-asset-feedback="avatar"></small>
+                  ${renderProfileAssetFrameControls(profile, "avatar")}
+                </div>
               </div>
 
               <div class="sbw-profile-media-actions">
@@ -1536,7 +1557,11 @@
   }
 
   function nudgeProfileAssetZoom(assetType, direction) {
-    setProfileAssetFrameEditMode(assetType, true);
+    if (!isProfileAssetFrameEditActive(assetType)) {
+      setProfileAssetFeedback(assetType, "Ative a edição de enquadramento antes de alterar o zoom.", "loading");
+      return;
+    }
+
     const frame = getProfileAssetFrameForm(assetType);
     const step = assetType === "banner" ? 5 : 4;
     const next = {
@@ -1608,6 +1633,11 @@
     if (controls) {
       controls.dataset.profileAssetFrameEditing = active ? "true" : "false";
       controls.classList.toggle("is-frame-editing", active);
+
+      controls.querySelectorAll("[data-profile-asset-zoom], [data-profile-asset-frame-save]").forEach((control) => {
+        control.disabled = !active;
+        control.setAttribute("aria-disabled", active ? "false" : "true");
+      });
     }
 
     document.querySelectorAll(`[data-profile-asset-frame-toggle="${assetType}"]`).forEach((button) => {
@@ -1641,13 +1671,14 @@
       if (!dragState) return;
       const pointerId = dragState.pointerId;
       dragState = null;
+      element.classList.remove("is-dragging");
       try {
         element.releasePointerCapture?.(event?.pointerId || pointerId);
       } catch (error) {}
     };
 
     element.addEventListener("pointerdown", function (event) {
-      if (event.button !== 0) return;
+      if (event.button !== undefined && event.button !== 0) return;
 
       if (!isProfileAssetFrameEditActive(assetType)) {
         return;
@@ -1667,6 +1698,7 @@
         }
       };
 
+      element.classList.add("is-dragging");
       element.setPointerCapture?.(event.pointerId);
       event.preventDefault();
     });
