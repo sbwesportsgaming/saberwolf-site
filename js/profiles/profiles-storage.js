@@ -3331,18 +3331,25 @@
     });
   }
 
+  function clearLocalInvitesForIdentifiersV1644(identifiers) {
+    const keys = asArray(identifiers).map(String).filter(Boolean);
+
+    if (!keys.length) return;
+
+    const remaining = getProfileInvites().filter(function (invite) {
+      const inviteKey = String(invite?.userId || invite?.profileId || invite?.profileSlug || invite?.invitedProfileSlug || "");
+      return !keys.includes(inviteKey);
+    });
+
+    saveProfileInvites(remaining);
+  }
+
   async function getCurrentUserInvitesV1615() {
     const context = await getInviteProfileContext();
     const identifiers = getInviteIdentifiersFromContext(context);
-    const localInvites = [];
-    let supabaseInvites = [];
-
-    identifiers.forEach(function (identifier) {
-      localInvites.push.apply(localInvites, getInvitesByUserId(identifier));
-    });
 
     if (profilesSupabaseEnabled()) {
-      supabaseInvites = await getCurrentUserInvitesFromSupabaseRpcV1643();
+      let supabaseInvites = await getCurrentUserInvitesFromSupabaseRpcV1643();
 
       if (!supabaseInvites.length && typeof getInvitesByUserIdFromSupabase === "function") {
         for (const identifier of identifiers) {
@@ -3354,9 +3361,19 @@
           }
         }
       }
+
+      // Produção/Supabase: convites locais antigos não entram mais na lista e são limpos deste navegador.
+      clearLocalInvitesForIdentifiersV1644(identifiers);
+      return mergeCurrentProfileInvites([supabaseInvites], context);
     }
 
-    return mergeCurrentProfileInvites([supabaseInvites, localInvites], context);
+    const localInvites = [];
+
+    identifiers.forEach(function (identifier) {
+      localInvites.push.apply(localInvites, getInvitesByUserId(identifier));
+    });
+
+    return mergeCurrentProfileInvites([localInvites], context);
   }
 
   async function findCurrentProfileInvite(inviteId, context) {
@@ -3620,8 +3637,7 @@
         };
       }
 
-      const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
-      const localResult = acceptTeamInvite(mirroredInvite.id, mirroredInvite.userId);
+      clearLocalInvitesForIdentifiersV1644(getInviteIdentifiersFromContext(context));
 
       if (window.SBWSessionContext?.clearCache) {
         window.SBWSessionContext.clearCache();
@@ -3630,9 +3646,19 @@
       return {
         ok: true,
         invite: Object.assign({}, invite, { status: "accepted", respondedAt: nowIso() }),
-        member: localResult.member || rpcResult.data?.member || null,
+        member: rpcResult.data?.member || null,
         source: "supabase",
         message: rpcResult.message || "Convite aceito. Você entrou na equipe."
+      };
+    }
+
+    if (profilesSupabaseEnabled()) {
+      clearLocalInvitesForIdentifiersV1644(getInviteIdentifiersFromContext(context));
+      return {
+        ok: false,
+        invite,
+        source: "local-demo-disabled",
+        message: "Convites locais antigos foram desativados. Peça para a equipe enviar um novo convite real."
       };
     }
 
@@ -3648,7 +3674,7 @@
       invite: Object.assign({}, invite, { status: "accepted", respondedAt: nowIso() }),
       member: localResult.member || null,
       source: "local-demo",
-      message: localResult.message || "Convite aceito no fallback local."
+      message: localResult.message || "Convite aceito no fallback local de desenvolvimento."
     };
   }
 
@@ -3675,8 +3701,7 @@
         };
       }
 
-      const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
-      declineTeamInvite(mirroredInvite.id, mirroredInvite.userId);
+      clearLocalInvitesForIdentifiersV1644(getInviteIdentifiersFromContext(context));
 
       if (window.SBWSessionContext?.clearCache) {
         window.SBWSessionContext.clearCache();
@@ -3687,6 +3712,16 @@
         invite: Object.assign({}, invite, { status: "declined", respondedAt: nowIso() }),
         source: "supabase",
         message: rpcResult.message || "Convite recusado."
+      };
+    }
+
+    if (profilesSupabaseEnabled()) {
+      clearLocalInvitesForIdentifiersV1644(getInviteIdentifiersFromContext(context));
+      return {
+        ok: false,
+        invite,
+        source: "local-demo-disabled",
+        message: "Convites locais antigos foram desativados. Peça para a equipe enviar um novo convite real."
       };
     }
 
@@ -3701,7 +3736,7 @@
       ok: localResult.ok,
       invite: Object.assign({}, invite, { status: "declined", respondedAt: nowIso() }),
       source: "local-demo",
-      message: localResult.message || "Convite recusado no fallback local."
+      message: localResult.message || "Convite recusado no fallback local de desenvolvimento."
     };
   }
 

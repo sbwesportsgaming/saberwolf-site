@@ -704,6 +704,19 @@
     });
   }
 
+  function clearLocalInvitesForTeam(teamId) {
+    const key = String(teamId || "");
+
+    if (!key) return;
+
+    const removeTeamInvite = function (invite) {
+      return getInviteTeamSlug(invite) !== key;
+    };
+
+    saveLocalTeamInvitesRaw(getLocalTeamInvitesRaw().filter(removeTeamInvite));
+    saveLocalProfileInvitesRaw(getLocalProfileInvitesRaw().filter(removeTeamInvite));
+  }
+
   async function getTeamInvitesFromSupabase(teamId) {
     if (!teamsSupabaseEnabled() || !teamId) {
       return [];
@@ -751,15 +764,17 @@
   }
 
   async function getTeamInvites(teamId) {
-    const localInvites = getTeamInvitesFromLocal(teamId);
-
     if (!teamsSupabaseEnabled()) {
-      return localInvites;
+      return getTeamInvitesFromLocal(teamId);
     }
 
     const supabaseInvites = await getTeamInvitesFromSupabase(teamId);
 
-    return mergeInvites(supabaseInvites, localInvites).filter(function (invite) {
+    // Produção/Supabase: convites locais antigos não podem bloquear convites reais.
+    // Eles são removidos silenciosamente do navegador atual e não entram mais na lista.
+    clearLocalInvitesForTeam(teamId);
+
+    return supabaseInvites.filter(function (invite) {
       return getInviteTeamSlug(invite) === String(teamId || "");
     });
   }
@@ -914,40 +929,53 @@
         ok: true,
         invite: pendingDuplicate,
         duplicate: true,
-        source: pendingDuplicate.source || "local-demo",
-        message: "Já existe convite pendente para esse jogador."
+        source: "supabase",
+        message: "Já existe convite pendente real para esse jogador."
       };
     }
 
-    let savedInvite = null;
+    if (teamsSupabaseEnabled()) {
+      if (config.allowSupabaseWrites !== true) {
+        return {
+          ok: false,
+          invite: null,
+          duplicate: false,
+          source: "supabase-disabled",
+          message: "A criação real de convites está desativada nesta sessão."
+        };
+      }
 
-    if (config.allowSupabaseWrites === true) {
-      savedInvite = await saveTeamInviteToSupabase(invite);
-    }
+      const savedInvite = await saveTeamInviteToSupabase(invite);
 
-    if (!savedInvite && teamsSupabaseEnabled() && config.allowSupabaseWrites === true) {
+      if (!savedInvite) {
+        return {
+          ok: false,
+          invite: null,
+          duplicate: false,
+          source: "supabase-error",
+          message: "Não foi possível salvar o convite real no Supabase. Convites locais foram desativados em produção."
+        };
+      }
+
+      clearLocalInvitesForTeam(invite.teamSlug);
+
       return {
-        ok: false,
-        invite: null,
+        ok: true,
+        invite: savedInvite,
         duplicate: false,
-        source: "supabase-error",
-        message: "Não foi possível salvar o convite real no Supabase. O convite local não será usado em produção."
+        source: "supabase",
+        message: "Convite enviado."
       };
     }
 
-    if (!savedInvite) {
-      savedInvite = saveTeamInviteToLocal(invite);
-    } else {
-      // Espelho local apenas para testes no VS Code e fallback visual.
-      saveTeamInviteToLocal(savedInvite);
-    }
+    const savedInvite = saveTeamInviteToLocal(invite);
 
     return {
       ok: true,
       invite: savedInvite,
       duplicate: false,
       source: savedInvite.source || "local-demo",
-      message: savedInvite.source === "supabase" ? "Convite enviado." : "Convite salvo no fallback local."
+      message: "Convite salvo no fallback local de desenvolvimento."
     };
   }
 
@@ -1049,15 +1077,17 @@
       };
     }
 
-    if (teamsSupabaseEnabled() && config.allowSupabaseWrites === true) {
+    if (teamsSupabaseEnabled()) {
+      if (config.allowSupabaseWrites !== true) {
+        return {
+          ok: false,
+          message: "Cancelamento real de convites está desativado nesta sessão."
+        };
+      }
+
       const rpcResult = await cancelTeamInviteViaRpcV1643(key, teamKey);
 
-      if (rpcResult?.ok) {
-        const cancelledLocal = cancelTeamInviteLocal(key, teamKey);
-        return Object.assign({}, rpcResult, {
-          invite: rpcResult.invite || cancelledLocal
-        });
-      }
+      clearLocalInvitesForTeam(teamKey);
 
       return rpcResult || {
         ok: false,
