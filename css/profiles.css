@@ -2970,15 +2970,25 @@ body.sbw-profile-public-body .sbw-profile-page {
   cursor: grab;
 }
 
-.sbw-profile-banner-preview:active,
-.sbw-profile-avatar-preview:active {
+.sbw-profile-banner-preview,
+.sbw-profile-avatar-preview {
+  cursor: default;
+  touch-action: pan-y;
+}
+
+.sbw-profile-banner-preview.is-frame-editing,
+.sbw-profile-avatar-preview.is-frame-editing {
+  cursor: grab;
+  touch-action: none;
+}
+
+.sbw-profile-banner-preview.is-frame-editing:active,
+.sbw-profile-avatar-preview.is-frame-editing:active {
   cursor: grabbing;
 }
 
-.sbw-profile-avatar-preview,
 .sbw-profile-public-avatar {
-  touch-action: none;
-  cursor: grab;
+  cursor: default;
 }
 
 .sbw-profile-avatar-preview img,
@@ -2999,6 +3009,23 @@ body.sbw-profile-public-body .sbw-profile-page {
   border-radius: 18px;
   padding: 13px;
   background: rgba(2, 6, 23, 0.36);
+}
+
+.sbw-profile-frame-controls.is-frame-editing {
+  border-color: rgba(56, 189, 248, 0.36);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.08), 0 16px 32px rgba(0, 0, 0, 0.18);
+}
+
+.sbw-profile-frame-edit-toggle {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.sbw-profile-frame-edit-toggle.is-active {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(34, 211, 238, 0.14);
+  color: var(--sbw-cyan);
 }
 
 .sbw-profile-frame-controls__head {

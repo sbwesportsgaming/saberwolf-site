@@ -829,8 +829,12 @@
 
         <div class="sbw-profile-frame-controls__head">
           <strong>Enquadramento da ${escapeHtml(label)}</strong>
-          <span>Arraste a imagem na prévia e ajuste o zoom antes de salvar.</span>
+          <span>Para evitar alterações acidentais no celular/tablet, ative a edição antes de arrastar.</span>
         </div>
+
+        <button class="sbw-profile-btn sbw-profile-btn-ghost sbw-profile-frame-edit-toggle" type="button" data-profile-asset-frame-toggle="${escapeHtml(assetType)}" aria-pressed="false">
+          Editar enquadramento da ${escapeHtml(label)}
+        </button>
 
         <div class="sbw-profile-frame-zoom-row">
           <button class="sbw-profile-frame-zoom" type="button" data-profile-asset-zoom="out" data-profile-asset-type="${escapeHtml(assetType)}" aria-label="Diminuir zoom">−</button>
@@ -1532,6 +1536,7 @@
   }
 
   function nudgeProfileAssetZoom(assetType, direction) {
+    setProfileAssetFrameEditMode(assetType, true);
     const frame = getProfileAssetFrameForm(assetType);
     const step = assetType === "banner" ? 5 : 4;
     const next = {
@@ -1578,11 +1583,48 @@
       state.profile = saved || updatedProfile;
       setProfileAssetFrameForm(assetType, getProfileAssetFrame(state.profile, assetType));
       applyProfileAssetFramePreview(assetType);
+      setProfileAssetFrameEditMode(assetType, false);
       setProfileAssetFeedback(assetType, "Enquadramento salvo.", "success");
     } catch (error) {
       console.error(`[SBW Profile Admin] Falha ao salvar enquadramento de ${assetType}:`, error);
       setProfileAssetFeedback(assetType, error?.message || "Não foi possível salvar o enquadramento.", "error");
     }
+  }
+
+  function getProfileAssetPreviewElements(assetType) {
+    return Array.from(document.querySelectorAll(`[data-profile-asset-preview="${assetType}"], [data-profile-asset-drag-target="${assetType}"]`));
+  }
+
+  function isProfileAssetFrameEditActive(assetType) {
+    const controls = document.querySelector(`[data-profile-asset-frame-group="${assetType}"]`);
+    return controls?.dataset.profileAssetFrameEditing === "true";
+  }
+
+  function setProfileAssetFrameEditMode(assetType, isActive) {
+    const active = Boolean(isActive);
+    const controls = document.querySelector(`[data-profile-asset-frame-group="${assetType}"]`);
+    const label = assetType === "avatar" ? "foto" : "banner";
+
+    if (controls) {
+      controls.dataset.profileAssetFrameEditing = active ? "true" : "false";
+      controls.classList.toggle("is-frame-editing", active);
+    }
+
+    document.querySelectorAll(`[data-profile-asset-frame-toggle="${assetType}"]`).forEach((button) => {
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+      button.textContent = active ? `Bloquear enquadramento da ${label}` : `Editar enquadramento da ${label}`;
+      button.classList.toggle("is-active", active);
+    });
+
+    getProfileAssetPreviewElements(assetType).forEach((element) => {
+      element.classList.toggle("is-frame-editing", active);
+      element.setAttribute(
+        "aria-label",
+        active
+          ? (assetType === "banner" ? "Arraste para enquadrar o banner" : "Arraste para enquadrar a foto")
+          : (assetType === "banner" ? "Banner bloqueado. Use o botão Editar enquadramento para mover." : "Foto bloqueada. Use o botão Editar enquadramento para mover.")
+      );
+    });
   }
 
   function bindProfileAssetDrag(element, assetType) {
@@ -1591,7 +1633,7 @@
     element.dataset.profileAssetDragBound = "true";
     element.setAttribute("role", "button");
     element.setAttribute("tabindex", "0");
-    element.setAttribute("aria-label", assetType === "banner" ? "Arraste para enquadrar o banner" : "Arraste para enquadrar a foto");
+    setProfileAssetFrameEditMode(assetType, false);
 
     let dragState = null;
 
@@ -1606,6 +1648,10 @@
 
     element.addEventListener("pointerdown", function (event) {
       if (event.button !== 0) return;
+
+      if (!isProfileAssetFrameEditActive(assetType)) {
+        return;
+      }
 
       const rect = element.getBoundingClientRect();
       const currentFrame = getProfileAssetFrameForm(assetType);
@@ -1690,7 +1736,8 @@
 
         if (file) {
           previewSelectedProfileAsset(file, assetType);
-          setProfileAssetFeedback(assetType, `${getAssetLabel(assetType)} pronta para salvar.`, "success");
+          setProfileAssetFrameEditMode(assetType, false);
+          setProfileAssetFeedback(assetType, `${getAssetLabel(assetType)} pronta para salvar. Use Editar enquadramento se precisar ajustar.`, "success");
         }
       });
     });
@@ -1707,6 +1754,15 @@
         saveProfileAssetFrame(button.dataset.profileAssetFrameSave);
       });
     });
+
+    document.querySelectorAll("[data-profile-asset-frame-toggle]").forEach((button) => {
+      button.addEventListener("click", function () {
+        const assetType = button.dataset.profileAssetFrameToggle;
+        setProfileAssetFrameEditMode(assetType, !isProfileAssetFrameEditActive(assetType));
+      });
+    });
+
+    ["avatar", "banner"].forEach((assetType) => setProfileAssetFrameEditMode(assetType, false));
 
     document.querySelectorAll("[data-profile-asset-drag-target]").forEach((element) => {
       bindProfileAssetDrag(element, element.dataset.profileAssetDragTarget);
