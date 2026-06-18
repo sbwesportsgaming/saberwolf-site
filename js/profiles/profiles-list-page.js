@@ -182,6 +182,45 @@
     return profile?.bannerUrl || profile?.banner_url || profile?.coverUrl || profile?.cover_url || "";
   }
 
+  function clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function asObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function getProfileAssetFrame(profile, assetType) {
+    const metadata = asObject(profile?.metadata);
+    const profileAssets = asObject(metadata.profileAssets || profile?.profileAssets);
+    const fallbackAssets = asObject(metadata.assetFrames);
+    const raw = asObject(profileAssets[assetType] || fallbackAssets[assetType]);
+
+    return {
+      positionX: clampNumber(raw.positionX ?? raw.x ?? raw.objectPositionX, 0, 100, 50),
+      positionY: clampNumber(raw.positionY ?? raw.y ?? raw.objectPositionY, 0, 100, 50),
+      zoom: clampNumber(raw.zoom ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function getProfileAssetFrameStyle(profile, assetType) {
+    const frame = getProfileAssetFrame(profile, assetType);
+
+    if (assetType === "banner") {
+      const size = frame.zoom <= 100 ? "cover" : `${frame.zoom}% auto`;
+      return `--profile-banner-x:${frame.positionX}%; --profile-banner-y:${frame.positionY}%; --profile-banner-size:${size};`;
+    }
+
+    return `--sbw-profile-avatar-x:${frame.positionX}%; --sbw-profile-avatar-y:${frame.positionY}%; --sbw-profile-avatar-scale:${(frame.zoom / 100).toFixed(2)};`;
+  }
+
+  function styleAttribute(...parts) {
+    const value = parts.filter(Boolean).join(" ").trim();
+    return value ? ` style="${escapeHtml(value)}"` : "";
+  }
+
   function getGames(profile) {
     const games = profile?.mainGames || profile?.games || profile?.modalities || [];
     return asArray(games)
@@ -246,6 +285,18 @@
     if (diff < day * 30) return `Atualizado há ${Math.max(1, Math.round(diff / day))}d`;
 
     return new Date(timestamp).toLocaleDateString("pt-BR");
+  }
+
+
+  function summarizeProfileText(value, fallback, maxLength = 120) {
+    const text = String(value || fallback || "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!text) return "Competidor da plataforma -SBW-.";
+    if (text.length <= maxLength) return text;
+
+    return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
   }
 
   function getLocation(profile) {
@@ -525,7 +576,7 @@
     const cls = sizeClass ? ` sbw-profiles-v2-avatar--${sizeClass}` : "";
 
     return `
-      <div class="sbw-profiles-v2-avatar${cls}">
+      <div class="sbw-profiles-v2-avatar${cls}"${styleAttribute(getProfileAssetFrameStyle(profile, "avatar"))}>
         ${avatar ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(getDisplayName(profile))}" loading="lazy" />` : escapeHtml(getInitials(profile))}
       </div>
     `;
@@ -533,8 +584,14 @@
 
   function getBannerCss(profile) {
     const banner = getBannerUrl(profile);
-    if (!banner) return "";
-    return ` style="--profile-banner: linear-gradient(180deg, rgba(4, 12, 24, 0.10), rgba(4, 12, 24, 0.82)), url('${escapeHtml(banner)}');"`;
+    const style = [getProfileAssetFrameStyle(profile, "banner")];
+
+    if (banner) {
+      style.push(`--profile-banner-image: url('${banner}');`);
+      style.push(`--profile-banner: linear-gradient(180deg, rgba(4, 12, 24, 0.10), rgba(4, 12, 24, 0.82)), url('${banner}');`);
+    }
+
+    return styleAttribute(style.join(" "));
   }
 
   function renderMedals(profile) {
@@ -574,13 +631,18 @@
     const stats = getStats(profile);
     const team = getTeamFromProfile(profile);
     const games = getGames(profile);
-    const tags = getTags(profile);
     const rank = getRankPosition(profile);
-    const location = getLocation(profile);
     const profileUrl = getProfileUrl(profile);
+    const banner = getBannerUrl(profile);
+    const location = getLocation(profile);
+    const summary = summarizeProfileText(
+      profile?.headline || profile?.bio,
+      "Competidor da plataforma -SBW- com perfil público ativo.",
+      92
+    );
 
     return `
-      <article class="sbw-profiles-v2-featured-card${isCurrentUserProfile(profile) ? " is-current-user" : ""}"${getBannerCss(profile)}>
+      <article class="sbw-profiles-v2-featured-card${banner ? " has-profile-banner" : ""}${isCurrentUserProfile(profile) ? " is-current-user" : ""}"${getBannerCss(profile)}>
         <div class="sbw-profiles-v2-featured-media">
           ${renderAvatar(profile)}
         </div>
@@ -588,32 +650,23 @@
         <div class="sbw-profiles-v2-featured-info">
           ${renderBadges(profile)}
           <h3>${escapeHtml(getDisplayName(profile))}</h3>
-          <p>${escapeHtml(profile?.headline || profile?.bio || "Competidor da plataforma -SBW- com perfil público ativo.")}</p>
+          <p>${escapeHtml(summary)}</p>
 
-          <div class="sbw-profiles-v2-meta">
+          <div class="sbw-profiles-v2-meta sbw-profiles-v2-meta--compact">
             ${team ? `<span>🛡️ ${escapeHtml(team.name || team.tag)}</span>` : `<span>🧭 Free Agent</span>`}
             ${games[0] ? `<span>🎮 ${escapeHtml(games[0].name)}</span>` : ""}
-            ${tags[0] ? `<span>⚔️ ${escapeHtml(tags[0])}</span>` : ""}
             ${location ? `<span>📍 ${escapeHtml(location)}</span>` : ""}
           </div>
         </div>
 
-        <div class="sbw-profiles-v2-featured-stats">
+        <div class="sbw-profiles-v2-featured-stats sbw-profiles-v2-featured-stats--compact">
           <div class="sbw-profiles-v2-stat">
             <strong>${rank ? `#${rank}` : "—"}</strong>
-            <span>Ranking -SBW-</span>
+            <span>Ranking</span>
           </div>
           <div class="sbw-profiles-v2-stat">
             <strong>${stats.points}</strong>
             <span>Pontos</span>
-          </div>
-          <div class="sbw-profiles-v2-stat">
-            <strong>${stats.tournamentsPlayed}</strong>
-            <span>Torneios</span>
-          </div>
-          <div class="sbw-profiles-v2-stat">
-            <strong>${stats.titles + stats.podiums}</strong>
-            <span>Conquistas</span>
           </div>
           <a class="sbw-profiles-v2-action" href="${profileUrl}">Ver perfil →</a>
         </div>
@@ -628,7 +681,6 @@
     const tags = getTags(profile);
     const status = getStatusInfo(profile);
     const rank = getRankPosition(profile);
-    const location = getLocation(profile);
 
     return `
       <article class="sbw-profiles-v2-card ${isCurrentUserProfile(profile) ? "is-current-user" : ""}">
@@ -645,17 +697,14 @@
           <h3>${escapeHtml(getDisplayName(profile))}${profile?.isVerified || profile?.verified ? " ✦" : ""}</h3>
           <p>${escapeHtml(team ? team.name || team.tag : "Free Agent")}</p>
 
-          <div class="sbw-profiles-v2-card__meta">
+          <div class="sbw-profiles-v2-card__meta sbw-profiles-v2-card__meta--compact">
             ${games[0] ? `<span>🎮 ${escapeHtml(games[0].name)}</span>` : ""}
             ${tags[0] ? `<span>⚔️ ${escapeHtml(tags[0])}</span>` : ""}
-            ${location ? `<span>📍 ${escapeHtml(location)}</span>` : ""}
           </div>
 
-          <div class="sbw-profiles-v2-card__tags">
-            ${tags.slice(0, 3).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("") || `<span>Competidor</span>`}
+          <div class="sbw-profiles-v2-card__tags sbw-profiles-v2-card__tags--compact">
+            ${tags.slice(0, 1).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("") || `<span>Competidor</span>`}
           </div>
-
-          ${renderMedals(profile)}
         </div>
 
         <div class="sbw-profiles-v2-card__bottom">

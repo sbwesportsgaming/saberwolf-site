@@ -416,7 +416,10 @@
       avatarUrl: safeRow.avatar_url || "",
       bannerUrl: safeRow.banner_url || "",
 
-      mainGames: mainGames,
+      metadata: metadata,
+      profileAssets: metadata.profileAssets || metadata.assetFrames || {},
+
+      mainGames: Array.isArray(metadata.mainGames) && metadata.mainGames.length ? metadata.mainGames : mainGames,
       roleTags: roleTags,
       socialLinks: socialLinks,
 
@@ -846,6 +849,212 @@
     }
 
     saveProfiles(profiles);
+
+    return profile;
+  }
+
+  function getCurrentAuthUserIdFallback(profileData) {
+    const currentUser = getCurrentUser();
+    const safeProfile = profileData || {};
+
+    return (
+      safeProfile.authUserId ||
+      safeProfile.auth_user_id ||
+      currentUser.authUserId ||
+      currentUser.auth_user_id ||
+      ""
+    );
+  }
+
+  async function getCurrentAuthUserId(profileData) {
+    if (window.SBWAuth && typeof window.SBWAuth.getUser === "function") {
+      try {
+        const authUser = await window.SBWAuth.getUser();
+
+        if (authUser && authUser.id) {
+          return authUser.id;
+        }
+      } catch (error) {
+        console.warn("[SaberWolf Profiles] Não foi possível ler usuário autenticado para salvar perfil:", error);
+      }
+    }
+
+    return getCurrentAuthUserIdFallback(profileData);
+  }
+
+  function buildSupabaseProfileUpdatePayload(profile, currentRow) {
+    const currentMetadata =
+      currentRow && currentRow.metadata && typeof currentRow.metadata === "object" && !Array.isArray(currentRow.metadata)
+        ? currentRow.metadata
+        : {};
+    const incomingMetadata =
+      profile.metadata && typeof profile.metadata === "object" && !Array.isArray(profile.metadata)
+        ? profile.metadata
+        : {};
+    const profileAssets =
+      incomingMetadata.profileAssets && typeof incomingMetadata.profileAssets === "object" && !Array.isArray(incomingMetadata.profileAssets)
+        ? incomingMetadata.profileAssets
+        : currentMetadata.profileAssets || currentMetadata.assetFrames || {};
+    const roleTags = Array.isArray(profile.roleTags) ? profile.roleTags : [];
+    const mainGames = Array.isArray(profile.mainGames) ? profile.mainGames : [];
+    const primaryGame = mainGames[0] || null;
+
+    return {
+      nickname: profile.nickname || profile.displayName || currentRow?.nickname || "",
+      display_name: profile.displayName || profile.nickname || currentRow?.display_name || "Usuário -SBW-",
+      headline: profile.headline || "",
+      bio: profile.bio || "",
+      country: profile.country || "Brasil",
+      state: profile.state || "",
+      city: profile.city || "",
+      avatar_url: profile.avatarUrl || "",
+      banner_url: profile.bannerUrl || "",
+      main_game: primaryGame ? (primaryGame.name || primaryGame.id || "") : "",
+      main_role: roleTags[0] || currentRow?.main_role || "Player",
+      public_tags: roleTags.length ? roleTags : ["Player"],
+      social_links: profile.socialLinks || {},
+      metadata: {
+        ...currentMetadata,
+        ...incomingMetadata,
+        profileType: profile.profileType || incomingMetadata.profileType || currentMetadata.profileType || "player",
+        mainGames: mainGames,
+        stats: profile.stats || incomingMetadata.stats || currentMetadata.stats || {},
+        profileAssets: profileAssets
+      },
+      is_public: true,
+      profile_completed: true,
+      updated_at: nowIso()
+    };
+  }
+
+  function syncCurrentUserFromProfile(profile) {
+    const currentUser = getCurrentUser();
+    const nextUser = Object.assign({}, currentUser, {
+      id: profile.slug || profile.username || profile.id || currentUser.id,
+      userId: profile.slug || profile.username || profile.id || currentUser.userId,
+      profileId: profile.supabaseId || currentUser.profileId,
+      authUserId: profile.authUserId || profile.auth_user_id || currentUser.authUserId,
+      nickname: profile.nickname || currentUser.nickname,
+      displayName: profile.displayName || currentUser.displayName,
+      avatarUrl: profile.avatarUrl || "",
+      permissions: profile.permissions || currentUser.permissions || {}
+    });
+
+    setCurrentUser(nextUser);
+
+    return nextUser;
+  }
+
+  async function saveCurrentUserProfile(profileData) {
+    const profile = normalizeProfile(profileData);
+
+    if (!profilesSupabaseEnabled()) {
+      return saveProfile(profile);
+    }
+
+    const authUserId = await getCurrentAuthUserId(profile);
+
+    if (!authUserId) {
+      return saveProfile(profile);
+    }
+
+    const tableName = getProfilesSupabaseTableName();
+
+    try {
+      const currentResult = await window.SBWSupabase.client
+        .from(tableName)
+        .select("*")
+        .eq("auth_user_id", authUserId)
+        .maybeSingle();
+
+      if (currentResult.error) {
+        throw currentResult.error;
+      }
+
+      const currentRow = currentResult.data || null;
+      const payload = buildSupabaseProfileUpdatePayload(profile, currentRow);
+      let result;
+
+      if (currentRow && currentRow.id) {
+        result = await window.SBWSupabase.client
+          .from(tableName)
+          .update(payload)
+          .eq("id", currentRow.id)
+          .select("*")
+          .single();
+      } else {
+        result = await window.SBWSupabase.client
+          .from(tableName)
+          .update(payload)
+          .eq("auth_user_id", authUserId)
+          .select("*")
+          .maybeSingle();
+      }
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (!result.data) {
+        throw new Error("Perfil não encontrado no Supabase para atualizar.");
+      }
+
+      const normalized = normalizeSupabaseProfile(result.data);
+      syncCurrentUserFromProfile(normalized);
+
+      return normalized;
+    } catch (error) {
+      console.error("[SaberWolf Profiles] Erro ao salvar perfil no Supabase:", error);
+      throw new Error(error.message || "Não foi possível salvar o perfil no Supabase.");
+    }
+  }
+
+  async function getCurrentUserProfileAsync() {
+    if (profilesSupabaseEnabled()) {
+      const authUserId = await getCurrentAuthUserId({});
+
+      if (authUserId) {
+        const byAuth = await getSupabaseProfileByColumn("auth_user_id", authUserId);
+
+        if (byAuth) {
+          return byAuth;
+        }
+      }
+    }
+
+    const currentUser = getCurrentUser();
+    const userId = currentUser.userId || currentUser.id;
+
+    let profile = getProfileByUserId(userId);
+
+    if (!profile) {
+      profile = saveProfile({
+        id: userId,
+        userId: userId,
+        nickname: currentUser.nickname || "UsuarioDemo",
+        displayName: currentUser.displayName || currentUser.nickname || "Usuário -SBW-",
+        profileType: "player",
+        headline: "Jogador -SBW-",
+        bio: "",
+        country: "Brasil",
+        state: "",
+        city: "",
+        avatarUrl: currentUser.avatarUrl || "",
+        bannerUrl: "",
+        mainGames: [],
+        roleTags: ["Player"],
+        socialLinks: {},
+        stats: {
+          tournamentsPlayed: 0,
+          wins: 0,
+          podiums: 0,
+          titles: 0,
+          prizeAmount: 0,
+          prizeCurrency: "BRL"
+        },
+        permissions: currentUser.permissions || {}
+      });
+    }
 
     return profile;
   }
@@ -2675,6 +2884,7 @@
     getProfileByUserIdAsync: getProfileByUserIdAsync,
     getProfileAsync: getProfileByIdAsync,
     saveProfile: saveProfile,
+    saveCurrentUserProfile: saveCurrentUserProfile,
     upsertProfile: saveProfile,
     updateProfile: saveProfile,
     deleteProfile: deleteProfile,
@@ -2730,43 +2940,8 @@
      SaberWolf v1.4.3 - Compatibilidade com profile-admin-page.js
      ========================================================= */
 
-  window.SBWProfilesStorage.getCurrentUserProfile = function () {
-    const currentUser = getCurrentUser();
-    const userId = currentUser.userId || currentUser.id;
-
-    let profile = getProfileByUserId(userId);
-
-    if (!profile) {
-      profile = saveProfile({
-        id: userId,
-        userId: userId,
-        nickname: currentUser.nickname || "UsuarioDemo",
-        displayName: currentUser.displayName || currentUser.nickname || "Usuário SaberWolf",
-        profileType: "player",
-        headline: "Jogador SaberWolf",
-        bio: "",
-        country: "Brasil",
-        state: "",
-        city: "",
-        avatarUrl: "",
-        bannerUrl: "",
-        mainGames: [],
-        roleTags: ["Player"],
-        socialLinks: {},
-        stats: {
-          tournamentsPlayed: 0,
-          wins: 0,
-          podiums: 0,
-          titles: 0,
-          prizeAmount: 0,
-          prizeCurrency: "BRL"
-        },
-        permissions: currentUser.permissions || {}
-      });
-    }
-
-    return profile;
-  };
+  window.SBWProfilesStorage.getCurrentUserProfile = getCurrentUserProfileAsync;
+  window.SBWProfilesStorage.getCurrentUserProfileAsync = getCurrentUserProfileAsync;
 
     function normalizeInviteForAdminPanel(invite) {
     const safeInvite = invite || {};

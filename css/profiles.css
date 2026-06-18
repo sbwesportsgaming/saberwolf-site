@@ -2954,3 +2954,134 @@ body.sbw-profile-public-body .sbw-profile-page {
   cursor: wait;
   opacity: 0.65;
 }
+
+/* =========================================================
+   -SBW- v1.6.38 - Enquadramento de foto e banner do perfil
+   ========================================================= */
+
+.sbw-profile-banner-preview,
+.sbw-profile-public-hero {
+  background-size: var(--sbw-profile-banner-size, cover) !important;
+  background-position: var(--sbw-profile-banner-x, 50%) var(--sbw-profile-banner-y, 50%) !important;
+}
+
+.sbw-profile-banner-preview {
+  touch-action: none;
+  cursor: grab;
+}
+
+.sbw-profile-banner-preview:active,
+.sbw-profile-avatar-preview:active {
+  cursor: grabbing;
+}
+
+.sbw-profile-avatar-preview,
+.sbw-profile-public-avatar {
+  touch-action: none;
+  cursor: grab;
+}
+
+.sbw-profile-avatar-preview img,
+.sbw-profile-public-avatar img {
+  object-position: var(--sbw-profile-avatar-x, 50%) var(--sbw-profile-avatar-y, 50%);
+  transform: scale(var(--sbw-profile-avatar-scale, 1));
+  transform-origin: var(--sbw-profile-avatar-x, 50%) var(--sbw-profile-avatar-y, 50%);
+}
+
+.sbw-profile-frame-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sbw-profile-frame-controls {
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 18px;
+  padding: 13px;
+  background: rgba(2, 6, 23, 0.36);
+}
+
+.sbw-profile-frame-controls__head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.sbw-profile-frame-controls__head strong {
+  color: var(--sbw-text);
+  font-size: 0.9rem;
+}
+
+.sbw-profile-frame-controls__head span,
+.sbw-profile-frame-position-readout {
+  color: var(--sbw-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.sbw-profile-frame-zoom-row,
+.sbw-profile-frame-position-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.sbw-profile-frame-zoom-row {
+  margin: 8px 0;
+}
+
+.sbw-profile-frame-zoom {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.09);
+  color: var(--sbw-cyan);
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 950;
+}
+
+.sbw-media-upload-feedback {
+  display: block;
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--sbw-muted);
+  font-size: 0.74rem;
+}
+
+.sbw-media-upload-feedback.is-loading { color: var(--sbw-warning); }
+.sbw-media-upload-feedback.is-success { color: var(--sbw-success); }
+.sbw-media-upload-feedback.is-error { color: var(--sbw-danger); }
+
+@media (max-width: 720px) {
+  .sbw-profile-frame-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   -SBW- v1.6.38.2 — Meu Perfil com sidebar única
+   ========================================================= */
+body.sbw-profile-admin-body > header,
+body.sbw-profile-admin-body .sbw-legacy-header,
+body.sbw-profile-admin-body .sbw-profile-hero {
+  display: none !important;
+}
+
+body.sbw-profile-admin-body .sbw-profile-page,
+body.sbw-profile-admin-body .sbw-profile-page-admin {
+  width: min(1180px, calc(100% - 34px));
+  padding-top: 28px;
+}
+
+@media (max-width: 980px) {
+  body.sbw-profile-admin-body .sbw-profile-page,
+  body.sbw-profile-admin-body .sbw-profile-page-admin {
+    width: min(100% - 24px, 1180px);
+    padding-top: 76px;
+  }
+}

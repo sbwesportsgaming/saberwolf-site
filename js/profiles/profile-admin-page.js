@@ -15,6 +15,16 @@
     activeHistoryTab: "teams"
   };
 
+  const profileAssetUploadConfig = {
+    // Reaproveita exatamente o bucket/padrão já validado em Equipes.
+    // A policy atual do Storage está preparada para caminhos teams/<chave>/<logo|banner>/...
+    // Por isso a foto do perfil usa a pasta visual "logo" e o banner usa "banner".
+    bucket: "sbw-team-assets",
+    allowedTypes: ["image/png", "image/jpeg", "image/webp"],
+    avatarMaxBytes: 2 * 1024 * 1024,
+    bannerMaxBytes: 4 * 1024 * 1024
+  };
+
   const gameOptions = [
     {
       id: "sf6",
@@ -92,57 +102,198 @@
   }
 
   function getAvatarHtml(profile) {
-  if (profile?.avatarUrl) {
-    return `
-      <img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.displayName || "Avatar")}" />
-    `;
+    if (profile?.avatarUrl) {
+      return `
+        <img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.displayName || "Avatar")}" />
+      `;
+    }
+
+    return escapeHtml(getInitials(profile));
   }
 
-  return escapeHtml(getInitials(profile));
-}
+  function clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
 
-function getBannerStyle(profile) {
-  if (!profile?.bannerUrl) return "";
+  function asObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
 
-  return `
-    style="background-image:
-      linear-gradient(135deg, rgba(5, 11, 22, 0.18), rgba(5, 11, 22, 0.82)),
-      url('${escapeHtml(profile.bannerUrl)}');"
-  `;
-}
+  function getProfileAssetFrame(profile, assetType) {
+    const metadata = asObject(profile?.metadata);
+    const profileAssets = asObject(metadata.profileAssets || profile?.profileAssets);
+    const fallbackAssets = asObject(metadata.assetFrames);
+    const raw = asObject(profileAssets[assetType] || fallbackAssets[assetType]);
 
-function readImageFile(file, maxSizeMb) {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      resolve("");
-      return;
+    return {
+      positionX: clampNumber(raw.positionX ?? raw.x ?? raw.objectPositionX, 0, 100, 50),
+      positionY: clampNumber(raw.positionY ?? raw.y ?? raw.objectPositionY, 0, 100, 50),
+      zoom: clampNumber(raw.zoom ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function getProfileAssetFrameStyle(profile, assetType) {
+    const frame = getProfileAssetFrame(profile, assetType);
+
+    if (assetType === "banner") {
+      const size = frame.zoom <= 100 ? "cover" : `${frame.zoom}% auto`;
+      return `--sbw-profile-banner-x:${frame.positionX}%; --sbw-profile-banner-y:${frame.positionY}%; --sbw-profile-banner-size:${size};`;
     }
 
-    if (!file.type.startsWith("image/")) {
-      reject(new Error("Envie apenas arquivos de imagem."));
-      return;
+    return `--sbw-profile-avatar-x:${frame.positionX}%; --sbw-profile-avatar-y:${frame.positionY}%; --sbw-profile-avatar-scale:${(frame.zoom / 100).toFixed(2)};`;
+  }
+
+  function styleAttribute(...parts) {
+    const value = parts.filter(Boolean).join(" ").trim();
+    return value ? `style="${escapeHtml(value)}"` : "";
+  }
+
+  function getBannerStyle(profile) {
+    return styleAttribute(
+      getProfileAssetFrameStyle(profile, "banner"),
+      profile?.bannerUrl
+        ? `background-image: linear-gradient(135deg, rgba(5, 11, 22, 0.18), rgba(5, 11, 22, 0.82)), url('${profile.bannerUrl}');`
+        : ""
+    );
+  }
+
+  function getAssetLabel(assetType) {
+    return assetType === "avatar" ? "foto" : "banner";
+  }
+
+  function getAssetMaxBytes(assetType) {
+    return assetType === "avatar" ? profileAssetUploadConfig.avatarMaxBytes : profileAssetUploadConfig.bannerMaxBytes;
+  }
+
+  function formatBytes(bytes) {
+    const safeBytes = Number(bytes || 0);
+    if (safeBytes >= 1024 * 1024) {
+      return `${(safeBytes / (1024 * 1024)).toFixed(1).replace(".0", "")} MB`;
     }
 
-    const maxBytes = maxSizeMb * 1024 * 1024;
+    return `${Math.max(1, Math.round(safeBytes / 1024))} KB`;
+  }
+
+  function getFileExtension(file) {
+    const byName = String(file?.name || "").split(".").pop().toLowerCase();
+
+    if (["png", "jpg", "jpeg", "webp"].includes(byName)) {
+      return byName === "jpeg" ? "jpg" : byName;
+    }
+
+    if (file?.type === "image/png") return "png";
+    if (file?.type === "image/webp") return "webp";
+
+    return "jpg";
+  }
+
+  function getProfileAssetOwnerKey(profile) {
+    const rawKey =
+      profile?.authUserId ||
+      profile?.auth_user_id ||
+      state.sessionContext?.user?.id ||
+      "";
+
+    return String(rawKey || "").trim();
+  }
+
+  function buildProfileAssetPath(profile, assetType, file) {
+    const ownerKey = getProfileAssetOwnerKey(profile);
+
+    if (!ownerKey) {
+      throw new Error("Sessão Supabase sem auth_user_id para salvar mídia do perfil.");
+    }
+
+    const extension = getFileExtension(file);
+    const randomSuffix = Math.random().toString(36).slice(2, 8);
+    const safeAssetType = assetType === "banner" ? "banner" : "avatar";
+
+    return `profiles/${ownerKey}/${safeAssetType}/${safeAssetType}-${Date.now()}-${randomSuffix}.${extension}`;
+  }
+
+  function getSupabaseStorageClient() {
+    return window.SBWSupabase?.client?.storage || null;
+  }
+
+  function validateProfileAssetFile(file, assetType) {
+    if (!file) return "";
+
+    if (!profileAssetUploadConfig.allowedTypes.includes(file.type)) {
+      return "Formato inválido. Use PNG, JPG ou WebP.";
+    }
+
+    const maxBytes = getAssetMaxBytes(assetType);
 
     if (file.size > maxBytes) {
-      reject(new Error(`A imagem precisa ter no máximo ${maxSizeMb}MB.`));
-      return;
+      return `Arquivo muito grande. O limite para ${getAssetLabel(assetType)} é ${formatBytes(maxBytes)}.`;
     }
 
-    const reader = new FileReader();
+    return "";
+  }
 
-    reader.onload = () => {
-      resolve(String(reader.result || ""));
-    };
+  function readImageFile(file, maxSizeMb) {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        resolve("");
+        return;
+      }
 
-    reader.onerror = () => {
-      reject(new Error("Não foi possível ler a imagem."));
-    };
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("Envie apenas arquivos de imagem."));
+        return;
+      }
 
-    reader.readAsDataURL(file);
-  });
-}
+      const maxBytes = maxSizeMb * 1024 * 1024;
+
+      if (file.size > maxBytes) {
+        reject(new Error(`A imagem precisa ter no máximo ${maxSizeMb}MB.`));
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        resolve(String(reader.result || ""));
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Não foi possível ler a imagem."));
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function uploadProfileAssetToSupabase(profile, file, assetType) {
+    const storageClient = getSupabaseStorageClient();
+
+    if (!storageClient) {
+      throw new Error("Supabase Storage indisponível nesta sessão.");
+    }
+
+    const path = buildProfileAssetPath(profile, assetType, file);
+    const bucket = storageClient.from(profileAssetUploadConfig.bucket);
+    const uploadResult = await bucket.upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: false
+    });
+
+    if (uploadResult.error) {
+      throw uploadResult.error;
+    }
+
+    const publicUrlResult = bucket.getPublicUrl(path);
+    const publicUrl = publicUrlResult?.data?.publicUrl || "";
+
+    if (!publicUrl) {
+      throw new Error("Upload concluído, mas não foi possível gerar a URL pública.");
+    }
+
+    return publicUrl;
+  }
 
   function getSelectedGameIds(profile) {
     return new Set((profile.mainGames || []).map((game) => game.id));
@@ -666,6 +817,40 @@ function readImageFile(file, maxSizeMb) {
     `;
   }
 
+  function renderProfileAssetFrameControls(profile, assetType) {
+    const frame = getProfileAssetFrame(profile, assetType);
+    const label = assetType === "avatar" ? "foto" : "banner";
+
+    return `
+      <div class="sbw-profile-frame-controls sbw-profile-frame-controls--${escapeHtml(assetType)}" data-profile-asset-frame-group="${escapeHtml(assetType)}">
+        <input type="hidden" value="${escapeHtml(frame.zoom)}" data-profile-asset-frame="zoom" data-profile-asset-type="${escapeHtml(assetType)}" />
+        <input type="hidden" value="${escapeHtml(frame.positionX)}" data-profile-asset-frame="positionX" data-profile-asset-type="${escapeHtml(assetType)}" />
+        <input type="hidden" value="${escapeHtml(frame.positionY)}" data-profile-asset-frame="positionY" data-profile-asset-type="${escapeHtml(assetType)}" />
+
+        <div class="sbw-profile-frame-controls__head">
+          <strong>Enquadramento da ${escapeHtml(label)}</strong>
+          <span>Arraste a imagem na prévia e ajuste o zoom antes de salvar.</span>
+        </div>
+
+        <div class="sbw-profile-frame-zoom-row">
+          <button class="sbw-profile-frame-zoom" type="button" data-profile-asset-zoom="out" data-profile-asset-type="${escapeHtml(assetType)}" aria-label="Diminuir zoom">−</button>
+          <span>Zoom <output data-profile-asset-frame-output="zoom">${Math.round(frame.zoom)}%</output></span>
+          <button class="sbw-profile-frame-zoom" type="button" data-profile-asset-zoom="in" data-profile-asset-type="${escapeHtml(assetType)}" aria-label="Aumentar zoom">+</button>
+        </div>
+
+        <div class="sbw-profile-frame-position-readout">
+          <span>Horizontal <output data-profile-asset-frame-output="positionX">${Math.round(frame.positionX)}%</output></span>
+          <span>Vertical <output data-profile-asset-frame-output="positionY">${Math.round(frame.positionY)}%</output></span>
+        </div>
+
+        <button class="sbw-profile-btn sbw-profile-btn-ghost sbw-profile-frame-save" type="button" data-profile-asset-frame-save="${escapeHtml(assetType)}">
+          Salvar enquadramento
+        </button>
+        <small class="sbw-media-upload-feedback" data-profile-asset-feedback="${escapeHtml(assetType)}"></small>
+      </div>
+    `;
+  }
+
   function renderOverviewPanel(profile) {
     return `
       <section ${renderPanelAttrs("overview")}>
@@ -679,8 +864,8 @@ function readImageFile(file, maxSizeMb) {
             </div>
 
             <div class="sbw-profile-media-editor">
-              <div class="sbw-profile-banner-preview" ${getBannerStyle(profile)}>
-                <div class="sbw-player-avatar sbw-profile-avatar-preview">
+              <div class="sbw-profile-banner-preview ${profile.bannerUrl ? "has-image" : ""}" data-profile-asset-preview="banner" data-profile-asset-drag-target="banner" ${getBannerStyle(profile)}>
+                <div class="sbw-player-avatar sbw-profile-avatar-preview" data-profile-asset-preview="avatar" data-profile-asset-drag-target="avatar" ${styleAttribute(getProfileAssetFrameStyle(profile, "avatar"))}>
                   ${getAvatarHtml(profile)}
                 </div>
               </div>
@@ -688,15 +873,20 @@ function readImageFile(file, maxSizeMb) {
               <div class="sbw-profile-form-grid">
                 <label class="sbw-profile-field">
                   <span>Foto de perfil</span>
-                  <input type="file" name="avatarFile" accept="image/*" />
-                  <small>Recomendado: imagem quadrada. Máximo 2MB no modo demo.</small>
+                  <input type="file" name="avatarFile" accept="image/png,image/jpeg,image/webp" data-profile-asset-input="avatar" />
+                  <small>Recomendado: imagem quadrada · PNG, JPG ou WebP · até 2 MB.</small>
                 </label>
 
                 <label class="sbw-profile-field">
                   <span>Banner de fundo</span>
-                  <input type="file" name="bannerFile" accept="image/*" />
-                  <small>Recomendado: imagem horizontal. Máximo 4MB no modo demo.</small>
+                  <input type="file" name="bannerFile" accept="image/png,image/jpeg,image/webp" data-profile-asset-input="banner" />
+                  <small>Recomendado: imagem horizontal · PNG, JPG ou WebP · até 4 MB.</small>
                 </label>
+              </div>
+
+              <div class="sbw-profile-frame-grid">
+                ${renderProfileAssetFrameControls(profile, "avatar")}
+                ${renderProfileAssetFrameControls(profile, "banner")}
               </div>
 
               <div class="sbw-profile-media-actions">
@@ -1251,6 +1441,278 @@ function readImageFile(file, maxSizeMb) {
     });
   }
 
+  function getProfileAssetFrameForm(assetType) {
+    const controls = document.querySelector(`[data-profile-asset-frame-group="${assetType}"]`);
+
+    if (!controls) {
+      return getProfileAssetFrame(state.profile, assetType);
+    }
+
+    return {
+      positionX: clampNumber(controls.querySelector(`[data-profile-asset-frame="positionX"]`)?.value, 0, 100, 50),
+      positionY: clampNumber(controls.querySelector(`[data-profile-asset-frame="positionY"]`)?.value, 0, 100, 50),
+      zoom: clampNumber(controls.querySelector(`[data-profile-asset-frame="zoom"]`)?.value, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function setProfileAssetFrameForm(assetType, frame) {
+    const controls = document.querySelector(`[data-profile-asset-frame-group="${assetType}"]`);
+
+    if (!controls) return;
+
+    const safeFrame = {
+      positionX: clampNumber(frame?.positionX, 0, 100, 50),
+      positionY: clampNumber(frame?.positionY, 0, 100, 50),
+      zoom: clampNumber(frame?.zoom, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+
+    const xInput = controls.querySelector(`[data-profile-asset-frame="positionX"]`);
+    const yInput = controls.querySelector(`[data-profile-asset-frame="positionY"]`);
+    const zoomInput = controls.querySelector(`[data-profile-asset-frame="zoom"]`);
+
+    if (xInput) xInput.value = String(Math.round(safeFrame.positionX));
+    if (yInput) yInput.value = String(Math.round(safeFrame.positionY));
+    if (zoomInput) zoomInput.value = String(Math.round(safeFrame.zoom));
+
+    updateProfileAssetFrameOutputs(assetType, safeFrame);
+  }
+
+  function updateProfileAssetFrameOutputs(assetType, frame) {
+    const controls = document.querySelector(`[data-profile-asset-frame-group="${assetType}"]`);
+
+    if (!controls) return;
+
+    const zoomOutput = controls.querySelector(`[data-profile-asset-frame-output="zoom"]`);
+    const xOutput = controls.querySelector(`[data-profile-asset-frame-output="positionX"]`);
+    const yOutput = controls.querySelector(`[data-profile-asset-frame-output="positionY"]`);
+
+    if (zoomOutput) zoomOutput.textContent = `${Math.round(frame.zoom)}%`;
+    if (xOutput) xOutput.textContent = `${Math.round(frame.positionX)}%`;
+    if (yOutput) yOutput.textContent = `${Math.round(frame.positionY)}%`;
+  }
+
+  function setProfileAssetFeedback(assetType, message, status) {
+    const feedback = document.querySelector(`[data-profile-asset-feedback="${assetType}"]`);
+
+    if (!feedback) return;
+
+    feedback.textContent = message || "";
+    feedback.classList.remove("is-error", "is-success", "is-loading");
+
+    if (status) {
+      feedback.classList.add(`is-${status}`);
+    }
+  }
+
+  function applyProfileAssetFramePreview(assetType) {
+    const frame = getProfileAssetFrameForm(assetType);
+    updateProfileAssetFrameOutputs(assetType, frame);
+
+    if (assetType === "banner") {
+      const size = frame.zoom <= 100 ? "cover" : `${frame.zoom}% auto`;
+
+      document.querySelectorAll(`[data-profile-asset-preview="banner"], .sbw-profile-public-hero`).forEach((element) => {
+        element.style.setProperty("--sbw-profile-banner-x", `${frame.positionX}%`);
+        element.style.setProperty("--sbw-profile-banner-y", `${frame.positionY}%`);
+        element.style.setProperty("--sbw-profile-banner-size", size);
+      });
+      return;
+    }
+
+    document.querySelectorAll(`[data-profile-asset-preview="avatar"], .sbw-profile-public-avatar`).forEach((element) => {
+      element.style.setProperty("--sbw-profile-avatar-x", `${frame.positionX}%`);
+      element.style.setProperty("--sbw-profile-avatar-y", `${frame.positionY}%`);
+      element.style.setProperty("--sbw-profile-avatar-scale", (frame.zoom / 100).toFixed(2));
+    });
+  }
+
+  function markProfileAssetFrameDirty(assetType) {
+    applyProfileAssetFramePreview(assetType);
+    setProfileAssetFeedback(assetType, "Ajuste alterado. Clique em Salvar enquadramento para aplicar no perfil público.", "loading");
+  }
+
+  function nudgeProfileAssetZoom(assetType, direction) {
+    const frame = getProfileAssetFrameForm(assetType);
+    const step = assetType === "banner" ? 5 : 4;
+    const next = {
+      ...frame,
+      zoom: clampNumber(frame.zoom + (direction * step), 100, assetType === "banner" ? 180 : 160, 100)
+    };
+
+    setProfileAssetFrameForm(assetType, next);
+    markProfileAssetFrameDirty(assetType);
+  }
+
+  async function saveProfileAssetFrame(assetType) {
+    if (!state.profile) return;
+
+    const frame = getProfileAssetFrameForm(assetType);
+    const currentMetadata = asObject(state.profile.metadata);
+    const currentProfileAssets = asObject(currentMetadata.profileAssets || state.profile.profileAssets);
+    const profileAssets = {
+      ...currentProfileAssets,
+      [assetType]: {
+        ...asObject(currentProfileAssets[assetType]),
+        positionX: clampNumber(frame.positionX, 0, 100, 50),
+        positionY: clampNumber(frame.positionY, 0, 100, 50),
+        zoom: clampNumber(frame.zoom, 100, assetType === "banner" ? 180 : 160, 100),
+        updatedAt: new Date().toISOString()
+      }
+    };
+
+    const updatedProfile = {
+      ...state.profile,
+      metadata: {
+        ...currentMetadata,
+        profileAssets
+      },
+      profileAssets
+    };
+
+    try {
+      setProfileAssetFeedback(assetType, "Salvando enquadramento...", "loading");
+      const saved = typeof storage.saveCurrentUserProfile === "function"
+        ? await storage.saveCurrentUserProfile(updatedProfile)
+        : await storage.saveProfile(updatedProfile);
+
+      state.profile = saved || updatedProfile;
+      setProfileAssetFrameForm(assetType, getProfileAssetFrame(state.profile, assetType));
+      applyProfileAssetFramePreview(assetType);
+      setProfileAssetFeedback(assetType, "Enquadramento salvo.", "success");
+    } catch (error) {
+      console.error(`[SBW Profile Admin] Falha ao salvar enquadramento de ${assetType}:`, error);
+      setProfileAssetFeedback(assetType, error?.message || "Não foi possível salvar o enquadramento.", "error");
+    }
+  }
+
+  function bindProfileAssetDrag(element, assetType) {
+    if (!element || element.dataset.profileAssetDragBound === "true") return;
+
+    element.dataset.profileAssetDragBound = "true";
+    element.setAttribute("role", "button");
+    element.setAttribute("tabindex", "0");
+    element.setAttribute("aria-label", assetType === "banner" ? "Arraste para enquadrar o banner" : "Arraste para enquadrar a foto");
+
+    let dragState = null;
+
+    const finishDrag = function (event) {
+      if (!dragState) return;
+      const pointerId = dragState.pointerId;
+      dragState = null;
+      try {
+        element.releasePointerCapture?.(event?.pointerId || pointerId);
+      } catch (error) {}
+    };
+
+    element.addEventListener("pointerdown", function (event) {
+      if (event.button !== 0) return;
+
+      const rect = element.getBoundingClientRect();
+      const currentFrame = getProfileAssetFrameForm(assetType);
+
+      dragState = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        frame: currentFrame,
+        sensitivity: {
+          x: assetType === "banner" ? 72 / Math.max(1, rect.width) : 90 / Math.max(1, rect.width),
+          y: assetType === "banner" ? 175 / Math.max(1, rect.height) : 90 / Math.max(1, rect.height)
+        }
+      };
+
+      element.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+
+    element.addEventListener("pointermove", function (event) {
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+
+      const deltaX = event.clientX - dragState.startX;
+      const deltaY = event.clientY - dragState.startY;
+      const next = {
+        ...dragState.frame,
+        positionX: clampNumber(dragState.frame.positionX - deltaX * dragState.sensitivity.x, 0, 100, 50),
+        positionY: clampNumber(dragState.frame.positionY - deltaY * dragState.sensitivity.y, 0, 100, 50)
+      };
+
+      setProfileAssetFrameForm(assetType, next);
+      markProfileAssetFrameDirty(assetType);
+      event.preventDefault();
+    });
+
+    element.addEventListener("pointerup", finishDrag);
+    element.addEventListener("pointercancel", finishDrag);
+    element.addEventListener("lostpointercapture", finishDrag);
+  }
+
+  function previewSelectedProfileAsset(file, assetType) {
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+
+    if (assetType === "banner") {
+      document.querySelectorAll(`[data-profile-asset-preview="banner"]`).forEach((element) => {
+        element.classList.add("has-image");
+        element.style.backgroundImage = `linear-gradient(135deg, rgba(5, 11, 22, 0.18), rgba(5, 11, 22, 0.82)), url('${url}')`;
+      });
+      applyProfileAssetFramePreview("banner");
+      return;
+    }
+
+    document.querySelectorAll(`[data-profile-asset-preview="avatar"]`).forEach((element) => {
+      let image = element.querySelector("img");
+
+      if (!image) {
+        element.innerHTML = `<img alt="Prévia da foto" />`;
+        image = element.querySelector("img");
+      }
+
+      if (image) {
+        image.src = url;
+      }
+    });
+    applyProfileAssetFramePreview("avatar");
+  }
+
+  function bindProfileAssetControls() {
+    document.querySelectorAll("[data-profile-asset-input]").forEach((input) => {
+      input.addEventListener("change", function () {
+        const assetType = input.dataset.profileAssetInput;
+        const file = input.files?.[0] || null;
+        const validationError = validateProfileAssetFile(file, assetType);
+
+        if (validationError) {
+          setProfileAssetFeedback(assetType, validationError, "error");
+          input.value = "";
+          return;
+        }
+
+        if (file) {
+          previewSelectedProfileAsset(file, assetType);
+          setProfileAssetFeedback(assetType, `${getAssetLabel(assetType)} pronta para salvar.`, "success");
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-profile-asset-zoom]").forEach((button) => {
+      button.addEventListener("click", function () {
+        const direction = button.dataset.profileAssetZoom === "in" ? 1 : -1;
+        nudgeProfileAssetZoom(button.dataset.profileAssetType, direction);
+      });
+    });
+
+    document.querySelectorAll("[data-profile-asset-frame-save]").forEach((button) => {
+      button.addEventListener("click", function () {
+        saveProfileAssetFrame(button.dataset.profileAssetFrameSave);
+      });
+    });
+
+    document.querySelectorAll("[data-profile-asset-drag-target]").forEach((element) => {
+      bindProfileAssetDrag(element, element.dataset.profileAssetDragTarget);
+    });
+  }
+
   function bindForm(profile) {
     const form = document.querySelector("[data-profile-form]");
     const result = document.querySelector("[data-profile-save-result]");
@@ -1278,12 +1740,42 @@ function readImageFile(file, maxSizeMb) {
         }
 
         if (avatarFile && avatarFile.size > 0) {
-          avatarUrl = await readImageFile(avatarFile, 2);
+          const validationError = validateProfileAssetFile(avatarFile, "avatar");
+          if (validationError) throw new Error(validationError);
+
+          if (storage.profilesSupabaseEnabled && storage.profilesSupabaseEnabled()) {
+            setProfileAssetFeedback("avatar", "Enviando foto...", "loading");
+            avatarUrl = await uploadProfileAssetToSupabase(profile, avatarFile, "avatar");
+          } else {
+            avatarUrl = await readImageFile(avatarFile, 2);
+          }
         }
 
         if (bannerFile && bannerFile.size > 0) {
-          bannerUrl = await readImageFile(bannerFile, 4);
+          const validationError = validateProfileAssetFile(bannerFile, "banner");
+          if (validationError) throw new Error(validationError);
+
+          if (storage.profilesSupabaseEnabled && storage.profilesSupabaseEnabled()) {
+            setProfileAssetFeedback("banner", "Enviando banner...", "loading");
+            bannerUrl = await uploadProfileAssetToSupabase(profile, bannerFile, "banner");
+          } else {
+            bannerUrl = await readImageFile(bannerFile, 4);
+          }
         }
+
+        const currentMetadata = asObject(profile.metadata);
+        const currentProfileAssets = asObject(currentMetadata.profileAssets || profile.profileAssets);
+        const profileAssets = {
+          ...currentProfileAssets,
+          avatar: {
+            ...getProfileAssetFrameForm("avatar"),
+            updatedAt: new Date().toISOString()
+          },
+          banner: {
+            ...getProfileAssetFrameForm("banner"),
+            updatedAt: new Date().toISOString()
+          }
+        };
 
         const updatedProfile = {
           ...profile,
@@ -1301,6 +1793,12 @@ function readImageFile(file, maxSizeMb) {
           avatarUrl,
           bannerUrl,
 
+          metadata: {
+            ...(profile.metadata || {}),
+            profileAssets
+          },
+          profileAssets,
+
           roleTags: String(formData.get("roleTags") || "")
             .split(",")
             .map((tag) => tag.trim())
@@ -1317,7 +1815,9 @@ function readImageFile(file, maxSizeMb) {
           }
         };
 
-        const saved = await storage.saveProfile(updatedProfile);
+        const saved = typeof storage.saveCurrentUserProfile === "function"
+          ? await storage.saveCurrentUserProfile(updatedProfile)
+          : await storage.saveProfile(updatedProfile);
 
         if (result) {
           result.innerHTML = `
@@ -1347,6 +1847,7 @@ function readImageFile(file, maxSizeMb) {
     bindAdminTabs();
     bindHistoryTabs();
     bindInviteActions();
+    bindProfileAssetControls();
     bindForm(profile);
   }
 

@@ -153,6 +153,45 @@
       .toUpperCase();
   }
 
+  function clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function asObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function getProfileAssetFrame(profile, assetType) {
+    const metadata = asObject(profile?.metadata);
+    const profileAssets = asObject(metadata.profileAssets || profile?.profileAssets);
+    const fallbackAssets = asObject(metadata.assetFrames);
+    const raw = asObject(profileAssets[assetType] || fallbackAssets[assetType]);
+
+    return {
+      positionX: clampNumber(raw.positionX ?? raw.x ?? raw.objectPositionX, 0, 100, 50),
+      positionY: clampNumber(raw.positionY ?? raw.y ?? raw.objectPositionY, 0, 100, 50),
+      zoom: clampNumber(raw.zoom ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function getProfileAssetFrameStyle(profile, assetType) {
+    const frame = getProfileAssetFrame(profile, assetType);
+
+    if (assetType === "banner") {
+      const size = frame.zoom <= 100 ? "cover" : `${frame.zoom}% auto`;
+      return `--sbw-profile-banner-x:${frame.positionX}%; --sbw-profile-banner-y:${frame.positionY}%; --sbw-profile-banner-size:${size};`;
+    }
+
+    return `--sbw-profile-avatar-x:${frame.positionX}%; --sbw-profile-avatar-y:${frame.positionY}%; --sbw-profile-avatar-scale:${(frame.zoom / 100).toFixed(2)};`;
+  }
+
+  function styleAttribute(...parts) {
+    const value = parts.filter(Boolean).join(" ").trim();
+    return value ? `style="${escapeHtml(value)}"` : "";
+  }
+
   function getProfileAvatar(profile) {
     if (profile.avatarUrl) {
       return `
@@ -176,15 +215,12 @@
   }
 
   function getBannerStyle(profile) {
-    if (!profile.bannerUrl) {
-      return "";
-    }
-
-    return `
-      style="background-image:
-        linear-gradient(135deg, rgba(5, 11, 22, 0.18), rgba(5, 11, 22, 0.92)),
-        url('${escapeHtml(profile.bannerUrl)}');"
-    `;
+    return styleAttribute(
+      getProfileAssetFrameStyle(profile, "banner"),
+      profile.bannerUrl
+        ? `background-image: linear-gradient(135deg, rgba(5, 11, 22, 0.18), rgba(5, 11, 22, 0.92)), url('${profile.bannerUrl}');`
+        : ""
+    );
   }
 
   function getGames(profile) {
@@ -855,7 +891,7 @@
 
     return `
       <section class="sbw-profile-public-hero" ${getBannerStyle(profile)}>
-        <div class="sbw-profile-public-avatar">
+        <div class="sbw-profile-public-avatar" ${styleAttribute(getProfileAssetFrameStyle(profile, "avatar"))}>
           ${getProfileAvatar(profile)}
         </div>
 
