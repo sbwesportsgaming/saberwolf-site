@@ -779,12 +779,64 @@
     return invite;
   }
 
+
+
+  async function createTeamInviteViaRpcV1643(inviteData) {
+    if (!teamsSupabaseEnabled() || !window.SBWSupabase?.client?.rpc) {
+      return null;
+    }
+
+    const invite = normalizeTeamInviteLocal(inviteData);
+
+    try {
+      const result = await window.SBWSupabase.client.rpc("sbw_create_team_invite", {
+        p_team_key: invite.teamSlug,
+        p_invited_profile_slug: invite.profileSlug,
+        p_role: invite.role || "member",
+        p_function_name: invite.functionName || "Player",
+        p_public_title: invite.publicTitle || "",
+        p_message: invite.message || "",
+        p_metadata: Object.assign({}, invite.metadata || {}, {
+          teamName: invite.teamName,
+          teamTag: invite.teamTag,
+          teamLogoUrl: invite.teamLogoUrl,
+          displayName: invite.displayName,
+          nickname: invite.nickname,
+          avatarUrl: invite.avatarUrl,
+          source: "team-admin-v1.6.43"
+        })
+      });
+
+      if (result.error) {
+        console.warn("[SaberWolf Teams] RPC recusou criação do convite:", result.error);
+        return null;
+      }
+
+      const data = result.data && typeof result.data === "object" ? result.data : null;
+      const row = data?.invite || data;
+
+      if (!row) {
+        return null;
+      }
+
+      return normalizeSupabaseTeamInvite(row);
+    } catch (error) {
+      console.warn("[SaberWolf Teams] Erro inesperado ao criar convite via RPC:", error);
+      return null;
+    }
+  }
   async function saveTeamInviteToSupabase(inviteData) {
     if (!teamsSupabaseEnabled()) {
       return null;
     }
 
     const invite = normalizeTeamInviteLocal(inviteData);
+    const rpcInvite = await createTeamInviteViaRpcV1643(invite);
+
+    if (rpcInvite) {
+      return rpcInvite;
+    }
+
     const tableName = getTeamInvitesSupabaseTableName();
 
     const row = {
@@ -805,7 +857,7 @@
         displayName: invite.displayName,
         nickname: invite.nickname,
         avatarUrl: invite.avatarUrl,
-        source: "team-admin-v1.6.14"
+        source: "team-admin-v1.6.43-direct-fallback"
       })
     };
 

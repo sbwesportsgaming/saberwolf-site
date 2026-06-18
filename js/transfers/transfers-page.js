@@ -123,6 +123,74 @@
     };
   }
 
+
+
+  function normalizeMemberTransfer(member, teamMap) {
+    const teamKey = String(member.team_slug || member.teamSlug || member.teamId || "");
+    const team = teamMap?.get(teamKey) || {};
+    const metadata = member.metadata && typeof member.metadata === "object" ? member.metadata : {};
+    const displayName = member.display_name || member.displayName || member.nickname || member.profile_slug || "Jogador";
+    const joinedAt = member.joined_at || member.joinedAt || member.created_at || member.createdAt || "";
+
+    return normalizeTransfer({
+      id: "member-join-" + teamKey + "-" + String(member.profile_slug || member.profileSlug || member.id || "").replace(/[^a-z0-9_-]/gi, ""),
+      type: "player",
+      status: "confirmed",
+      player_id: member.profile_slug || member.profileSlug || member.profileId || "",
+      player_name: displayName,
+      role: member.public_title || member.publicTitle || member.function_name || member.functionName || member.role || "Jogador",
+      game: Array.isArray(member.games) && member.games.length ? member.games[0]?.name || member.games[0]?.id || member.games[0] : "",
+      from_team_id: "",
+      from_team_name: "Sem equipe",
+      to_team_id: team.slug || teamKey,
+      to_team_name: team.name || metadata.teamName || member.teamName || teamKey || "Equipe",
+      date: joinedAt,
+      description: displayName + " entrou para " + (team.name || metadata.teamName || member.teamName || "uma equipe") + ".",
+      source: "team_members"
+    });
+  }
+
+  async function loadMembershipTransfersFromSupabase() {
+    const client = await getSupabaseClient();
+
+    if (!client?.from) {
+      return [];
+    }
+
+    try {
+      const membersResult = await client
+        .from("team_members")
+        .select("*")
+        .eq("status", "active")
+        .order("joined_at", { ascending: false })
+        .limit(80);
+
+      if (membersResult.error || !Array.isArray(membersResult.data) || !membersResult.data.length) {
+        return [];
+      }
+
+      const teamSlugs = Array.from(new Set(membersResult.data.map((member) => member.team_slug).filter(Boolean)));
+      const teamMap = new Map();
+
+      if (teamSlugs.length) {
+        const teamsResult = await client
+          .from("teams")
+          .select("id, slug, name, tag, logo_url")
+          .in("slug", teamSlugs);
+
+        if (!teamsResult.error && Array.isArray(teamsResult.data)) {
+          teamsResult.data.forEach((team) => {
+            teamMap.set(team.slug, team);
+          });
+        }
+      }
+
+      return membersResult.data.map((member) => normalizeMemberTransfer(member, teamMap));
+    } catch (error) {
+      console.warn("[SBW Transfers] Não foi possível derivar transferências de team_members:", error);
+      return [];
+    }
+  }
   async function loadTransfers() {
     if (Array.isArray(window.SBWTransfersData)) {
       return window.SBWTransfersData.map(normalizeTransfer);
@@ -138,12 +206,18 @@
           .order("created_at", { ascending: false })
           .limit(80);
 
-        if (!result.error && Array.isArray(result.data)) {
+        if (!result.error && Array.isArray(result.data) && result.data.length) {
           return result.data.map(normalizeTransfer);
         }
       } catch (error) {
         console.warn("[SBW Transfers] Tabela transfers indisponível ou bloqueada:", error);
       }
+    }
+
+    const membershipTransfers = await loadMembershipTransfersFromSupabase();
+
+    if (membershipTransfers.length) {
+      return membershipTransfers;
     }
 
     return readLocalJson("sbw_transfers_v1", []).map(normalizeTransfer);

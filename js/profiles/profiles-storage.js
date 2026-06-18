@@ -1254,6 +1254,128 @@
     }
   }
 
+
+  async function getCurrentUserInvitesFromSupabaseRpcV1643() {
+    if (!profilesSupabaseEnabled()) {
+      return [];
+    }
+
+    const client = window.SBWSupabase?.client;
+
+    if (!client?.rpc) {
+      return [];
+    }
+
+    try {
+      const result = await client.rpc("sbw_get_current_user_team_invites");
+
+      if (result.error) {
+        console.warn("[SaberWolf Profiles] RPC de convites recebidos indisponível:", result.error);
+        return [];
+      }
+
+      const rows = Array.isArray(result.data) ? result.data : [];
+      return rows.map(function (row) {
+        return normalizeSupabaseTeamInvite(row, null);
+      });
+    } catch (error) {
+      console.warn("[SaberWolf Profiles] Erro inesperado na RPC de convites recebidos:", error);
+      return [];
+    }
+  }
+
+  async function acceptSupabaseTeamInviteRpcV1643(inviteId) {
+    if (!profilesSupabaseEnabled()) {
+      return {
+        ok: false,
+        message: "Supabase indisponível para aceitar convite."
+      };
+    }
+
+    const client = window.SBWSupabase?.client;
+
+    if (!client?.rpc) {
+      return {
+        ok: false,
+        message: "RPC do Supabase indisponível para aceitar convite."
+      };
+    }
+
+    try {
+      const result = await client.rpc("sbw_accept_team_invite", {
+        p_invite_id: String(inviteId || "")
+      });
+
+      if (result.error) {
+        console.warn("[SaberWolf Profiles] RPC recusou aceite do convite:", result.error);
+        return {
+          ok: false,
+          message: result.error.message || "Não foi possível aceitar o convite."
+        };
+      }
+
+      const data = result.data && typeof result.data === "object" ? result.data : {};
+
+      return {
+        ok: data.ok !== false,
+        data,
+        message: data.message || "Convite aceito. Você entrou na equipe."
+      };
+    } catch (error) {
+      console.warn("[SaberWolf Profiles] Erro inesperado ao aceitar convite via RPC:", error);
+      return {
+        ok: false,
+        message: error?.message || "Erro inesperado ao aceitar convite."
+      };
+    }
+  }
+
+  async function declineSupabaseTeamInviteRpcV1643(inviteId) {
+    if (!profilesSupabaseEnabled()) {
+      return {
+        ok: false,
+        message: "Supabase indisponível para recusar convite."
+      };
+    }
+
+    const client = window.SBWSupabase?.client;
+
+    if (!client?.rpc) {
+      return {
+        ok: false,
+        message: "RPC do Supabase indisponível para recusar convite."
+      };
+    }
+
+    try {
+      const result = await client.rpc("sbw_decline_team_invite", {
+        p_invite_id: String(inviteId || "")
+      });
+
+      if (result.error) {
+        console.warn("[SaberWolf Profiles] RPC recusou recusa do convite:", result.error);
+        return {
+          ok: false,
+          message: result.error.message || "Não foi possível recusar o convite."
+        };
+      }
+
+      const data = result.data && typeof result.data === "object" ? result.data : {};
+
+      return {
+        ok: data.ok !== false,
+        data,
+        message: data.message || "Convite recusado."
+      };
+    } catch (error) {
+      console.warn("[SaberWolf Profiles] Erro inesperado ao recusar convite via RPC:", error);
+      return {
+        ok: false,
+        message: error?.message || "Erro inesperado ao recusar convite."
+      };
+    }
+  }
+
   async function getPendingInvitesByUserIdFromSupabase(userId) {
     const invites = await getInvitesByUserIdFromSupabase(userId);
 
@@ -3213,19 +3335,23 @@
     const context = await getInviteProfileContext();
     const identifiers = getInviteIdentifiersFromContext(context);
     const localInvites = [];
-    const supabaseInvites = [];
+    let supabaseInvites = [];
 
     identifiers.forEach(function (identifier) {
       localInvites.push.apply(localInvites, getInvitesByUserId(identifier));
     });
 
-    if (profilesSupabaseEnabled() && typeof getInvitesByUserIdFromSupabase === "function") {
-      for (const identifier of identifiers) {
-        try {
-          const rows = await getInvitesByUserIdFromSupabase(identifier);
-          supabaseInvites.push.apply(supabaseInvites, rows);
-        } catch (error) {
-          console.warn("[SaberWolf Profiles] Erro ao buscar convite recebido no Supabase:", error);
+    if (profilesSupabaseEnabled()) {
+      supabaseInvites = await getCurrentUserInvitesFromSupabaseRpcV1643();
+
+      if (!supabaseInvites.length && typeof getInvitesByUserIdFromSupabase === "function") {
+        for (const identifier of identifiers) {
+          try {
+            const rows = await getInvitesByUserIdFromSupabase(identifier);
+            supabaseInvites.push.apply(supabaseInvites, rows);
+          } catch (error) {
+            console.warn("[SaberWolf Profiles] Erro ao buscar convite recebido no Supabase:", error);
+          }
         }
       }
     }
@@ -3482,12 +3608,32 @@
       };
     }
 
-    let supabaseOk = false;
-
     if (invite.source === "supabase") {
-      const member = await upsertSupabaseTeamMemberFromInviteV1615(invite, context);
-      const inviteUpdated = member ? await updateSupabaseInviteStatusV1615(invite, "accepted") : false;
-      supabaseOk = Boolean(member && inviteUpdated);
+      const rpcResult = await acceptSupabaseTeamInviteRpcV1643(invite.id);
+
+      if (!rpcResult.ok) {
+        return {
+          ok: false,
+          invite,
+          source: "supabase",
+          message: rpcResult.message || "Não foi possível aceitar o convite."
+        };
+      }
+
+      const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
+      const localResult = acceptTeamInvite(mirroredInvite.id, mirroredInvite.userId);
+
+      if (window.SBWSessionContext?.clearCache) {
+        window.SBWSessionContext.clearCache();
+      }
+
+      return {
+        ok: true,
+        invite: Object.assign({}, invite, { status: "accepted", respondedAt: nowIso() }),
+        member: localResult.member || rpcResult.data?.member || null,
+        source: "supabase",
+        message: rpcResult.message || "Convite aceito. Você entrou na equipe."
+      };
     }
 
     const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
@@ -3498,13 +3644,11 @@
     }
 
     return {
-      ok: supabaseOk || localResult.ok,
+      ok: localResult.ok,
       invite: Object.assign({}, invite, { status: "accepted", respondedAt: nowIso() }),
       member: localResult.member || null,
-      source: supabaseOk ? "supabase" : "local-demo",
-      message: supabaseOk
-        ? "Convite aceito. Você entrou na equipe."
-        : localResult.message || "Convite aceito no fallback local."
+      source: "local-demo",
+      message: localResult.message || "Convite aceito no fallback local."
     };
   }
 
@@ -3519,10 +3663,31 @@
       };
     }
 
-    let supabaseOk = false;
-
     if (invite.source === "supabase") {
-      supabaseOk = await updateSupabaseInviteStatusV1615(invite, "declined");
+      const rpcResult = await declineSupabaseTeamInviteRpcV1643(invite.id);
+
+      if (!rpcResult.ok) {
+        return {
+          ok: false,
+          invite,
+          source: "supabase",
+          message: rpcResult.message || "Não foi possível recusar o convite."
+        };
+      }
+
+      const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
+      declineTeamInvite(mirroredInvite.id, mirroredInvite.userId);
+
+      if (window.SBWSessionContext?.clearCache) {
+        window.SBWSessionContext.clearCache();
+      }
+
+      return {
+        ok: true,
+        invite: Object.assign({}, invite, { status: "declined", respondedAt: nowIso() }),
+        source: "supabase",
+        message: rpcResult.message || "Convite recusado."
+      };
     }
 
     const mirroredInvite = mirrorInviteToLocalForCurrentProfile(invite, context);
@@ -3533,12 +3698,10 @@
     }
 
     return {
-      ok: supabaseOk || localResult.ok,
+      ok: localResult.ok,
       invite: Object.assign({}, invite, { status: "declined", respondedAt: nowIso() }),
-      source: supabaseOk ? "supabase" : "local-demo",
-      message: supabaseOk
-        ? "Convite recusado."
-        : localResult.message || "Convite recusado no fallback local."
+      source: "local-demo",
+      message: localResult.message || "Convite recusado no fallback local."
     };
   }
 
