@@ -21,6 +21,12 @@
 
   <link rel="stylesheet" href="css/layout/sbw-sidebar.css" />
   <link rel="stylesheet" href="css/home/home-landing.css?v=1601" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#37c8ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="-SBW-" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="js/supabase/supabase-config.js"></script>
@@ -30,6 +36,7 @@
 
 <script defer src="js/layout/sbw-sidebar.js"></script>
 <script defer src="js/home/home-page.js"></script>
+<script defer src="js/pwa/sbw-pwa.js"></script>
   <link rel="stylesheet" href="css/core/sbw-site-compliance.css" />
 </head>
 
@@ -77,6 +84,8 @@
         </div>
       </div>
     </section>
+
+
 
     <section class="sbw-section sbw-org-section" id="destaques-sbw">
       <div class="sbw-section-heading sbw-reveal">
@@ -227,6 +236,81 @@
           <h3>Transferências</h3>
           <p>Fique por dentro das movimentações do cenário.</p>
         </a>
+      </div>
+    </section>
+
+    <section class="sbw-pwa-beta-section sbw-reveal" id="app-sbw-beta" aria-labelledby="sbwAppBetaTitle">
+      <div class="sbw-pwa-beta-shell">
+        <div class="sbw-pwa-beta-copy">
+          <span class="sbw-pwa-kicker">
+            App <span class="sbw-nowrap">-SBW-</span> Beta
+          </span>
+
+          <h2 class="sbw-pwa-beta-title" id="sbwAppBetaTitle">
+            Instale a <span class="sbw-nowrap">-SBW-</span> no seu celular
+          </h2>
+
+          <p class="sbw-pwa-beta-text">
+            Acesse a plataforma direto da tela inicial, com uma experiência mais próxima
+            de aplicativo. Esta versão usa o site oficial da <span class="sbw-nowrap">-SBW-</span>
+            e será atualizada junto com a plataforma.
+          </p>
+
+          <div class="sbw-pwa-beta-actions">
+            <button
+              class="sbw-pwa-install-button"
+              type="button"
+              data-sbw-pwa-install
+              data-sbw-install-app
+            >
+              Instalar App <span class="sbw-nowrap">-SBW-</span> Beta
+            </button>
+
+            <a class="sbw-pwa-guide-button" href="#sbw-pwa-install-guide">
+              Como instalar
+              <span aria-hidden="true">↓</span>
+            </a>
+          </div>
+
+          <p class="sbw-pwa-beta-note">
+            Notificações de torneios, equipes e check-in serão adicionadas em uma próxima fase.
+          </p>
+
+          <p class="sbw-pwa-beta-status" data-sbw-pwa-status aria-live="polite">
+            Instalação disponível em navegadores compatíveis.
+          </p>
+        </div>
+
+        <figure class="sbw-pwa-beta-art" aria-label="Imagem promocional do App -SBW- Beta">
+          <img
+            src="assets/images/app-sbw-beta-promo.png"
+            alt="Apresentação visual do App -SBW- Beta instalado no celular"
+            loading="lazy"
+          />
+        </figure>
+      </div>
+
+      <div class="sbw-pwa-install-guide" id="sbw-pwa-install-guide" data-sbw-pwa-guide>
+        <article class="sbw-pwa-install-card">
+          <span>Android</span>
+          <h3>Chrome / Navegadores compatíveis</h3>
+          <p>
+            Toque em <strong>Instalar App <span class="sbw-nowrap">-SBW-</span> Beta</strong>.
+            Se a opção não aparecer, abra o menu do navegador e escolha
+            <strong>Adicionar à tela inicial</strong> ou <strong>Instalar app</strong>.
+          </p>
+        </article>
+
+        <article class="sbw-pwa-install-card">
+          <span>iPhone</span>
+          <h3>Safari</h3>
+          <p>
+            Abra a <span class="sbw-nowrap">-SBW-</span> pelo Safari, toque em
+            <strong>Compartilhar</strong> e depois em
+            <strong>Adicionar à Tela de Início</strong>. No iPhone, a instalação
+            automática pelo botão pode não aparecer.
+          </p>
+        </article>
       </div>
     </section>
 
