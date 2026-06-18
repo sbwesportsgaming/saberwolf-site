@@ -1058,3 +1058,53 @@ body {
     width: min(100%, 258px);
   }
 }
+
+/* ================================
+   -SBW- v1.6.40.3
+   App -SBW- Beta: imagem promocional maior
+   - mantém o bloco conservador da PWA
+   - aumenta o destaque do mockup na Home desktop/tablet
+   - preserva encaixe seguro em mobile
+   ================================ */
+
+@media (min-width: 1101px) {
+  .sbw-pwa-beta-shell {
+    grid-template-columns: minmax(0, 0.82fr) minmax(390px, 1fr);
+    gap: clamp(26px, 4vw, 52px);
+  }
+
+  .sbw-pwa-beta-art {
+    width: min(100%, 540px);
+  }
+
+  .sbw-pwa-beta-art img {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    max-height: none;
+    object-fit: cover;
+  }
+}
+
+@media (min-width: 681px) and (max-width: 1100px) {
+  .sbw-pwa-beta-art {
+    width: min(100%, 440px);
+  }
+
+  .sbw-pwa-beta-art img {
+    aspect-ratio: 16 / 9;
+    max-height: none;
+    object-fit: cover;
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-pwa-beta-art {
+    width: min(100%, 340px);
+  }
+
+  .sbw-pwa-beta-art img {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    object-fit: cover;
+  }
+}
