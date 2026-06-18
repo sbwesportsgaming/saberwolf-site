@@ -1,10 +1,11 @@
-const SBW_PWA_CACHE = "sbw-pwa-beta-v1";
+const SBW_PWA_CACHE = "sbw-pwa-beta-v2";
 const SBW_PWA_PRECACHE = [
   "/offline.html",
   "/manifest.webmanifest",
   "/assets/icons/icon-192.png",
   "/assets/icons/icon-512.png",
-  "/assets/icons/apple-touch-icon.png"
+  "/assets/icons/apple-touch-icon.png",
+  "/assets/images/app-sbw-beta-promo.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -43,6 +44,7 @@ self.addEventListener("fetch", (event) => {
   const isPwaStatic =
     url.pathname === "/manifest.webmanifest" ||
     url.pathname === "/offline.html" ||
+    url.pathname === "/assets/images/app-sbw-beta-promo.png" ||
     url.pathname.startsWith("/assets/icons/");
 
   if (!isPwaStatic) return;

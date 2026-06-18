@@ -949,3 +949,112 @@ body.sbw-home-page {
   }
 }
 
+
+
+/* ================================
+   -SBW- v1.6.40
+   Ajuste seguro mobile/tablet da Home + PWA Beta
+   - evita rolagem horizontal causada pelo bloco instalável
+   - melhora encaixe do card App -SBW- Beta em tablet/celular
+   - mantém visual aprovado e não altera dados dinâmicos
+   ================================ */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.sbw-pwa-beta-shell > *,
+.sbw-pwa-install-guide > *,
+.sbw-pwa-beta-copy,
+.sbw-pwa-beta-art {
+  min-width: 0;
+}
+
+.sbw-pwa-beta-section {
+  max-width: min(1120px, calc(100vw - clamp(28px, 7vw, 156px)));
+}
+
+.sbw-pwa-install-button,
+.sbw-pwa-guide-button {
+  max-width: 100%;
+  text-align: center;
+}
+
+.sbw-pwa-beta-art img {
+  max-width: 100%;
+}
+
+@media (min-width: 681px) and (max-width: 1100px) {
+  .sbw-pwa-beta-section {
+    width: min(calc(100% - 44px), 940px);
+    max-width: calc(100vw - 44px);
+    padding: clamp(26px, 3.6vw, 36px);
+  }
+
+  .sbw-pwa-beta-title {
+    max-width: 16ch;
+  }
+
+  .sbw-pwa-beta-art {
+    width: min(100%, 340px);
+  }
+
+  .sbw-pwa-beta-art img {
+    max-height: 420px;
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-pwa-beta-section {
+    width: calc(100% - 28px);
+    max-width: calc(100vw - 28px);
+    margin-top: 34px;
+    padding: 22px 16px;
+  }
+
+  .sbw-pwa-beta-copy {
+    width: 100%;
+  }
+
+  .sbw-pwa-beta-title {
+    max-width: 100%;
+  }
+
+  .sbw-pwa-beta-text,
+  .sbw-pwa-beta-note,
+  .sbw-pwa-beta-status {
+    max-width: 100%;
+  }
+
+  .sbw-pwa-beta-art {
+    width: min(100%, 292px);
+  }
+
+  .sbw-pwa-install-guide {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .sbw-pwa-beta-section {
+    width: calc(100% - 22px);
+    max-width: calc(100vw - 22px);
+    border-radius: 18px;
+  }
+
+  .sbw-pwa-beta-actions {
+    gap: 10px;
+  }
+
+  .sbw-pwa-install-button,
+  .sbw-pwa-guide-button {
+    padding-inline: 12px;
+    font-size: 0.82rem;
+  }
+
+  .sbw-pwa-beta-art {
+    width: min(100%, 258px);
+  }
+}
