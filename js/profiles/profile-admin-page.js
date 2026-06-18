@@ -27,18 +27,13 @@
 
   const gameOptions = [
     {
-      id: "sf6",
-      name: "Street Fighter 6",
-      category: "Fighting Games"
+      id: "call-of-duty",
+      name: "Call of Duty",
+      category: "FPS"
     },
     {
       id: "fatal-fury",
       name: "Fatal Fury",
-      category: "Fighting Games"
-    },
-    {
-      id: "tekken-8",
-      name: "Tekken 8",
       category: "Fighting Games"
     },
     {
@@ -47,9 +42,14 @@
       category: "FPS / Hero Shooter"
     },
     {
-      id: "call-of-duty",
-      name: "Call of Duty",
-      category: "FPS"
+      id: "sf6",
+      name: "Street Fighter 6",
+      category: "Fighting Games"
+    },
+    {
+      id: "tekken-8",
+      name: "Tekken 8",
+      category: "Fighting Games"
     },
     {
       id: "valorant",
@@ -345,6 +345,31 @@
     return labels[type] || "Convite";
   }
 
+  function formatProfileTypeLabel(type) {
+    const labels = {
+      player: "Jogador",
+      organizer: "Organizador",
+      staff: "Staff",
+      creator: "Creator"
+    };
+
+    return labels[String(type || "player")] || "Jogador";
+  }
+
+  function getProfileLocation(profile) {
+    const parts = [profile?.city, profile?.state, profile?.country]
+      .map(function (value) { return String(value || "").trim(); })
+      .filter(Boolean);
+
+    return parts.join(" / ") || "Localização não informada";
+  }
+
+  function delay(ms) {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, ms);
+    });
+  }
+
   function getContextTeamKey(team) {
     return String(team?.slug || team?.id || team?.teamSlug || team?.teamId || "");
   }
@@ -368,7 +393,7 @@
       <div class="sbw-profile-team-status">
         <span>Equipe atual</span>
         <strong>${escapeHtml(team.name || team.displayName || "Equipe")}</strong>
-        <p>${escapeHtml(member?.role || "membro")} · ${escapeHtml(team.tag || team.typeLabel || "Equipe SaberWolf")}</p>
+        <p>${escapeHtml(member?.role || "membro")} · ${escapeHtml(team.tag || team.typeLabel || "Equipe -SBW-")}</p>
 
         <div class="sbw-profile-team-status__actions">
           <a href="${escapeHtml(window.SBWRoutes?.team ? window.SBWRoutes.team(teamKey) : `../equipes/equipe.html?id=${encodeURIComponent(teamKey)}`)}">Ver equipe</a>
@@ -859,9 +884,108 @@
     `;
   }
 
-  function renderOverviewPanel(profile) {
+  function renderPublicDataPanel(profile) {
+    const games = Array.isArray(profile.mainGames) ? profile.mainGames : [];
+    const tags = Array.isArray(profile.roleTags) ? profile.roleTags : [];
+
     return `
       <section ${renderPanelAttrs("overview")}>
+        <div class="sbw-profile-panel sbw-profile-public-summary">
+          <div class="sbw-profile-panel-heading">
+            <div>
+              <span>Dados públicos</span>
+              <h2>Resumo do perfil</h2>
+            </div>
+          </div>
+
+          <div class="sbw-profile-summary-grid">
+            <div>
+              <small>Nome público</small>
+              <strong>${escapeHtml(profile.displayName || "Usuário SBW")}</strong>
+            </div>
+
+            <div>
+              <small>Nickname</small>
+              <strong>@${escapeHtml(profile.nickname || "usuario")}</strong>
+            </div>
+
+            <div>
+              <small>Tipo</small>
+              <strong>${escapeHtml(formatProfileTypeLabel(profile.profileType))}</strong>
+            </div>
+
+            <div>
+              <small>Região</small>
+              <strong>${escapeHtml(getProfileLocation(profile))}</strong>
+            </div>
+          </div>
+
+          <p class="sbw-profile-muted">
+            ${escapeHtml(profile.headline || "Usuário SBW")}
+          </p>
+
+          <div class="sbw-profile-public-chips">
+            ${games.length
+              ? games.map(function (game) { return `<span>${escapeHtml(game.name || game.id || "Jogo")}</span>`; }).join("")
+              : `<span>Jogos ainda não definidos</span>`}
+            ${tags.map(function (tag) { return `<span>${escapeHtml(tag)}</span>`; }).join("")}
+          </div>
+
+          <div class="sbw-profile-actions sbw-profile-actions-inline">
+            <button class="sbw-profile-btn" type="button" data-profile-admin-tab-shortcut="edit">
+              Editar dados
+            </button>
+            <a class="sbw-profile-btn sbw-profile-btn-primary" href="perfil.html?id=${encodeURIComponent(profile.userId)}">
+              Ver perfil público
+            </a>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderTeamPanel(context) {
+    return `
+      <section ${renderPanelAttrs("team")}>
+        <div class="sbw-profile-panel sbw-profile-team-panel">
+          <div class="sbw-profile-panel-heading">
+            <div>
+              <span>Minha equipe</span>
+              <h2>Vínculo competitivo</h2>
+            </div>
+          </div>
+
+          ${state.inviteMessage
+            ? `
+              <div class="sbw-profile-inline-message ${state.inviteMessageType === "error" ? "is-error" : "is-success"}">
+                ${escapeHtml(state.inviteMessage)}
+              </div>
+            `
+            : ""
+          }
+
+          ${renderCurrentTeamStatus(context)}
+
+          <p class="sbw-profile-muted">
+            Quando um convite real é aceito, esta área é atualizada com a equipe atual vinculada ao seu perfil.
+          </p>
+
+          <div class="sbw-profile-actions sbw-profile-actions-inline">
+            <button class="sbw-profile-btn" type="button" data-profile-refresh-team>
+              Atualizar equipe
+            </button>
+            <button class="sbw-profile-btn" type="button" data-profile-admin-tab-shortcut="invites">
+              Ver convites
+            </button>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderEditProfilePanel(profile) {
+    return `
+      <section ${renderPanelAttrs("edit")}>
         <form class="sbw-profile-admin-form" data-profile-form>
           <div class="sbw-profile-panel">
             <div class="sbw-profile-panel-heading">
@@ -949,8 +1073,7 @@
               <label class="sbw-profile-field">
                 <span>Tipo de perfil</span>
                 <select name="profileType">
-                  <option value="player" ${profile.profileType === "player" ? "selected" : ""}>Jogador</option>
-                  <option value="creator" ${profile.profileType === "creator" ? "selected" : ""}>Creator</option>
+                  <option value="player" ${!profile.profileType || profile.profileType === "player" || profile.profileType === "creator" ? "selected" : ""}>Jogador</option>
                   <option value="organizer" ${profile.profileType === "organizer" ? "selected" : ""}>Organizador</option>
                   <option value="staff" ${profile.profileType === "staff" ? "selected" : ""}>Staff</option>
                 </select>
@@ -1288,7 +1411,7 @@
             </div>
 
             <p class="sbw-profile-muted">
-              ${escapeHtml(profile.headline || "Jogador SaberWolf")}
+              ${escapeHtml(profile.headline || "Usuário SBW")}
             </p>
           </div>
 
@@ -1306,6 +1429,8 @@
 
             <div class="sbw-profile-admin-tabs">
               ${renderAdminTabButton("overview", "Dados públicos")}
+              ${renderAdminTabButton("edit", "Editar perfil")}
+              ${renderAdminTabButton("team", "Minha equipe")}
               ${renderAdminTabButton("status", "Status")}
               ${renderAdminTabButton("invites", "Convites", pendingInvites)}
               ${renderAdminTabButton("medals", "Medalhas", medalsCount)}
@@ -1326,7 +1451,9 @@
         </aside>
 
         <main class="sbw-player-content">
-          ${renderOverviewPanel(profile)}
+          ${renderPublicDataPanel(profile)}
+          ${renderEditProfilePanel(profile)}
+          ${renderTeamPanel(state.sessionContext)}
           ${renderPlayerStatusPanel(profile, arguments[4] || null)}
           ${renderInvitesPanel(invites)}
           ${renderMedalsPanel(profile, arguments[3] || [])}
@@ -1358,25 +1485,51 @@
   function bindAdminTabs() {
     document.querySelectorAll("[data-profile-admin-tab]").forEach((button) => {
       button.addEventListener("click", function () {
-        const target = button.dataset.profileAdminTab;
-        state.activeTab = target;
-
-        document.querySelectorAll("[data-profile-admin-tab]").forEach((item) => {
-          item.classList.toggle("is-active", item === button);
-        });
-
-        document.querySelectorAll("[data-profile-admin-panel]").forEach((panel) => {
-          const active = panel.dataset.profileAdminPanel === target;
-
-          panel.classList.toggle("is-active", active);
-
-          if (active) {
-            panel.removeAttribute("hidden");
-          } else {
-            panel.setAttribute("hidden", "");
-          }
-        });
+        activateProfileAdminTab(button.dataset.profileAdminTab);
       });
+    });
+
+    document.querySelectorAll("[data-profile-admin-tab-shortcut]").forEach((button) => {
+      button.addEventListener("click", function () {
+        activateProfileAdminTab(button.dataset.profileAdminTabShortcut);
+      });
+    });
+
+    document.querySelectorAll("[data-profile-refresh-team]").forEach((button) => {
+      button.addEventListener("click", async function () {
+        button.disabled = true;
+        button.textContent = "Atualizando...";
+
+        if (window.SBWSessionContext?.clearCache) {
+          window.SBWSessionContext.clearCache();
+        }
+
+        state.activeTab = "team";
+        await delay(450);
+        await reloadAndRender();
+      });
+    });
+  }
+
+  function activateProfileAdminTab(target) {
+    if (!target) return;
+
+    state.activeTab = target;
+
+    document.querySelectorAll("[data-profile-admin-tab]").forEach((item) => {
+      item.classList.toggle("is-active", item.dataset.profileAdminTab === target);
+    });
+
+    document.querySelectorAll("[data-profile-admin-panel]").forEach((panel) => {
+      const active = panel.dataset.profileAdminPanel === target;
+
+      panel.classList.toggle("is-active", active);
+
+      if (active) {
+        panel.removeAttribute("hidden");
+      } else {
+        panel.setAttribute("hidden", "");
+      }
     });
   }
 
@@ -1426,12 +1579,25 @@
             result = await storage.updateInviteStatus(button.dataset.inviteAccept, "accepted");
           }
 
-          setInviteMessage(
-            result?.message || (result?.ok ? "Convite aceito." : "Não foi possível aceitar o convite."),
-            result?.ok ? "success" : "error"
-          );
+          if (result?.ok) {
+            setInviteMessage(result?.message || "Convite aceito. Atualizando equipe...", "success");
+
+            if (window.SBWSessionContext?.clearCache) {
+              window.SBWSessionContext.clearCache();
+            }
+
+            state.activeTab = "team";
+            await delay(900);
+          } else {
+            setInviteMessage(
+              result?.message || "Não foi possível aceitar o convite.",
+              "error"
+            );
+            state.activeTab = "invites";
+          }
         } catch (error) {
           setInviteMessage(error.message || "Erro ao aceitar convite.", "error");
+          state.activeTab = "invites";
         }
 
         await reloadAndRender();
@@ -1457,8 +1623,14 @@
             result?.message || (result?.ok ? "Convite recusado." : "Não foi possível recusar o convite."),
             result?.ok ? "success" : "error"
           );
+          state.activeTab = "invites";
+
+          if (result?.ok) {
+            await delay(300);
+          }
         } catch (error) {
           setInviteMessage(error.message || "Erro ao recusar convite.", "error");
+          state.activeTab = "invites";
         }
 
         await reloadAndRender();
@@ -1916,7 +2088,7 @@
         }
 
         state.profile = saved;
-        state.activeTab = "overview";
+        state.activeTab = "edit";
 
         await reloadAndRender();
       } catch (error) {

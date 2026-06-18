@@ -3547,3 +3547,93 @@ body.sbw-profile-admin-body .sbw-profile-page-admin {
     text-align: left;
   }
 }
+
+/* v1.6.47 — Meu Perfil organizado e atualização pós-convite */
+.sbw-profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.sbw-profile-summary-grid > div {
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(2, 6, 23, 0.28);
+}
+
+.sbw-profile-summary-grid small {
+  display: block;
+  color: rgba(148, 163, 184, 0.9);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.sbw-profile-summary-grid strong {
+  display: block;
+  color: #f8fbff;
+  font-size: 0.98rem;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.sbw-profile-public-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 16px;
+}
+
+.sbw-profile-public-chips span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 999px;
+  padding: 0 10px;
+  background: rgba(56, 189, 248, 0.07);
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.sbw-profile-actions.sbw-profile-actions-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.sbw-profile-actions.sbw-profile-actions-inline .sbw-profile-btn {
+  width: auto;
+}
+
+.sbw-profile-team-panel .sbw-profile-team-status {
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(2, 6, 23, 0.26);
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .sbw-profile-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-profile-actions.sbw-profile-actions-inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sbw-profile-actions.sbw-profile-actions-inline .sbw-profile-btn {
+    width: 100%;
+  }
+}
