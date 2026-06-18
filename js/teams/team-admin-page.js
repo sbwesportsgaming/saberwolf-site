@@ -1336,7 +1336,7 @@ function renderMembersCard(team, members) {
 
   const adminPanelTabs = [
     { id: "geral", label: "Geral", hint: "Resumo" },
-    { id: "perfil", label: "Perfil público", hint: "Dados públicos" },
+    { id: "perfil", label: "Editar perfil", hint: "Identidade" },
     { id: "membros", label: "Membros", hint: "Pessoal" },
     { id: "convites", label: "Convites", hint: "Entradas" },
     { id: "titulos", label: "Títulos", hint: "Conquistas" },
@@ -2003,7 +2003,7 @@ function renderMembersCard(team, members) {
             </a>
 
             <a class="sbw-team-btn" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}">
-              Editar identidade
+              Editar perfil
             </a>
           </div>
         </div>
@@ -2081,7 +2081,7 @@ function renderMembersCard(team, members) {
         <div class="sbw-admin-feature-list">
           <div><strong>Modalidades com vagas</strong><span>${escapeHtml(arrayToCsv(team.recruitment?.games || team.metadata?.recruitmentGames || []) || "Nenhuma modalidade informada.")}</span></div>
           <div><strong>Regras de entrada</strong><span>${escapeHtml(team.recruitment?.description || team.metadata?.recruitmentDescription || "Nenhuma regra pública informada ainda.")}</span></div>
-          <a class="sbw-admin-feature-link" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}"><strong>Editar recrutamento</strong><span>Ajuste status, modalidades e regras no perfil público da equipe.</span></a>
+          <a class="sbw-admin-feature-link" href="${escapeHtml(getAdminTabUrl(team, "perfil"))}"><strong>Editar recrutamento</strong><span>Ajuste status, modalidades e regras na identidade pública da equipe.</span></a>
         </div>
       </div>
     `;
@@ -2702,6 +2702,44 @@ function renderMembersCard(team, members) {
     return state.tagStatus.available;
   }
 
+  async function saveTeamPublicProfile(updatedTeam, teamTypePayload) {
+    const client = await waitForSupabaseClient();
+    const teamKey = getTeamKey(updatedTeam);
+    const shouldUseRpc = Boolean(
+      client?.rpc &&
+      teamKey &&
+      (updatedTeam.source === "supabase" || updatedTeam.supabaseId || updatedTeam.supabase_id)
+    );
+
+    if (shouldUseRpc) {
+      const result = await client.rpc("sbw_update_team_public_profile", {
+        p_team_key: teamKey,
+        p_team_name: updatedTeam.name,
+        p_team_tag: updatedTeam.tag,
+        p_team_description: updatedTeam.description || "",
+        p_primary_color: updatedTeam.theme?.primaryColor || "#00e5ff",
+        p_secondary_color: updatedTeam.theme?.secondaryColor || "#7c3cff",
+        p_social_links_payload: updatedTeam.socialLinks || {},
+        p_recruitment_payload: updatedTeam.recruitment || {},
+        p_games_payload: updatedTeam.games || [],
+        p_team_type_payload: teamTypePayload || {}
+      });
+
+      if (result.error) {
+        console.warn("[SBW Team Admin] RPC de perfil público da equipe falhou:", result.error);
+        throw new Error(result.error.message || "Não foi possível salvar os dados públicos da equipe.");
+      }
+
+      if (result.data) {
+        return typeof storage.normalizeSupabaseTeam === "function"
+          ? storage.normalizeSupabaseTeam(result.data)
+          : result.data;
+      }
+    }
+
+    return storage.saveTeam(updatedTeam);
+  }
+
   function getSelectedGamesFromForm(team) {
     const selected = new Set();
 
@@ -2818,7 +2856,19 @@ function renderMembersCard(team, members) {
       games
     };
 
-    const savedTeam = await storage.saveTeam(updatedTeam);
+    let savedTeam = null;
+
+    try {
+      savedTeam = await saveTeamPublicProfile(updatedTeam, teamTypePayload);
+    } catch (error) {
+      console.error("[SBW Team Admin] Falha ao salvar perfil público da equipe:", error);
+
+      if (result) {
+        result.innerHTML = `<span class="sbw-admin-result-error">${escapeHtml(error?.message || "Não foi possível salvar.")}</span>`;
+      }
+
+      return;
+    }
 
     if (!savedTeam) {
       if (result) {
@@ -2828,17 +2878,22 @@ function renderMembersCard(team, members) {
       return;
     }
 
-       state.activeTeam = savedTeam;
+    state.activeTeam = savedTeam;
 
     if (typeof storage.saveTeamTypeByTeamId === "function") {
-      state.teamType = storage.saveTeamTypeByTeamId(savedTeam.id || team.id, teamTypePayload);
+      state.teamType = storage.saveTeamTypeByTeamId(savedTeam.id || savedTeam.slug || team.id, teamTypePayload);
     }
+
+    await reloadState(savedTeam.slug || savedTeam.id || team.slug || team.id);
 
     if (result) {
-      result.innerHTML = `<span class="sbw-admin-result-success">Alterações salvas.</span>`;
+      const persistedTag = models.normalizeTag(state.activeTeam?.tag || savedTeam.tag || "");
+      const desiredTag = models.normalizeTag(tag || "");
+      result.innerHTML = persistedTag === desiredTag
+        ? `<span class="sbw-admin-result-success">Alterações salvas.</span>`
+        : `<span class="sbw-admin-result-error">As alterações foram enviadas, mas a tag não retornou atualizada. Revise a policy/RPC da equipe no Supabase.</span>`;
     }
 
-    await reloadState(savedTeam.id);
     renderAdminPanel();
   }
 

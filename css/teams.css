@@ -6337,3 +6337,68 @@ body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
     width: 100%;
   }
 }
+
+
+/* =========================================================
+   -SBW- v1.6.42 — Ajuste fino do perfil público da equipe
+   Escopo: /equipes/equipe.html
+   Ajusta nome, tag e ações do banner público sem alterar dados/Storage.
+   ========================================================= */
+body.sbw-team-public-body .sbw-team-v2-hero-minimal h1 {
+  font-size: clamp(1.85rem, 3.15vw, 3.45rem);
+  line-height: 1.02;
+  max-width: min(920px, 100%);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 0.72em;
+  height: 0.72em;
+  margin-left: 0.28em;
+  font-size: 0.48em;
+  vertical-align: 0.18em;
+}
+
+body.sbw-team-public-body .sbw-team-v2-public-tag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 10px 0 0;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--team-primary) 34%, rgba(255, 255, 255, 0.08));
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.62);
+  color: color-mix(in srgb, var(--team-primary) 88%, #ffffff);
+  font-size: clamp(0.76rem, 0.9vw, 0.92rem);
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+  align-self: end;
+  margin: clamp(30px, 3vw, 52px) 0 0;
+  padding-bottom: 4px;
+}
+
+@media (max-width: 1180px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 760px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal h1 {
+    font-size: clamp(1.72rem, 8vw, 2.35rem);
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-public-tag {
+    margin-top: 8px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+    margin-top: 14px;
+    width: 100%;
+  }
+}

@@ -78,6 +78,47 @@
     return team?.slug || team?.id || team?.teamId || "";
   }
 
+  function getTeamIdentifiers(team) {
+    return [
+      team?.slug,
+      team?.id,
+      team?.teamId,
+      team?.teamSlug,
+      team?.supabaseId,
+      team?.supabase_id
+    ]
+      .filter(Boolean)
+      .map((value) => String(value));
+  }
+
+  function teamsMatch(teamA, teamB) {
+    if (!teamA || !teamB) return false;
+
+    const a = new Set(getTeamIdentifiers(teamA));
+
+    return getTeamIdentifiers(teamB).some((identifier) => a.has(identifier));
+  }
+
+  function canOpenMyTeam(team, sessionContext) {
+    if (!team || !sessionContext?.user) return false;
+
+    if (teamsMatch(team, sessionContext.currentTeam)) return true;
+
+    return (sessionContext.ownedTeams || []).some((ownedTeam) => teamsMatch(team, ownedTeam));
+  }
+
+  async function getSessionContext() {
+    try {
+      if (window.SBWSessionContext?.getCurrentContext) {
+        return await window.SBWSessionContext.getCurrentContext();
+      }
+    } catch (error) {
+      console.warn("[SaberWolf Teams] Não foi possível carregar contexto da sessão:", error);
+    }
+
+    return null;
+  }
+
   function getTeamInitials(team) {
     if (team?.tag) return String(team.tag).slice(0, 5).toUpperCase();
 
@@ -87,6 +128,16 @@
       .join("")
       .slice(0, 4)
       .toUpperCase();
+  }
+
+  function formatPublicTeamTag(team) {
+    const rawTag = String(team?.tag || "").trim();
+
+    if (!rawTag) return "";
+
+    const cleaned = rawTag.replace(/^-+|-+$/g, "").toUpperCase();
+
+    return cleaned ? `-${cleaned}-` : "";
   }
 
   function getRoleLabel(role) {
@@ -442,11 +493,14 @@
     `;
   }
 
-  function renderHero(team, members, parentTeam) {
+  function renderHero(team, members, parentTeam, sessionContext) {
     const meta = getMeta(team);
     const bannerUrl = safeUrl(team.bannerUrl || team.banner_url || "");
     const verified = isTeamVerified(team);
     const website = safeUrl(team.website || meta.website || team.socialLinks?.website || "");
+    const teamKey = getTeamId(team);
+    const myTeamUrl = window.SBWRoutes?.myTeam ? window.SBWRoutes.myTeam(teamKey) : `minha-equipe.html?id=${encodeURIComponent(teamKey)}`;
+    const showMyTeamButton = canOpenMyTeam(team, sessionContext);
     const heroStyle = styleAttribute([
       bannerUrl ? `--team-banner-image: url('${bannerUrl}')` : "",
       getTeamAssetFrameStyle(team)
@@ -461,15 +515,17 @@
 
           <div class="sbw-team-v2-identity-main">
             <h1>
-              ${escapeHtml(team.name || "Equipe SaberWolf")}
+              ${escapeHtml(team.name || "Equipe -SBW-")}
               ${verified ? `<span class="sbw-verified-badge" title="${escapeHtml(getVerificationLabel(team))}">✓</span>` : ""}
             </h1>
+            ${formatPublicTeamTag(team) ? `<p class="sbw-team-v2-public-tag">${escapeHtml(formatPublicTeamTag(team))}</p>` : ""}
             ${renderParentTeamBox(parentTeam)}
           </div>
 
           <div class="sbw-team-v2-actions sbw-team-v2-hero-actions">
+            ${showMyTeamButton ? `<a class="sbw-team-v2-button sbw-team-v2-button-primary" href="${escapeHtml(myTeamUrl)}">Minha equipe</a>` : ""}
             ${website ? `<a class="sbw-team-v2-button" href="${escapeHtml(website)}" target="_blank" rel="noopener noreferrer">Site oficial</a>` : ""}
-            <a class="sbw-team-v2-button sbw-team-v2-button-primary" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "equipes.html")}">Ver outras equipes</a>
+            <a class="sbw-team-v2-button ${showMyTeamButton ? "" : "sbw-team-v2-button-primary"}" href="${escapeHtml(window.SBWRoutes?.teams ? window.SBWRoutes.teams() : "equipes.html")}">Ver outras equipes</a>
           </div>
         </div>
       </section>
@@ -959,7 +1015,7 @@
     `;
   }
 
-  function renderProfile(team, members, subteams, parentTeam) {
+  function renderProfile(team, members, subteams, parentTeam, sessionContext) {
     const root = getRoot();
     if (!root) return;
 
@@ -970,7 +1026,7 @@
 
     root.innerHTML = `
       <section class="sbw-team-profile-v2" style="--team-primary: ${escapeHtml(primary)}; --team-secondary: ${escapeHtml(secondary)};">
-        ${renderHero(team, members, parentTeam)}
+        ${renderHero(team, members, parentTeam, sessionContext)}
         ${renderMetrics(team, members)}
 
         <div class="sbw-team-v2-layout">
@@ -1036,7 +1092,9 @@
       parentTeam = await storage.getTeamById(team.parentTeamId || team.parentTeamSlug);
     }
 
-    renderProfile(team, members || [], subteams || [], parentTeam);
+    const sessionContext = await getSessionContext();
+
+    renderProfile(team, members || [], subteams || [], parentTeam, sessionContext);
   }
 
   async function init() {
