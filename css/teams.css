@@ -6418,3 +6418,154 @@ body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
   border-color: rgba(255, 116, 116, 0.42);
   background: rgba(255, 79, 79, 0.12);
 }
+
+/* =========================================================
+   -SBW- v1.6.46 — Refinamento visual do perfil público da equipe
+   Escopo: /equipes/equipe.html
+   Ajusta a faixa pública da equipe sem alterar dados, convites ou Supabase.
+   ========================================================= */
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+  grid-template-columns: clamp(126px, 10.5vw, 168px) minmax(0, 1fr) minmax(190px, max-content);
+  gap: clamp(18px, 2.6vw, 36px);
+  align-items: end;
+  padding-bottom: clamp(28px, 3.2vw, 46px);
+}
+
+body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo {
+  width: clamp(126px, 10.5vw, 168px);
+  height: clamp(126px, 10.5vw, 168px);
+  margin-top: clamp(-82px, -5vw, -62px);
+  border-radius: clamp(24px, 1.8vw, 30px);
+  box-shadow:
+    0 0 0 7px rgba(2, 6, 23, 0.86),
+    0 18px 48px rgba(0, 0, 0, 0.50),
+    0 0 30px color-mix(in srgb, var(--team-primary) 18%, transparent);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-identity-main {
+  padding-top: clamp(18px, 2vw, 30px);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal h1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.18em 0.28em;
+  font-size: clamp(1.72rem, 2.75vw, 3.05rem);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 2px;
+  border: 1px solid color-mix(in srgb, var(--team-primary) 52%, rgba(255, 255, 255, 0.16));
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 20%, rgba(255, 255, 255, 0.44), transparent 42%),
+    color-mix(in srgb, var(--team-primary) 82%, #0f172a);
+  color: #020617;
+  font-size: 12px;
+  font-weight: 1000;
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--team-primary) 18%, transparent);
+}
+
+body.sbw-team-public-body .sbw-team-v2-public-tag {
+  margin-top: 12px;
+  padding: 6px 11px;
+  border-color: color-mix(in srgb, var(--team-primary) 26%, rgba(255, 255, 255, 0.08));
+  background: rgba(2, 6, 23, 0.52);
+  color: rgba(226, 232, 240, 0.88);
+  font-size: clamp(0.72rem, 0.82vw, 0.86rem);
+  letter-spacing: 0.14em;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+  align-self: end;
+  justify-content: flex-end;
+  margin: clamp(42px, 4vw, 68px) 0 2px;
+  padding-bottom: 0;
+  transform: translateY(8px);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-button {
+  min-height: 42px;
+  padding: 11px 15px;
+  border-radius: 14px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 1180px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+    grid-template-columns: clamp(118px, 15vw, 150px) minmax(0, 1fr);
+  }
+
+  body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo {
+    width: clamp(118px, 15vw, 150px);
+    height: clamp(118px, 15vw, 150px);
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    margin-top: 18px;
+    transform: none;
+  }
+}
+
+@media (max-width: 760px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-cover {
+    min-height: 178px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-profile-strip {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 0 18px 26px;
+  }
+
+  body.sbw-team-public-body .sbw-team-profile-v2 .sbw-team-v2-hero-minimal .sbw-team-v2-logo {
+    width: 108px;
+    height: 108px;
+    margin-top: -52px;
+    border-radius: 24px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-identity-main {
+    padding-top: 0;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal h1 {
+    font-size: clamp(1.55rem, 7.2vw, 2.08rem);
+    letter-spacing: -0.035em;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+    width: 19px;
+    height: 19px;
+    font-size: 10px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-public-tag {
+    margin-top: 8px;
+    font-size: 0.72rem;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
+    grid-column: auto;
+    justify-content: flex-start;
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions .sbw-team-v2-button {
+    flex: 1 1 150px;
+    justify-content: center;
+  }
+}
