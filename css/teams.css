@@ -6402,3 +6402,19 @@ body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-hero-actions {
     width: 100%;
   }
 }
+
+
+/* v1.6.43 — Convites enviados: cancelamento seguro */
+.sbw-admin-invite-cancel-btn {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-color: rgba(255, 116, 116, 0.24);
+  color: rgba(255, 218, 218, 0.92);
+  background: rgba(255, 79, 79, 0.06);
+  font-size: 11px;
+}
+
+.sbw-admin-invite-cancel-btn:hover:not(:disabled) {
+  border-color: rgba(255, 116, 116, 0.42);
+  background: rgba(255, 79, 79, 0.12);
+}

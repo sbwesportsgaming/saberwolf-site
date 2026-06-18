@@ -1,19 +1,18 @@
-# v1.6.43 — Transferências e convites de equipe
+# v1.6.43 — Transferências + Convites de Equipe
 
 ## Objetivo
-Conectar Transferências e Convites ao estado real de equipes/perfis no Supabase, evitando depender de fallback local ou dados demo para fluxos importantes.
+Conectar a área de Transferências e Convites ao fluxo real de equipes, reduzindo dependência de fallback local em produção.
 
-## Inclui
-- RPC segura para enviar convite de equipe.
-- RPC segura para listar convites recebidos pelo usuário logado.
-- RPC segura para aceitar convite e criar vínculo real em `team_members`.
-- RPC segura para recusar convite.
-- Meu Perfil passa a priorizar RPCs reais para convites recebidos.
-- Minha Equipe passa a usar RPC para criar convites quando disponível.
-- Transferências passa a derivar movimentações reais a partir de `team_members` quando não houver registros oficiais em `transfers`.
+## Incluído
+- Envio de convite de equipe via RPC no Supabase.
+- Listagem de convites recebidos no Meu Perfil via RPC.
+- Aceitar convite criando vínculo real em `team_members`.
+- Recusar convite atualizando status real.
+- Listagem de convites enviados no painel Minha Equipe via RPC segura.
+- Cancelamento de convite enviado antes do usuário aceitar.
+- Transferências derivando movimentações reais de `team_members` quando não houver tabela oficial de transferências preenchida.
 
-## Não inclui
-- Sistema completo de janela de transferências.
-- Aprovação dupla entre equipe de origem e destino.
-- Notificações push.
-- Mudanças em Auth, Admin, PWA ou RLS global fora das RPCs.
+## Observações
+- Fallback local continua útil apenas para desenvolvimento local/VS Code.
+- Em produção, se Supabase estiver ativo e o convite real falhar, o sistema não deve fingir que salvou localmente como verdade.
+- Este patch não altera PWA, Auth, Admin ou visual profundo.

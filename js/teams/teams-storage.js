@@ -709,6 +709,24 @@
       return [];
     }
 
+    try {
+      if (window.SBWSupabase?.client?.rpc) {
+        const rpcResult = await window.SBWSupabase.client.rpc("sbw_get_team_invites_for_manager", {
+          p_team_key: String(teamId || "")
+        });
+
+        if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+          return rpcResult.data.map(normalizeSupabaseTeamInvite);
+        }
+
+        if (rpcResult.error) {
+          console.warn("[SaberWolf Teams] RPC recusou leitura de convites da equipe:", rpcResult.error);
+        }
+      }
+    } catch (error) {
+      console.warn("[SaberWolf Teams] Falha inesperada ao buscar convites por RPC:", error);
+    }
+
     const tableName = getTeamInvitesSupabaseTableName();
 
     try {
@@ -907,10 +925,20 @@
       savedInvite = await saveTeamInviteToSupabase(invite);
     }
 
+    if (!savedInvite && teamsSupabaseEnabled() && config.allowSupabaseWrites === true) {
+      return {
+        ok: false,
+        invite: null,
+        duplicate: false,
+        source: "supabase-error",
+        message: "Não foi possível salvar o convite real no Supabase. O convite local não será usado em produção."
+      };
+    }
+
     if (!savedInvite) {
       savedInvite = saveTeamInviteToLocal(invite);
     } else {
-      // Espelho local para testes no VS Code e fallback visual.
+      // Espelho local apenas para testes no VS Code e fallback visual.
       saveTeamInviteToLocal(savedInvite);
     }
 
@@ -920,6 +948,138 @@
       duplicate: false,
       source: savedInvite.source || "local-demo",
       message: savedInvite.source === "supabase" ? "Convite enviado." : "Convite salvo no fallback local."
+    };
+  }
+
+  function cancelTeamInviteLocal(inviteId, teamId) {
+    const key = String(inviteId || "");
+    const teamKey = String(teamId || "");
+
+    if (!key) {
+      return null;
+    }
+
+    const updateList = function (list) {
+      let changedInvite = null;
+      const nextList = asArray(list).map(function (item) {
+        const normalized = normalizeTeamInviteLocal(item);
+        const sameInvite = String(normalized.id || "") === key;
+        const sameTeam = !teamKey || getInviteTeamSlug(normalized) === teamKey;
+
+        if (!sameInvite || !sameTeam) {
+          return item;
+        }
+
+        changedInvite = Object.assign({}, normalized, {
+          status: "cancelled",
+          respondedAt: nowIso(),
+          updatedAt: nowIso(),
+          metadata: Object.assign({}, normalized.metadata || {}, {
+            cancelledLocally: true,
+            cancelledAt: nowIso()
+          })
+        });
+
+        return changedInvite;
+      });
+
+      return {
+        nextList,
+        changedInvite
+      };
+    };
+
+    const teamResult = updateList(getLocalTeamInvitesRaw());
+    const profileResult = updateList(getLocalProfileInvitesRaw());
+    const changedInvite = teamResult.changedInvite || profileResult.changedInvite;
+
+    saveLocalTeamInvitesRaw(teamResult.nextList);
+    saveLocalProfileInvitesRaw(profileResult.nextList);
+
+    return changedInvite;
+  }
+
+  async function cancelTeamInviteViaRpcV1643(inviteId, teamId) {
+    if (!teamsSupabaseEnabled() || !window.SBWSupabase?.client?.rpc) {
+      return null;
+    }
+
+    try {
+      const result = await window.SBWSupabase.client.rpc("sbw_cancel_team_invite", {
+        p_invite_id: String(inviteId || ""),
+        p_team_key: String(teamId || "")
+      });
+
+      if (result.error) {
+        console.warn("[SaberWolf Teams] RPC recusou cancelamento do convite:", result.error);
+        return {
+          ok: false,
+          message: result.error.message || "Não foi possível cancelar o convite."
+        };
+      }
+
+      const data = result.data && typeof result.data === "object" ? result.data : {};
+      const row = data.invite || data;
+      const invite = row && (row.team_slug || row.teamSlug || row.id) ? normalizeSupabaseTeamInvite(row) : null;
+
+      return {
+        ok: data.ok !== false,
+        invite,
+        status: data.status || invite?.status || "cancelled",
+        source: "supabase",
+        message: data.message || "Convite cancelado."
+      };
+    } catch (error) {
+      console.warn("[SaberWolf Teams] Erro inesperado ao cancelar convite via RPC:", error);
+      return {
+        ok: false,
+        message: error?.message || "Erro inesperado ao cancelar convite."
+      };
+    }
+  }
+
+  async function cancelTeamInvite(inviteId, teamId) {
+    const key = String(inviteId || "");
+    const teamKey = String(teamId || "");
+
+    if (!key) {
+      return {
+        ok: false,
+        message: "Convite inválido."
+      };
+    }
+
+    if (teamsSupabaseEnabled() && config.allowSupabaseWrites === true) {
+      const rpcResult = await cancelTeamInviteViaRpcV1643(key, teamKey);
+
+      if (rpcResult?.ok) {
+        const cancelledLocal = cancelTeamInviteLocal(key, teamKey);
+        return Object.assign({}, rpcResult, {
+          invite: rpcResult.invite || cancelledLocal
+        });
+      }
+
+      return rpcResult || {
+        ok: false,
+        message: "Não foi possível cancelar o convite no Supabase."
+      };
+    }
+
+    const cancelledInvite = cancelTeamInviteLocal(key, teamKey);
+
+    if (!cancelledInvite) {
+      return {
+        ok: false,
+        message: "Convite local não encontrado."
+      };
+    }
+
+    return {
+      ok: true,
+      invite: cancelledInvite,
+      status: "cancelled",
+      source: "local-demo",
+      message: "Convite local cancelado."
     };
   }
 
@@ -1511,6 +1671,7 @@
   getTeamInvitesFromLocal,
   getTeamInvitesFromSupabase,
   createTeamInvite,
+  cancelTeamInvite,
   saveTeamInviteToLocal,
   saveTeamInviteToSupabase,
   normalizeTeamInviteLocal,

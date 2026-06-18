@@ -2339,6 +2339,8 @@ function renderMembersCard(team, members) {
               ? new Date(invite.createdAt || invite.invitedAt).toLocaleDateString("pt-BR")
               : "Data não informada";
 
+            const canCancelInvite = String(status || "pending") === "pending" && invite.inviteType !== "player_to_team";
+
             return `
               <article class="sbw-admin-invite-row">
                 <div>
@@ -2349,6 +2351,16 @@ function renderMembersCard(team, members) {
                 <div class="sbw-admin-invite-meta">
                   ${renderInviteSourceBadge(invite)}
                   <small>${escapeHtml(dateLabel)}</small>
+                  ${canCancelInvite ? `
+                    <button
+                      class="sbw-team-btn sbw-team-btn-ghost sbw-admin-invite-cancel-btn"
+                      type="button"
+                      data-cancel-team-invite
+                      data-invite-id="${escapeHtml(invite.id || "")}"
+                    >
+                      Cancelar convite
+                    </button>
+                  ` : ""}
                 </div>
               </article>
             `;
@@ -3364,6 +3376,50 @@ function renderMembersCard(team, members) {
     };
   }
 
+  async function handleCancelTeamInvite(button) {
+    if (!button || !state.activeTeam) return;
+
+    const inviteId = button.dataset.inviteId || "";
+    const teamKey = getTeamKey(state.activeTeam);
+
+    if (!inviteId) {
+      alert("Convite inválido.");
+      return;
+    }
+
+    const confirmed = window.confirm("Cancelar este convite? O jogador não poderá aceitá-lo depois disso.");
+
+    if (!confirmed) return;
+
+    button.disabled = true;
+    button.textContent = "Cancelando...";
+
+    const result = storage.cancelTeamInvite
+      ? await storage.cancelTeamInvite(inviteId, teamKey)
+      : {
+          ok: false,
+          message: "Storage de convites indisponível."
+        };
+
+    if (!result?.ok) {
+      alert(result?.message || "Não foi possível cancelar o convite.");
+      button.disabled = false;
+      button.textContent = "Cancelar convite";
+      return;
+    }
+
+    await reloadState(teamKey);
+    renderAdminPanel();
+  }
+
+  function bindCancelInviteButtons() {
+    document.querySelectorAll("[data-cancel-team-invite]").forEach((button) => {
+      button.addEventListener("click", function () {
+        handleCancelTeamInvite(button);
+      });
+    });
+  }
+
   function bindInviteButtons() {
     document.querySelectorAll("[data-invite-player]").forEach((button) => {
       button.addEventListener("click", async function () {
@@ -3458,6 +3514,8 @@ function renderMembersCard(team, members) {
         }
       });
     }
+
+    bindCancelInviteButtons();
 
     if (gameSearchInput) {
       gameSearchInput.addEventListener("input", function () {

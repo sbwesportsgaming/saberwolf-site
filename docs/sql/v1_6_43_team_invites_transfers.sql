@@ -460,3 +460,133 @@ end;
 $$;
 
 grant execute on function public.sbw_decline_team_invite(text) to authenticated;
+
+-- v1.6.43 — Complemento: convites enviados e cancelamento pelo capitão/gestor.
+-- Lista convites reais da equipe para quem pode gerenciar a equipe, evitando depender de SELECT direto bloqueado por RLS.
+drop function if exists public.sbw_get_team_invites_for_manager(text);
+
+create or replace function public.sbw_get_team_invites_for_manager(p_team_key text)
+returns setof public.team_invites
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_team public.teams;
+begin
+  if auth.uid() is null then
+    return;
+  end if;
+
+  select *
+    into target_team
+  from public.teams t
+  where t.slug = p_team_key
+     or t.id::text = p_team_key
+  limit 1;
+
+  if target_team.id is null then
+    raise exception 'Equipe não encontrada.';
+  end if;
+
+  if not public.sbw_can_manage_team_assets(target_team.slug) then
+    raise exception 'Você não tem permissão para visualizar convites desta equipe.';
+  end if;
+
+  return query
+  select ti.*
+  from public.team_invites ti
+  where ti.team_slug = target_team.slug
+  order by coalesce(ti.created_at, ti.invited_at) desc;
+end;
+$$;
+
+grant execute on function public.sbw_get_team_invites_for_manager(text) to authenticated;
+
+-- Cancela convite pendente enviado pela equipe.
+-- Só o gestor/capitão da equipe pode cancelar.
+drop function if exists public.sbw_cancel_team_invite(text, text);
+
+create or replace function public.sbw_cancel_team_invite(
+  p_invite_id text,
+  p_team_key text default ''
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_invite public.team_invites;
+  target_team public.teams;
+  updated_invite public.team_invites;
+  now_value timestamptz := now();
+begin
+  if auth.uid() is null then
+    raise exception 'Entre na sua conta para cancelar convites.';
+  end if;
+
+  select *
+    into target_invite
+  from public.team_invites ti
+  where ti.id::text = p_invite_id
+  limit 1;
+
+  if target_invite.id is null then
+    raise exception 'Convite não encontrado.';
+  end if;
+
+  select *
+    into target_team
+  from public.teams t
+  where t.slug = target_invite.team_slug
+     or t.id::text = p_team_key
+     or t.slug = p_team_key
+  limit 1;
+
+  if target_team.id is null then
+    raise exception 'Equipe do convite não encontrada.';
+  end if;
+
+  if p_team_key <> '' and target_team.slug <> p_team_key and target_team.id::text <> p_team_key then
+    raise exception 'Convite não pertence à equipe informada.';
+  end if;
+
+  if not public.sbw_can_manage_team_assets(target_team.slug) then
+    raise exception 'Você não tem permissão para cancelar convites desta equipe.';
+  end if;
+
+  if lower(coalesce(target_invite.status, 'pending')) <> 'pending' then
+    return jsonb_build_object(
+      'ok', true,
+      'status', target_invite.status,
+      'inviteId', target_invite.id,
+      'invite', to_jsonb(target_invite),
+      'message', 'Este convite já foi respondido ou cancelado.'
+    );
+  end if;
+
+  update public.team_invites
+  set
+    status = 'cancelled',
+    responded_at = now_value,
+    updated_at = now_value,
+    metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+      'cancelledAt', now_value,
+      'cancelledByAuthUserId', auth.uid(),
+      'source', 'team-invite-cancel-v1.6.43-rpc'
+    )
+  where id = target_invite.id
+  returning * into updated_invite;
+
+  return jsonb_build_object(
+    'ok', true,
+    'status', 'cancelled',
+    'inviteId', updated_invite.id,
+    'invite', to_jsonb(updated_invite),
+    'message', 'Convite cancelado.'
+  );
+end;
+$$;
+
+grant execute on function public.sbw_cancel_team_invite(text, text) to authenticated;
