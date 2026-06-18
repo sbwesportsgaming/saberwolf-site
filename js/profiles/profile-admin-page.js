@@ -2,6 +2,79 @@
   const storage = window.SBWProfilesStorage;
   const models = window.SBWProfilesModels;
 
+  const adminTabAliases = {
+    overview: "overview",
+    "dados-publicos": "overview",
+    dados: "overview",
+    perfil: "overview",
+    edit: "edit",
+    editar: "edit",
+    "editar-perfil": "edit",
+    team: "team",
+    equipe: "team",
+    "minha-equipe": "team",
+    status: "status",
+    invites: "invites",
+    convites: "invites",
+    "convites-recebidos": "invites",
+    medals: "medals",
+    medalhas: "medals",
+    history: "history",
+    historico: "history",
+    "histórico": "history",
+    admin: "admin",
+    administrador: "admin"
+  };
+
+  const adminTabHashes = {
+    overview: "dados-publicos",
+    edit: "editar-perfil",
+    team: "minha-equipe",
+    status: "status",
+    invites: "convites",
+    medals: "medalhas",
+    history: "historico",
+    admin: "admin"
+  };
+
+  function normalizeAdminTabSlug(value) {
+    const raw = String(value || "")
+      .trim()
+      .replace(/^#/, "")
+      .replace(/^tab=/, "")
+      .replace(/^aba=/, "")
+      .toLowerCase();
+
+    if (!raw) return "";
+
+    return adminTabAliases[raw] || "";
+  }
+
+  function getRequestedAdminTabFromUrl() {
+    const hashTab = normalizeAdminTabSlug(decodeURIComponent(window.location.hash || ""));
+    if (hashTab) return hashTab;
+
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      return normalizeAdminTabSlug(params.get("tab") || params.get("aba") || "");
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function syncAdminTabHash(target) {
+    const tab = normalizeAdminTabSlug(target) || target;
+    const hash = adminTabHashes[tab];
+
+    if (!hash || !window.history?.replaceState) return;
+
+    const nextUrl = `${window.location.pathname}${window.location.search}#${hash}`;
+
+    if (window.location.hash !== `#${hash}`) {
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }
+
       const state = {
     profile: null,
     invites: [],
@@ -11,7 +84,7 @@
     sessionContext: null,
     inviteMessage: "",
     inviteMessageType: "",
-    activeTab: "overview",
+    activeTab: getRequestedAdminTabFromUrl() || "overview",
     activeHistoryTab: "teams"
   };
 
@@ -955,15 +1028,6 @@
             </div>
           </div>
 
-          ${state.inviteMessage
-            ? `
-              <div class="sbw-profile-inline-message ${state.inviteMessageType === "error" ? "is-error" : "is-success"}">
-                ${escapeHtml(state.inviteMessage)}
-              </div>
-            `
-            : ""
-          }
-
           ${renderCurrentTeamStatus(context)}
 
           <p class="sbw-profile-muted">
@@ -1511,17 +1575,18 @@
     });
   }
 
-  function activateProfileAdminTab(target) {
-    if (!target) return;
+  function activateProfileAdminTab(target, options = {}) {
+    const normalizedTarget = normalizeAdminTabSlug(target) || target;
+    if (!normalizedTarget) return;
 
-    state.activeTab = target;
+    state.activeTab = normalizedTarget;
 
     document.querySelectorAll("[data-profile-admin-tab]").forEach((item) => {
-      item.classList.toggle("is-active", item.dataset.profileAdminTab === target);
+      item.classList.toggle("is-active", item.dataset.profileAdminTab === normalizedTarget);
     });
 
     document.querySelectorAll("[data-profile-admin-panel]").forEach((panel) => {
-      const active = panel.dataset.profileAdminPanel === target;
+      const active = panel.dataset.profileAdminPanel === normalizedTarget;
 
       panel.classList.toggle("is-active", active);
 
@@ -1531,6 +1596,10 @@
         panel.setAttribute("hidden", "");
       }
     });
+
+    if (!options.skipUrl) {
+      syncAdminTabHash(normalizedTarget);
+    }
   }
 
   function bindHistoryTabs() {
@@ -2143,6 +2212,11 @@ async function reloadAndRender() {
 
 async function init() {
   const root = document.querySelector("[data-profile-admin-root]");
+  const requestedTab = getRequestedAdminTabFromUrl();
+
+  if (requestedTab) {
+    state.activeTab = requestedTab;
+  }
 
   if (window.SBWPageState?.renderLoading) {
     window.SBWPageState.renderLoading(root, {
@@ -2179,6 +2253,14 @@ async function init() {
     window.SBWPageState?.markReady?.();
   }
 }
+
+  window.addEventListener("hashchange", function () {
+    const requestedTab = getRequestedAdminTabFromUrl();
+
+    if (requestedTab) {
+      activateProfileAdminTab(requestedTab, { skipUrl: true });
+    }
+  });
 
   document.addEventListener("DOMContentLoaded", init);
 })();
