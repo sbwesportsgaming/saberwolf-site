@@ -1,11 +1,18 @@
-const SBW_PWA_CACHE = "sbw-pwa-beta-v2";
+/*
+  -SBW- PWA Beta Service Worker v1.6.40.4
+  - Cache conservador com versionamento para evitar assets antigos no app instalado.
+  - HTML/pages usam network-first e caem para offline.html somente sem conexão.
+  - Não cacheia Supabase, Auth, Admin, dados privados ou páginas dinâmicas de forma agressiva.
+*/
+
+const SBW_PWA_CACHE = "sbw-pwa-beta-v3";
 const SBW_PWA_PRECACHE = [
   "/offline.html",
-  "/manifest.webmanifest",
-  "/assets/icons/icon-192.png",
-  "/assets/icons/icon-512.png",
-  "/assets/icons/apple-touch-icon.png",
-  "/assets/images/app-sbw-beta-promo.png"
+  "/manifest.webmanifest?v=20260618",
+  "/assets/icons/icon-192-v3.png",
+  "/assets/icons/icon-512-v3.png",
+  "/assets/icons/apple-touch-icon-v3.png",
+  "/assets/images/app-sbw-beta-promo-v2.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -26,42 +33,54 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function isSameOrigin(url) {
+  return url.origin === self.location.origin;
+}
+
+function isPwaStaticAsset(pathname) {
+  return (
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/offline.html" ||
+    pathname === "/assets/images/app-sbw-beta-promo-v2.png" ||
+    pathname === "/assets/icons/icon-192-v3.png" ||
+    pathname === "/assets/icons/icon-512-v3.png" ||
+    pathname === "/assets/icons/apple-touch-icon-v3.png"
+  );
+}
+
+function networkFirst(request, fallbackUrl) {
+  return fetch(request, { cache: "no-store" }).catch(() => {
+    if (fallbackUrl) return caches.match(fallbackUrl);
+    return caches.match(request);
+  });
+}
+
+function networkFirstStatic(request) {
+  return fetch(request)
+    .then((response) => {
+      if (response && response.ok) {
+        const copy = response.clone();
+        caches.open(SBW_PWA_CACHE).then((cache) => cache.put(request, copy));
+      }
+      return response;
+    })
+    .catch(() => caches.match(request));
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
 
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
+  if (!isSameOrigin(url)) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() => caches.match("/offline.html"))
-    );
+    event.respondWith(networkFirst(request, "/offline.html"));
     return;
   }
 
-  const isPwaStatic =
-    url.pathname === "/manifest.webmanifest" ||
-    url.pathname === "/offline.html" ||
-    url.pathname === "/assets/images/app-sbw-beta-promo.png" ||
-    url.pathname.startsWith("/assets/icons/");
+  if (!isPwaStaticAsset(url.pathname)) return;
 
-  if (!isPwaStatic) return;
-
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(SBW_PWA_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-
-      return cached || network;
-    })
-  );
+  event.respondWith(networkFirstStatic(request));
 });

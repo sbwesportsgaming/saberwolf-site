@@ -1,5 +1,5 @@
 /*
-  -SBW- PWA Beta JS v0.2
+  -SBW- PWA Beta JS v0.3
   - Registro simples do service worker.
   - Botão de instalação conservador.
   - Não mexe em Supabase, Auth, Admin, torneios, rankings, equipes ou dados dinâmicos.
@@ -104,9 +104,15 @@
     if (window.location.protocol === 'file:') return;
 
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/service-worker.js', { scope: '/' }).catch(function (error) {
-        console.warn('[SBW PWA] Service worker não registrado:', error);
-      });
+      navigator.serviceWorker.register('/service-worker.js?v=20260618', { scope: '/', updateViaCache: 'none' })
+        .then(function (registration) {
+          if (registration && typeof registration.update === 'function') {
+            registration.update().catch(function () {});
+          }
+        })
+        .catch(function (error) {
+          console.warn('[SBW PWA] Service worker não registrado:', error);
+        });
     });
   }
 
