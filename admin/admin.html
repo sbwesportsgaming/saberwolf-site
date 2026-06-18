@@ -141,25 +141,32 @@
           <article class="sbw-admin-card">
             <h2>Permissões preparadas</h2>
             <p class="sbw-admin-muted">
-              Esta tela lê e tenta atualizar permissões em <code>profiles.metadata.permissions</code> e, quando disponível,
-              em <code>site_permissions</code>. A segurança real depende das policies/RLS do Supabase.
+              Esta tela mantém permissões globais e a nova autorização real para criar Organizações de Torneios.
+              A permissão de organização fica em <code>organizer_permissions</code> e deve ser concedida somente pela -SBW-.
             </p>
 
             <ul class="sbw-admin-checklist">
               <li>Master Admin</li>
               <li>Admin SBW</li>
-              <li>Aprovar organizadores</li>
+              <li>Permitir criação de Organização de Torneios</li>
               <li>Verificar equipes pela aba Equipes</li>
               <li>Gerenciar permissões</li>
             </ul>
           </article>
 
           <article class="sbw-admin-card">
-            <h2>Organizadores</h2>
+            <h2>Organizações de Torneios</h2>
             <p class="sbw-admin-muted">
-              A aprovação de organizador fica preparada para <code>organizer_permissions</code>. Se a tabela/RLS ainda não permitir,
-              o painel vai avisar sem quebrar a página.
+              Nesta etapa, o Admin Master libera apenas a porta de entrada: o usuário autorizado poderá criar uma organização real na próxima fase.
+              A permissão não transforma o usuário em Admin do site e não concede acesso a outras organizações.
             </p>
+
+            <ul class="sbw-admin-checklist">
+              <li>Usuário comum SBW sem permissão: não cria organização.</li>
+              <li>Usuário autorizado pela -SBW-: pode acessar “Criar organização”.</li>
+              <li>Permissão revogada: perde a porta de entrada.</li>
+              <li>Criação/edição real da organização fica para a v1.6.53.</li>
+            </ul>
           </article>
         </div>
       </section>
@@ -201,7 +208,7 @@
               <li><strong>teams</strong><span>Dono/capitão edita a própria equipe; Admin Master pode verificar/moderar.</span></li>
               <li><strong>team_members</strong><span>Entrada em equipe só por convite aceito ou ação administrativa.</span></li>
               <li><strong>team_invites</strong><span>Capitão/manager convida; jogador convidado aceita ou recusa.</span></li>
-              <li><strong>organizer_permissions</strong><span>Apenas Admin Master/Admin SBW aprova organizadores.</span></li>
+              <li><strong>organizer_permissions</strong><span>Apenas Admin Master/Admin SBW libera criação de Organizações de Torneios.</span></li>
               <li><strong>site_permissions</strong><span>Apenas Master Admin concede permissões altas.</span></li>
             </ul>
           </article>

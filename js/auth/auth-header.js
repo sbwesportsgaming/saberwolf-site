@@ -149,8 +149,27 @@ function renderInstantAuthState(nav) {
 
   const isApprovedOrganizer =
     organizerPermission &&
-    organizerPermission.status === "approved" &&
-    organizerPermission.can_create_tournaments === true;
+    organizerPermission.status === "approved";
+
+  const canCreateTournamentOrganizer = Boolean(
+    rawPermissions.canCreateTournamentOrganizer ||
+    rawPermissions.can_create_tournament_organizer ||
+    rawPermissions.canCreateTournamentOrganizers ||
+    rawPermissions.can_create_tournament_organizers ||
+    rawPermissions.canCreateOrganization ||
+    rawPermissions.can_create_organization ||
+    rawPermissions.canCreateOrganizations ||
+    rawPermissions.can_create_organizations ||
+    (
+      isApprovedOrganizer &&
+      (
+        organizerPermission.can_create_organizations === true ||
+        organizerPermission.can_create_organization === true ||
+        organizerPermission.can_create_tournament_organizers === true ||
+        organizerPermission.can_create_tournament_organizer === true
+      )
+    )
+  );
 
   return {
     canCreateTeam: Boolean(
@@ -158,11 +177,17 @@ function renderInstantAuthState(nav) {
       rawPermissions.can_create_team
     ),
 
+    canCreateTournamentOrganizer: Boolean(
+      canCreateTournamentOrganizer ||
+      rawPermissions.isAdmin ||
+      rawPermissions.is_admin
+    ),
+
     canCreateTournament: Boolean(
       rawPermissions.canCreateTournament ||
       rawPermissions.can_create_tournament ||
       rawPermissions.can_create_tournaments ||
-      isApprovedOrganizer ||
+      (isApprovedOrganizer && organizerPermission.can_create_tournaments === true) ||
       rawPermissions.isAdmin ||
       rawPermissions.is_admin
     ),
@@ -465,6 +490,7 @@ function renderInstantAuthState(nav) {
     const avatarUrl = getProfileAvatar(profile, user);
     const initials = getInitials(displayName);
     const permissions = getProfilePermissions(profile);
+    const canCreateTournamentOrganizer = Boolean(permissions.canCreateTournamentOrganizer || permissions.isAdmin);
     const canCreateTournament = Boolean(permissions.canCreateTournament || permissions.isAdmin);
 
     const wrapper = document.createElement("span");
@@ -499,11 +525,12 @@ function renderInstantAuthState(nav) {
       <a href="${getUrl("equipes/minha-equipe.html")}">Minha equipe</a>
 
       ${
-        canCreateTournament
+        canCreateTournamentOrganizer || canCreateTournament
           ? `
             <div class="sbw-auth-dropdown-divider"></div>
-            <a href="${getUrl("torneios/create-tournament/criar-torneio.html")}">Criar torneio</a>
-            <span>Meus torneios em breve</span>
+            ${canCreateTournamentOrganizer ? `<a href="${getUrl("torneios/editar-organizador.html?novo=1")}">Criar organização</a>` : ``}
+            ${canCreateTournament ? `<a href="${getUrl("torneios/create-tournament/criar-torneio.html")}">Criar torneio</a>` : ``}
+            <span>Minhas organizações em breve</span>
           `
           : ``
       }
@@ -608,6 +635,18 @@ if (
 
     profile.permissions = {
       ...currentPermissions,
+      canCreateTournamentOrganizer: Boolean(
+        currentPermissions.canCreateTournamentOrganizer ||
+        (
+          organizerPermission.status === "approved" &&
+          (
+            organizerPermission.can_create_organizations === true ||
+            organizerPermission.can_create_organization === true ||
+            organizerPermission.can_create_tournament_organizers === true ||
+            organizerPermission.can_create_tournament_organizer === true
+          )
+        )
+      ),
       canCreateTournament: Boolean(
         currentPermissions.canCreateTournament ||
         (

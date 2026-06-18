@@ -78,7 +78,8 @@ function sbwOrganizerEditorGetLoginUrl() {
 
 async function sbwOrganizerEditorCheckAccess() {
   if (sbwOrganizerEditorAccess) {
-    sbwOrganizerEditorAccess.innerHTML = "Verificando conta e permissões do organizador...";
+    sbwOrganizerEditorAccess.hidden = false;
+    sbwOrganizerEditorAccess.innerHTML = "Verificando conta e permissão real de organização...";
   }
 
   if (!window.SBWAuth || typeof window.SBWAuth.getUser !== "function") {
@@ -99,27 +100,47 @@ async function sbwOrganizerEditorCheckAccess() {
     return false;
   }
 
-  let profile = null;
+  let context = null;
 
-  if (typeof window.SBWAuth.ensureCurrentUserProfile === "function") {
+  if (window.SBWSessionContext && typeof window.SBWSessionContext.getCurrentContext === "function") {
+    context = await window.SBWSessionContext.getCurrentContext({ refresh: true });
+  }
+
+  let profile = context?.profile || null;
+
+  if (!profile && typeof window.SBWAuth.ensureCurrentUserProfile === "function") {
     profile = await window.SBWAuth.ensureCurrentUserProfile();
   }
 
-  const permissions = profile?.permissions || {};
-  const canEditOrganizer = Boolean(
-    permissions.canCreateTournament ||
-    permissions.can_create_tournament ||
-    permissions.can_create_tournaments ||
+  const permissions = context?.permissions || profile?.permissions || {};
+  const canCreateOrganization = Boolean(
+    context?.canCreateTournamentOrganizer ||
+    permissions.canCreateTournamentOrganizer ||
+    permissions.can_create_tournament_organizer ||
+    permissions.canCreateTournamentOrganizers ||
+    permissions.can_create_tournament_organizers ||
+    permissions.canCreateOrganization ||
+    permissions.can_create_organization ||
+    permissions.canCreateOrganizations ||
+    permissions.can_create_organizations ||
+    permissions.isAdminSbw ||
+    permissions.is_admin_sbw ||
+    permissions.isMasterAdmin ||
+    permissions.is_master_admin ||
     permissions.isAdmin ||
     permissions.is_admin
   );
 
-  if (!canEditOrganizer) {
+  if (!canCreateOrganization) {
     if (sbwOrganizerEditorAccess) {
       sbwOrganizerEditorAccess.innerHTML = `
         <strong>Acesso restrito.</strong><br>
-        Apenas organizadores aprovados pela -SBW- podem editar perfis de organizador.
+        Sua conta ainda não possui permissão da -SBW- para criar ou gerenciar uma Organização de Torneios.
       `;
+    }
+
+    if (sbwOrganizerEditorShell) {
+      sbwOrganizerEditorShell.hidden = true;
     }
 
     return false;
@@ -318,24 +339,50 @@ function sbwOrganizerEditorBindReset() {
 }
 
 async function sbwOrganizerEditorLoad() {
+  const isNewOrganizationEntry = sbwGetQueryParam("novo") === "1" || sbwGetQueryParam("create") === "1";
   sbwOrganizerEditorSlug = sbwGetQueryParam("slug") || sbwGetQueryParam("id") || "";
-
-  if (!sbwOrganizerEditorSlug) {
-    if (sbwOrganizerEditorAccess) {
-      sbwOrganizerEditorAccess.innerHTML = `
-        <strong>Organizador não informado.</strong><br>
-        Abra este painel a partir da página pública do organizador.
-      `;
-    }
-
-    return;
-  }
 
   const hasAccess = await sbwOrganizerEditorCheckAccess();
 
   if (!hasAccess) {
     return;
   }
+
+  if (!sbwOrganizerEditorSlug && isNewOrganizationEntry) {
+    if (sbwOrganizerEditorShell) {
+      sbwOrganizerEditorShell.hidden = true;
+    }
+
+    if (sbwOrganizerEditorAccess) {
+      sbwOrganizerEditorAccess.hidden = false;
+      sbwOrganizerEditorAccess.innerHTML = `
+        <strong>Permissão confirmada.</strong><br>
+        Sua conta está autorizada pela -SBW- para criar uma Organização de Torneios.
+        A criação real do perfil da organização entra na v1.6.53, já usando Supabase e sem localStorage.
+        <br><br>
+        <a class="organizer-admin-btn secondary" href="torneios.html">Voltar para Torneios</a>
+      `;
+    }
+
+    return;
+  }
+
+  if (!sbwOrganizerEditorSlug) {
+    if (sbwOrganizerEditorShell) {
+      sbwOrganizerEditorShell.hidden = true;
+    }
+
+    if (sbwOrganizerEditorAccess) {
+      sbwOrganizerEditorAccess.hidden = false;
+      sbwOrganizerEditorAccess.innerHTML = `
+        <strong>Organizador não informado.</strong><br>
+        Abra este painel a partir da página pública do organizador ou use a entrada “Criar organização”.
+      `;
+    }
+
+    return;
+  }
+
 
   let organizer = null;
 

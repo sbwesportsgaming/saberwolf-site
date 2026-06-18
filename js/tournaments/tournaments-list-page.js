@@ -1061,5 +1061,54 @@ function sbwRegisterTournamentFilterEvents() {
   }
 }
 
+
+async function sbwRenderTournamentOrganizerCreatorGate() {
+  const card = document.getElementById("tournamentOrganizerCreatorCard");
+  const body = document.getElementById("tournamentOrganizerCreatorBody");
+
+  if (!card || !body) {
+    return;
+  }
+
+  if (!window.SBWSessionContext || typeof window.SBWSessionContext.getCurrentContext !== "function") {
+    card.hidden = true;
+    return;
+  }
+
+  try {
+    const context = await window.SBWSessionContext.getCurrentContext();
+
+    if (!context?.user) {
+      card.hidden = false;
+      body.innerHTML = `
+        <p>Quer criar torneios pela plataforma?</p>
+        <small>Entre na sua conta -SBW- e solicite liberação para criar uma Organização de Torneios.</small>
+        <a class="sbw-tournaments-mini-link" href="${sbwSafeEscape(window.SBWRoutes?.login ? window.SBWRoutes.login(window.location.href) : "../auth/login.html")}">Entrar</a>
+      `;
+      return;
+    }
+
+    if (context.canCreateTournamentOrganizer) {
+      card.hidden = false;
+      body.innerHTML = `
+        <p>Sua conta está liberada para criar uma Organização de Torneios.</p>
+        <small>A criação real entra na próxima etapa. Esta porta já valida a permissão no Supabase.</small>
+        <a class="sbw-tournaments-mini-link" href="editar-organizador.html?novo=1">Criar organização</a>
+      `;
+      return;
+    }
+
+    card.hidden = false;
+    body.innerHTML = `
+      <p>Organizações de Torneios são liberadas pela equipe -SBW-.</p>
+      <small>Usuários SBW comuns podem participar dos torneios; criação de organização precisa de permissão real.</small>
+    `;
+  } catch (error) {
+    console.warn("[SBW Torneios] Não foi possível renderizar porta de organização:", error);
+    card.hidden = true;
+  }
+}
+
 sbwRegisterTournamentFilterEvents();
 sbwRenderTournamentsListPage();
+sbwRenderTournamentOrganizerCreatorGate();

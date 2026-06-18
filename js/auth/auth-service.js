@@ -221,6 +221,7 @@ function getLoginUrl(returnUrl) {
   function getDefaultPermissions() {
   return {
     canCreateTeam: false,
+    canCreateTournamentOrganizer: false,
     canCreateTournament: false,
     isAdmin: false,
     organizerStatus: "none"
@@ -238,9 +239,21 @@ function normalizeProfilePermissions(profile) {
       rawPermissions.canCreateTeam ||
       rawPermissions.can_create_team
     ),
+    canCreateTournamentOrganizer: Boolean(
+      rawPermissions.canCreateTournamentOrganizer ||
+      rawPermissions.can_create_tournament_organizer ||
+      rawPermissions.canCreateTournamentOrganizers ||
+      rawPermissions.can_create_tournament_organizers ||
+      rawPermissions.canCreateOrganization ||
+      rawPermissions.can_create_organization ||
+      rawPermissions.canCreateOrganizations ||
+      rawPermissions.can_create_organizations
+    ),
     canCreateTournament: Boolean(
       rawPermissions.canCreateTournament ||
-      rawPermissions.can_create_tournament
+      rawPermissions.can_create_tournament ||
+      rawPermissions.canCreateTournaments ||
+      rawPermissions.can_create_tournaments
     ),
     isAdmin: Boolean(
       rawPermissions.isAdmin ||
@@ -258,16 +271,31 @@ function mergePermissions(profile, organizerPermission) {
 
   const isApprovedOrganizer =
     organizerPermission &&
-    organizerPermission.status === "approved" &&
-    organizerPermission.can_create_tournaments === true;
+    organizerPermission.status === "approved";
+
+  const canCreateTournamentOrganizer = Boolean(
+    basePermissions.canCreateTournamentOrganizer ||
+    (
+      isApprovedOrganizer &&
+      (
+        organizerPermission.can_create_organizations === true ||
+        organizerPermission.can_create_organization === true ||
+        organizerPermission.can_create_tournament_organizers === true ||
+        organizerPermission.can_create_tournament_organizer === true
+      )
+    )
+  );
+
+  const canCreateTournament = Boolean(
+    basePermissions.canCreateTournament ||
+    (isApprovedOrganizer && organizerPermission.can_create_tournaments === true) ||
+    basePermissions.isAdmin
+  );
 
   return {
     canCreateTeam: Boolean(basePermissions.canCreateTeam),
-    canCreateTournament: Boolean(
-      basePermissions.canCreateTournament ||
-      isApprovedOrganizer ||
-      basePermissions.isAdmin
-    ),
+    canCreateTournamentOrganizer: Boolean(canCreateTournamentOrganizer || basePermissions.isAdmin),
+    canCreateTournament,
     isAdmin: Boolean(basePermissions.isAdmin),
     organizerStatus: organizerPermission?.status || basePermissions.organizerStatus || "none"
   };
@@ -342,6 +370,16 @@ async function getOrganizerPermission(authUserId) {
 
   if (!client || !authUserId) {
     return null;
+  }
+
+  try {
+    const rpcResult = await client.rpc("sbw_get_my_organizer_permission");
+
+    if (!rpcResult.error && rpcResult.data) {
+      return rpcResult.data;
+    }
+  } catch (error) {
+    // RPC disponível após o SQL da v1.6.52. Se ainda não existir, usa leitura direta abaixo.
   }
 
   const result = await client

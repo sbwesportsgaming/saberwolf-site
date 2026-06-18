@@ -133,6 +133,21 @@
       roles.includes("admin")
     );
 
+    const canCreateTournamentOrganizer = Boolean(
+      isAdminSbw ||
+      raw.canCreateTournamentOrganizer ||
+      raw.can_create_tournament_organizer ||
+      raw.canCreateTournamentOrganizers ||
+      raw.can_create_tournament_organizers ||
+      raw.canCreateOrganization ||
+      raw.can_create_organization ||
+      raw.canCreateOrganizations ||
+      raw.can_create_organizations ||
+      roles.includes("organizer_creator") ||
+      roles.includes("can_create_organization") ||
+      roles.includes("can_create_organizations")
+    );
+
     const canCreateTournament = Boolean(
       isAdminSbw ||
       raw.canCreateTournament ||
@@ -163,6 +178,7 @@
       roles,
       isMasterAdmin,
       isAdminSbw,
+      canCreateTournamentOrganizer,
       canCreateTournament,
       canVerifyTeam,
       canManagePermissions
@@ -177,6 +193,7 @@
       roles,
       isMasterAdmin: normalized.some((item) => item.isMasterAdmin),
       isAdminSbw: normalized.some((item) => item.isAdminSbw),
+      canCreateTournamentOrganizer: normalized.some((item) => item.canCreateTournamentOrganizer),
       canCreateTournament: normalized.some((item) => item.canCreateTournament),
       canVerifyTeam: normalized.some((item) => item.canVerifyTeam),
       canManagePermissions: normalized.some((item) => item.canManagePermissions)
@@ -205,6 +222,7 @@
       roles,
       isMasterAdmin: false,
       isAdminSbw: false,
+      canCreateTournamentOrganizer: false,
       canCreateTournament: false,
       canVerifyTeam: false,
       canManagePermissions: false,
@@ -229,6 +247,7 @@
 
       merged.isMasterAdmin = merged.isMasterAdmin || direct.isMasterAdmin || ["master", "master_admin", "owner", "super_admin"].includes(permissionKey);
       merged.isAdminSbw = merged.isAdminSbw || direct.isAdminSbw || ["admin", "admin_sbw", "site_admin", "staff_admin"].includes(permissionKey);
+      merged.canCreateTournamentOrganizer = merged.canCreateTournamentOrganizer || direct.canCreateTournamentOrganizer || ["can_create_organization", "can_create_organizations", "organizer_creator", "tournament_organizer_creator"].includes(permissionKey);
       merged.canCreateTournament = merged.canCreateTournament || direct.canCreateTournament || ["can_create_tournament", "can_create_tournaments", "tournament_admin", "organizer_admin"].includes(permissionKey);
       merged.canVerifyTeam = merged.canVerifyTeam || direct.canVerifyTeam || ["can_verify_team", "team_admin", "teams_admin", "verify_team"].includes(permissionKey);
       merged.canManagePermissions = merged.canManagePermissions || direct.canManagePermissions || ["can_manage_permissions", "permission_admin", "permissions_admin"].includes(permissionKey);
@@ -239,11 +258,13 @@
     if (merged.isMasterAdmin) {
       merged.isAdminSbw = true;
       merged.canManagePermissions = true;
+      merged.canCreateTournamentOrganizer = true;
       merged.canCreateTournament = true;
       merged.canVerifyTeam = true;
     }
 
     if (merged.isAdminSbw) {
+      merged.canCreateTournamentOrganizer = true;
       merged.canCreateTournament = true;
       merged.canVerifyTeam = true;
     }
@@ -403,9 +424,20 @@
   function normalizeOrganizerPermission(permission) {
     if (!permission) return {};
 
+    const status = String(permission.status || "none").toLowerCase();
+    const isApproved = status === "approved" || status === "active" || status === "enabled";
+
     return {
+      canCreateTournamentOrganizer:
+        isApproved &&
+        (
+          permission.can_create_organizations === true ||
+          permission.can_create_organization === true ||
+          permission.can_create_tournament_organizers === true ||
+          permission.can_create_tournament_organizer === true
+        ),
       canCreateTournament:
-        permission.status === "approved" &&
+        isApproved &&
         permission.can_create_tournaments === true,
       organizerStatus: permission.status || "none",
       role: permission.role || ""
@@ -597,6 +629,14 @@
     return Boolean(isVerified);
   }
 
+  function canCreateTournamentOrganizer(context) {
+    return Boolean(
+      context?.permissions?.canCreateTournamentOrganizer ||
+      context?.permissions?.isAdminSbw ||
+      context?.permissions?.isMasterAdmin
+    );
+  }
+
   function canCreateTournament(context) {
     return Boolean(
       context?.permissions?.canCreateTournament ||
@@ -631,6 +671,10 @@
       sitePermission
     );
 
+    if (organizerNormalized.canCreateTournamentOrganizer) {
+      permissions.canCreateTournamentOrganizer = true;
+    }
+
     if (organizerNormalized.canCreateTournament) {
       permissions.canCreateTournament = true;
     }
@@ -657,6 +701,7 @@
     Object.assign(context, teamState);
 
     context.canCreateTeam = canCreateTeam(context);
+    context.canCreateTournamentOrganizer = canCreateTournamentOrganizer(context);
     context.canCreateTournament = canCreateTournament(context);
     context.canVerifyTeam = canVerifyTeam(context);
     context.isMasterAdmin = isMasterAdmin(context);
@@ -711,6 +756,7 @@
     canCreateTeam,
     canManageTeam,
     canCreateSubteam,
+    canCreateTournamentOrganizer,
     canCreateTournament,
     canVerifyTeam,
     isMasterAdmin,

@@ -3068,3 +3068,50 @@ body.sbw-has-sidebar .sbw-tournaments-hub {
   border-color: rgba(76, 202, 255, 0.42);
   background: rgba(55, 200, 255, 0.13);
 }
+
+
+/* v1.6.52 — porta de entrada para Organização de Torneios */
+.sbw-tournaments-side-card--organizer-gate {
+  border-color: rgba(250, 204, 21, 0.24);
+  background:
+    radial-gradient(circle at top left, rgba(250, 204, 21, 0.12), transparent 18rem),
+    rgba(5, 15, 31, 0.74);
+}
+
+.sbw-tournaments-organizer-gate-body {
+  display: grid;
+  gap: 10px;
+}
+
+.sbw-tournaments-organizer-gate-body p {
+  margin: 0;
+  color: rgba(244, 248, 255, 0.92);
+  line-height: 1.55;
+  font-weight: 800;
+}
+
+.sbw-tournaments-organizer-gate-body small {
+  color: rgba(196, 216, 235, 0.68);
+  line-height: 1.55;
+}
+
+.sbw-tournaments-mini-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(250, 204, 21, 0.38);
+  border-radius: 12px;
+  color: #fef3c7;
+  background: rgba(250, 204, 21, 0.09);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.sbw-tournaments-mini-link:hover {
+  border-color: rgba(250, 204, 21, 0.62);
+  color: #ffffff;
+  background: rgba(250, 204, 21, 0.15);
+}

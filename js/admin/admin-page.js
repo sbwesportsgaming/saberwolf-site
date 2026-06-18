@@ -11,7 +11,8 @@
     profileListExpanded: false,
     teamListExpanded: false,
     profileLetterFilter: "",
-    teamLetterFilter: ""
+    teamLetterFilter: "",
+    organizerPermissions: new Map()
   };
 
   function $(selector, root = document) {
@@ -80,6 +81,55 @@
     );
   }
 
+  function getProfileAuthUserId(profile) {
+    return profile?.auth_user_id || profile?.authUserId || profile?.user_id || "";
+  }
+
+  function normalizePermissionStatus(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function isActiveOrganizerPermission(row) {
+    const status = normalizePermissionStatus(row?.status || "approved");
+    return Boolean(row) && ["approved", "active", "enabled"].includes(status);
+  }
+
+  function organizerPermissionCanCreateOrganization(row) {
+    return Boolean(
+      isActiveOrganizerPermission(row) &&
+      (
+        row?.can_create_organizations === true ||
+        row?.canCreateOrganizations === true ||
+        row?.can_create_organization === true ||
+        row?.canCreateOrganization === true ||
+        row?.can_create_tournament_organizers === true ||
+        row?.canCreateTournamentOrganizers === true ||
+        row?.can_create_tournament_organizer === true ||
+        row?.canCreateTournamentOrganizer === true
+      )
+    );
+  }
+
+  function getOrganizerPermissionForProfile(profile) {
+    if (!profile || !state.organizerPermissions) return null;
+
+    const keys = [
+      getProfileAuthUserId(profile),
+      profile?.id,
+      profile?.slug,
+      profile?.username,
+      getProfileKey(profile)
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+
+    for (const key of keys) {
+      if (state.organizerPermissions.has(key)) {
+        return state.organizerPermissions.get(key);
+      }
+    }
+
+    return null;
+  }
+
   function getTeamKey(team) {
     return team?.slug || team?.id || team?.teamSlug || team?.teamId || "";
   }
@@ -134,7 +184,18 @@
 
   function hasOrganizerPermission(profile) {
     const permissions = getProfilePermissions(profile);
+    const organizerPermission = getOrganizerPermissionForProfile(profile);
+
     return Boolean(
+      organizerPermissionCanCreateOrganization(organizerPermission) ||
+      permissions.canCreateTournamentOrganizer ||
+      permissions.can_create_tournament_organizer ||
+      permissions.canCreateTournamentOrganizers ||
+      permissions.can_create_tournament_organizers ||
+      permissions.canCreateOrganization ||
+      permissions.can_create_organization ||
+      permissions.canCreateOrganizations ||
+      permissions.can_create_organizations ||
       permissions.canCreateTournament ||
       permissions.can_create_tournament ||
       permissions.canCreateTournaments ||
@@ -160,12 +221,20 @@
     const permissions = getProfilePermissions(profile);
     const badges = [];
 
+    const organizerPermission = getOrganizerPermissionForProfile(profile);
+
     if (permissions.isMasterAdmin || permissions.is_master_admin) badges.push("Master Admin");
     if (permissions.isAdmin || permissions.is_admin || permissions.isAdminSbw || permissions.is_admin_sbw) badges.push("Admin SBW");
-    if (hasOrganizerPermission(profile)) badges.push("Organizador");
+    if (organizerPermissionCanCreateOrganization(organizerPermission)) badges.push("Criar organização");
+    else if (hasOrganizerPermission(profile)) badges.push("Organizador");
     if (permissions.canManagePermissions || permissions.can_manage_permissions) badges.push("Permissões");
 
     return badges;
+  }
+
+
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
   }
 
   function normalizeSearch(value) {
@@ -633,30 +702,67 @@
     return [];
   }
 
-  async function loadOrganizerCount() {
-    if (!state.client) return 0;
+  async function loadOrganizerPermissions() {
+    if (!state.client) return [];
+
+    try {
+      const rpcResult = await state.client.rpc("sbw_admin_list_organizer_permissions");
+
+      if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+        return rpcResult.data;
+      }
+    } catch (error) {
+      // A RPC pode ainda não existir se o SQL da versão não foi rodado. Tentamos leitura direta abaixo.
+    }
 
     try {
       const result = await state.client
         .from("organizer_permissions")
-        .select("id, auth_user_id, status")
-        .eq("status", "approved")
+        .select("*")
         .limit(1000);
 
       if (result.error) throw result.error;
-      return (result.data || []).length;
+      return result.data || [];
     } catch (error) {
-      return 0;
+      return [];
     }
   }
 
+  function indexOrganizerPermissions(rows = []) {
+    const map = new Map();
+
+    rows.forEach((row) => {
+      [
+        row?.auth_user_id,
+        row?.user_id,
+        row?.profile_id,
+        row?.profile_slug,
+        row?.slug,
+        row?.email,
+        row?.user_email
+      ].forEach((value) => {
+        const key = String(value || "").trim();
+        if (key) map.set(key, row);
+      });
+    });
+
+    return map;
+  }
+
+  function countApprovedOrganizerPermissions(rows = []) {
+    return rows.filter(organizerPermissionCanCreateOrganization).length;
+  }
+
   async function refreshData() {
-    const [supabaseProfiles, fallbackProfiles, teams, organizerCount] = await Promise.all([
+    const [supabaseProfiles, fallbackProfiles, teams, organizerPermissionRows] = await Promise.all([
       loadProfilesFromSupabase(),
       loadProfilesFromFallback(),
       loadTeams(),
-      loadOrganizerCount()
+      loadOrganizerPermissions()
     ]);
+
+    state.organizerPermissions = indexOrganizerPermissions(organizerPermissionRows);
+    const organizerCount = countApprovedOrganizerPermissions(organizerPermissionRows);
 
     const profilesByKey = new Map();
 
@@ -713,7 +819,9 @@
     const initial = String(name || "S").charAt(0).toUpperCase();
     const badges = getProfileBadges(profile);
     const profileId = profile?.id || key;
-    const authUserId = profile?.auth_user_id || profile?.authUserId || "";
+    const authUserId = getProfileAuthUserId(profile);
+    const organizerPermission = getOrganizerPermissionForProfile(profile);
+    const canCreateOrganization = organizerPermissionCanCreateOrganization(organizerPermission);
 
     return `
       <article class="sbw-admin-result-card" data-profile-id="${escapeHtml(profileId)}">
@@ -747,7 +855,13 @@
 
           ${shouldShowApproveOrganizer(profile) ? `
             <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="approve-organizer" data-profile-key="${escapeHtml(profileId)}">
-              Aprovar organizador
+              Permitir criar organização
+            </button>
+          ` : ""}
+
+          ${canCreateOrganization ? `
+            <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="revoke-organizer" data-profile-key="${escapeHtml(profileId)}">
+              Remover permissão de organização
             </button>
           ` : ""}
         </div>
@@ -916,57 +1030,72 @@
   async function approveOrganizer(profile) {
     if (!profile) return;
 
-    const authUserId = profile.auth_user_id || profile.authUserId;
+    const authUserId = getProfileAuthUserId(profile);
 
     if (!authUserId) {
-      addLog(`Perfil ${getProfileName(profile)} não tem auth_user_id para aprovar organizador.`, "error");
+      addLog(`Perfil ${getProfileName(profile)} não tem auth_user_id para liberar criação de organização.`, "error");
       return;
     }
 
     if (!state.client) {
-      addLog("Supabase não disponível para aprovar organizador.", "error");
+      addLog("Supabase não disponível para liberar criação de organização.", "error");
       return;
     }
 
-    const payload = {
-      auth_user_id: authUserId,
-      status: "approved",
-      role: "organizer_owner",
-      can_create_tournaments: true,
-      updated_at: new Date().toISOString()
-    };
-
     try {
-      const existing = await state.client
-        .from("organizer_permissions")
-        .select("*")
-        .eq("auth_user_id", authUserId)
-        .maybeSingle();
-
-      let result;
-
-      if (!existing.error && existing.data?.id) {
-        result = await state.client
-          .from("organizer_permissions")
-          .update(payload)
-          .eq("id", existing.data.id)
-          .select("*")
-          .maybeSingle();
-      } else {
-        result = await state.client
-          .from("organizer_permissions")
-          .insert({ ...payload, created_at: new Date().toISOString() })
-          .select("*")
-          .maybeSingle();
-      }
+      const result = await state.client.rpc("sbw_admin_set_organizer_permission", {
+        p_target_auth_user_id: authUserId,
+        p_target_profile_id: isUuid(profile.id) ? profile.id : null,
+        p_target_profile_slug: profile.slug || profile.username || "",
+        p_reason: "Permissão concedida pelo Admin Master -SBW-"
+      });
 
       if (result.error) throw result.error;
 
-      addLog(`Organizador aprovado para ${getProfileName(profile)}.`);
+      addLog(`Permissão para criar organização concedida a ${getProfileName(profile)}.`);
       await refreshData();
+      renderProfilesList();
     } catch (error) {
-      console.warn("[SBW Admin] Falha ao aprovar organizador:", error);
-      addLog("Não foi possível aprovar organizador. Provável falta de tabela/policy RLS.", "warning");
+      console.warn("[SBW Admin] Falha ao liberar criação de organização:", error);
+      addLog("Não foi possível liberar criação de organização. Rode o SQL da v1.6.52 no Supabase e confira permissão Admin Master.", "warning");
+    }
+  }
+
+  async function revokeOrganizer(profile) {
+    if (!profile) return;
+
+    const authUserId = getProfileAuthUserId(profile);
+
+    if (!authUserId) {
+      addLog(`Perfil ${getProfileName(profile)} não tem auth_user_id para remover permissão.`, "error");
+      return;
+    }
+
+    if (!state.client) {
+      addLog("Supabase não disponível para remover permissão de organização.", "error");
+      return;
+    }
+
+    const shouldRevoke = window.confirm(`Remover permissão de criar organização de ${getProfileName(profile)}?`);
+
+    if (!shouldRevoke) {
+      return;
+    }
+
+    try {
+      const result = await state.client.rpc("sbw_admin_revoke_organizer_permission", {
+        p_target_auth_user_id: authUserId,
+        p_reason: "Permissão removida pelo Admin Master -SBW-"
+      });
+
+      if (result.error) throw result.error;
+
+      addLog(`Permissão de criar organização removida de ${getProfileName(profile)}.`);
+      await refreshData();
+      renderProfilesList();
+    } catch (error) {
+      console.warn("[SBW Admin] Falha ao remover permissão de organização:", error);
+      addLog("Não foi possível remover permissão de organização. Confira o SQL/RLS da v1.6.52.", "warning");
     }
   }
 
@@ -1172,6 +1301,11 @@
         if (action === "approve-organizer") {
           const profile = getProfileByKey(button.dataset.profileKey);
           await approveOrganizer(profile);
+        }
+
+        if (action === "revoke-organizer") {
+          const profile = getProfileByKey(button.dataset.profileKey);
+          await revokeOrganizer(profile);
         }
 
         if (action === "verify-team") {
