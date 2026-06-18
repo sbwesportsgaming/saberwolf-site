@@ -886,9 +886,118 @@
     `;
   }
 
-  function renderProfileHero(profile, competitiveSnapshot) {
-    const stats = mergeProfileStats(getStats(profile), competitiveSnapshot ? competitiveSnapshot.stats : null);
+  function getProfileIdentityCandidates(profile) {
+    const items = [
+      profile?.authUserId,
+      profile?.auth_user_id,
+      profile?.user_id,
+      profile?.userId,
+      profile?.profileId,
+      profile?.supabaseId,
+      profile?.id,
+      profile?.slug,
+      profile?.username,
+      profile?.nickname
+    ];
 
+    return items
+      .map(function (item) {
+        return String(item || "").trim().toLowerCase();
+      })
+      .filter(Boolean);
+  }
+
+  function hasMatchingIdentity(profile, candidate) {
+    const value = String(candidate || "").trim().toLowerCase();
+
+    if (!value) {
+      return false;
+    }
+
+    return getProfileIdentityCandidates(profile).includes(value);
+  }
+
+  async function isViewingOwnProfile(profile) {
+    const storage = getStorage();
+
+    if (window.SBWAuth && typeof window.SBWAuth.getUser === "function") {
+      try {
+        const authUser = await window.SBWAuth.getUser();
+        const authUserId = authUser?.id || authUser?.user?.id || "";
+
+        if (authUserId && hasMatchingIdentity(profile, authUserId)) {
+          return true;
+        }
+      } catch (error) {
+        console.warn("[SaberWolf Profiles] Não foi possível validar usuário autenticado:", error);
+      }
+    }
+
+    if (storage && typeof storage.getCurrentUserProfileAsync === "function") {
+      try {
+        const currentProfile = await storage.getCurrentUserProfileAsync();
+
+        if (currentProfile) {
+          const currentCandidates = getProfileIdentityCandidates(currentProfile);
+          const profileCandidates = new Set(getProfileIdentityCandidates(profile));
+
+          if (currentCandidates.some(function (candidate) { return profileCandidates.has(candidate); })) {
+            return true;
+          }
+        }
+      } catch (error) {
+        console.warn("[SaberWolf Profiles] Não foi possível comparar com Meu Perfil:", error);
+      }
+    }
+
+    if (storage && typeof storage.getCurrentUser === "function") {
+      try {
+        const currentUser = storage.getCurrentUser();
+        const currentCandidates = [
+          currentUser?.authUserId,
+          currentUser?.auth_user_id,
+          currentUser?.userId,
+          currentUser?.id,
+          currentUser?.profileId,
+          currentUser?.slug,
+          currentUser?.username,
+          currentUser?.nickname
+        ];
+
+        if (currentCandidates.some(function (candidate) { return hasMatchingIdentity(profile, candidate); })) {
+          return true;
+        }
+      } catch (error) {
+        console.warn("[SaberWolf Profiles] Não foi possível comparar usuário local:", error);
+      }
+    }
+
+    return false;
+  }
+
+  function getProfileEditUrl() {
+    return "meu-perfil.html";
+  }
+
+  function renderOwnProfileAction(isOwnProfile) {
+    if (!isOwnProfile) {
+      return "";
+    }
+
+    return `
+      <div class="sbw-profile-public-actions">
+        <a class="sbw-profile-public-action-primary" href="${escapeHtml(getProfileEditUrl())}">
+          Meu Perfil
+        </a>
+      </div>
+    `;
+  }
+
+  function renderVerifiedIcon(label) {
+    return `<span class="sbw-verified-badge sbw-verified-badge--icon" title="${escapeHtml(label || "Verificado")}" aria-label="${escapeHtml(label || "Verificado")}">✓</span>`;
+  }
+
+  function renderProfileHero(profile, competitiveSnapshot, options = {}) {
     return `
       <section class="sbw-profile-public-hero" ${getBannerStyle(profile)}>
         <div class="sbw-profile-public-avatar" ${styleAttribute(getProfileAssetFrameStyle(profile, "avatar"))}>
@@ -906,9 +1015,9 @@
           </span>
 
           <div class="sbw-profile-name-row">
-           <h1>${escapeHtml(getPublicDisplayName(profile))}</h1>
-              ${renderFeaturedMedals(profile, competitiveSnapshot)}
-              ${renderPlayerStatusBadge(profile)}
+            <h1>${escapeHtml(getPublicDisplayName(profile))}</h1>
+            ${renderFeaturedMedals(profile, competitiveSnapshot)}
+            ${renderPlayerStatusBadge(profile)}
           </div>
 
           ${getPublicHandle(profile) ? `
@@ -925,6 +1034,7 @@
             ${
               getTags(profile).length
                 ? getTags(profile)
+                    .slice(0, 4)
                     .map(function (tag) {
                       return `<span>${escapeHtml(tag)}</span>`;
                     })
@@ -933,10 +1043,27 @@
             }
 
             ${
-              profile.isVerified
-                ? `<span>Verificado</span>`
+              profile.isVerified || profile.is_verified
+                ? `<span>Perfil verificado</span>`
                 : ""
             }
+          </div>
+
+          ${renderOwnProfileAction(Boolean(options.isOwnProfile))}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderStatsSection(profile, competitiveSnapshot) {
+    const stats = mergeProfileStats(getStats(profile), competitiveSnapshot ? competitiveSnapshot.stats : null);
+
+    return `
+      <section class="sbw-profile-card sbw-profile-public-stats-card">
+        <div class="sbw-profile-card-header">
+          <div>
+            <span>Competitivo</span>
+            <h2>Resumo público</h2>
           </div>
         </div>
 
@@ -1075,8 +1202,8 @@
                           <strong>
                             ${escapeHtml(teamName)}
                             ${
-                              team.isVerified
-                                ? `<span class="sbw-verified-badge">Verificada</span>`
+                              team.isVerified || team.is_verified
+                                ? renderVerifiedIcon("Equipe verificada")
                                 : ""
                             }
                           </strong>
@@ -1265,12 +1392,13 @@
 
     const teams = await getCurrentTeams(profile);
     const competitiveSnapshot = await getCompetitiveSnapshot(profile);
+    const isOwnProfile = await isViewingOwnProfile(profile);
 
     document.title = `${getPublicDisplayName(profile)} | -SBW-`;
 
     root.innerHTML = `
       <div class="sbw-profile-public-shell">
-        ${renderProfileHero(profile, competitiveSnapshot)}
+        ${renderProfileHero(profile, competitiveSnapshot, { isOwnProfile })}
 
         <div class="sbw-profile-public-grid">
           <div class="sbw-profile-public-main-column">
@@ -1282,6 +1410,7 @@
 
           <aside class="sbw-profile-public-side-column">
             ${renderCurrentTeamsSection(profile, teams)}
+            ${renderStatsSection(profile, competitiveSnapshot)}
             ${renderGamesSection(profile)}
           </aside>
         </div>
