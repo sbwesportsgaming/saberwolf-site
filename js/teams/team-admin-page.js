@@ -3025,15 +3025,33 @@ function renderMembersCard(team, members) {
     }
 
     const confirmed = window.confirm(
-      `Remover ${member.displayName || member.nickname} da equipe?`
+      `Remover ${member.displayName || member.nickname} da equipe? O vínculo ativo será encerrado e aparecerá no histórico de transferências.`
     );
 
     if (!confirmed) return;
 
-    removeLocalMember(member.id);
+    button.disabled = true;
+    button.textContent = "Removendo...";
 
-    await reloadState(state.activeTeam.id);
-    renderAdminPanel();
+    try {
+      const teamKey = getTeamKey(state.activeTeam) || state.activeTeam?.id || "";
+      const result = storage.removeTeamMember
+        ? await storage.removeTeamMember(member, teamKey)
+        : null;
+
+      if (!result?.ok) {
+        throw new Error(result?.message || "Não foi possível remover o membro.");
+      }
+
+      await wait(450);
+      await reloadState(teamKey);
+      renderAdminPanel();
+    } catch (error) {
+      console.error("[SBW Team Admin] Falha ao remover membro:", error);
+      alert(error?.message || "Não foi possível remover o membro da equipe.");
+      button.disabled = false;
+      button.textContent = "Remover";
+    }
   }
 
 

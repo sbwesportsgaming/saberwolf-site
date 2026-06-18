@@ -104,22 +104,43 @@
     }
   }
 
+
+  function normalizeStatus(value) {
+    const status = String(value || "").toLowerCase().trim();
+
+    if (["completed", "complete", "concluido", "concluído", "accepted", "active", "ativo"].includes(status)) {
+      return "confirmed";
+    }
+
+    if (["cancelled", "canceled", "cancelado", "declined", "rejected"].includes(status)) {
+      return "cancelled";
+    }
+
+    if (["rumor", "rumour", "boato"].includes(status)) {
+      return "rumor";
+    }
+
+    return status || "confirmed";
+  }
+
   function normalizeTransfer(item) {
+    const data = item && typeof item === "object" ? item : {};
+
     return {
-      id: item.id || item.slug || item.transfer_id || "transfer-" + Math.random().toString(36).slice(2),
-      type: item.type || item.kind || "player",
-      status: item.status || item.transfer_status || "confirmed",
-      playerId: item.player_id || item.playerId || item.profile_id || item.profileId || "",
-      playerName: item.player_name || item.playerName || item.nickname || item.display_name || "Participante",
-      role: item.role || item.position || item.function || "",
-      game: item.game || item.modality || item.category || "",
-      fromTeamId: item.from_team_id || item.fromTeamId || "",
-      fromTeamName: item.from_team_name || item.fromTeamName || item.from || "Sem equipe",
-      toTeamId: item.to_team_id || item.toTeamId || "",
-      toTeamName: item.to_team_name || item.toTeamName || item.to || "Sem equipe",
-      date: item.date || item.created_at || item.updated_at || "",
-      description: item.description || item.summary || "",
-      source: item.source || "SBW"
+      id: data.id || data.slug || data.transfer_id || data.transferId || "transfer-" + Math.random().toString(36).slice(2),
+      type: data.type || data.kind || "player",
+      status: normalizeStatus(data.status || data.transfer_status || data.transferStatus || data.situation || "confirmed"),
+      playerId: data.player_id || data.playerId || data.profile_id || data.profileId || data.profile_slug || data.profileSlug || "",
+      playerName: data.player_name || data.playerName || data.nickname || data.display_name || data.displayName || data.profile_name || data.profileName || "Participante",
+      role: data.role || data.position || data.function || data.function_name || data.public_title || "",
+      game: data.game || data.modality || data.category || data.main_game || "",
+      fromTeamId: data.from_team_id || data.fromTeamId || "",
+      fromTeamName: data.from_team_name || data.fromTeamName || data.from || "Sem equipe",
+      toTeamId: data.to_team_id || data.toTeamId || data.team_slug || data.teamSlug || "",
+      toTeamName: data.to_team_name || data.toTeamName || data.to || data.team_name || data.teamName || "Sem equipe",
+      date: data.date || data.created_at || data.createdAt || data.joined_at || data.joinedAt || data.updated_at || data.updatedAt || "",
+      description: data.description || data.summary || "",
+      source: data.source || data.feed_source || data.feedSource || "SBW"
     };
   }
 
@@ -150,6 +171,68 @@
     });
   }
 
+  function mergeTransfers(primary, secondary) {
+    const map = new Map();
+
+    [...primary, ...secondary].forEach((item) => {
+      const transfer = normalizeTransfer(item);
+      const key = [
+        transfer.id,
+        normalizeText(transfer.playerId),
+        normalizeText(transfer.playerName),
+        normalizeText(transfer.toTeamId),
+        normalizeText(transfer.toTeamName),
+        String(transfer.date || "").slice(0, 10)
+      ].join("|");
+
+      if (!map.has(key)) {
+        map.set(key, transfer);
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const dateA = new Date(a.date || 0).getTime() || 0;
+      const dateB = new Date(b.date || 0).getTime() || 0;
+      return dateB - dateA;
+    });
+  }
+
+  function loadStaticTransfers() {
+    const officialStatic = Array.isArray(window.SBWTransfersData) ? window.SBWTransfersData : [];
+    const legacyMarket = Array.isArray(window.SBWTransfersDemoData) ? window.SBWTransfersDemoData : [];
+
+    return [...officialStatic, ...legacyMarket].map((item) => {
+      return normalizeTransfer({
+        ...item,
+        source: item.source || (officialStatic.includes(item) ? "static" : "mercado-base")
+      });
+    });
+  }
+
+  async function loadTransferFeedFromSupabase() {
+    const client = await getSupabaseClient();
+
+    if (!client?.rpc) {
+      return [];
+    }
+
+    try {
+      const result = await client.rpc("sbw_get_transfer_feed");
+
+      if (!result.error && Array.isArray(result.data)) {
+        return result.data.map(normalizeTransfer);
+      }
+
+      if (result.error) {
+        console.warn("[SBW Transfers] RPC sbw_get_transfer_feed indisponível:", result.error);
+      }
+    } catch (error) {
+      console.warn("[SBW Transfers] Não foi possível carregar feed real de transferências:", error);
+    }
+
+    return [];
+  }
+
   async function loadMembershipTransfersFromSupabase() {
     const client = await getSupabaseClient();
 
@@ -161,7 +244,7 @@
       const membersResult = await client
         .from("team_members")
         .select("*")
-        .eq("status", "active")
+        .in("status", ["active", "ativo", "accepted", "confirmed"])
         .order("joined_at", { ascending: false })
         .limit(80);
 
@@ -191,36 +274,49 @@
       return [];
     }
   }
-  async function loadTransfers() {
-    if (Array.isArray(window.SBWTransfersData)) {
-      return window.SBWTransfersData.map(normalizeTransfer);
-    }
 
+  async function loadOfficialTransfersFromSupabase() {
     const client = await getSupabaseClient();
 
-    if (client?.from) {
-      try {
-        const result = await client
-          .from("transfers")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(80);
+    if (!client?.from) {
+      return [];
+    }
 
-        if (!result.error && Array.isArray(result.data) && result.data.length) {
-          return result.data.map(normalizeTransfer);
-        }
-      } catch (error) {
-        console.warn("[SBW Transfers] Tabela transfers indisponível ou bloqueada:", error);
+    try {
+      const result = await client
+        .from("transfers")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      if (!result.error && Array.isArray(result.data)) {
+        return result.data.map(normalizeTransfer);
       }
+    } catch (error) {
+      console.warn("[SBW Transfers] Tabela transfers indisponível ou bloqueada:", error);
     }
 
-    const membershipTransfers = await loadMembershipTransfersFromSupabase();
+    return [];
+  }
 
-    if (membershipTransfers.length) {
-      return membershipTransfers;
+  async function loadTransfers() {
+    const client = await getSupabaseClient();
+    const staticTransfers = loadStaticTransfers();
+
+    if (client?.from || client?.rpc) {
+      const [transferFeed, officialTransfers, membershipTransfers] = await Promise.all([
+        loadTransferFeedFromSupabase(),
+        loadOfficialTransfersFromSupabase(),
+        loadMembershipTransfersFromSupabase()
+      ]);
+
+      return mergeTransfers(
+        transferFeed,
+        mergeTransfers(officialTransfers, mergeTransfers(membershipTransfers, staticTransfers))
+      );
     }
 
-    return readLocalJson("sbw_transfers_v1", []).map(normalizeTransfer);
+    return mergeTransfers(staticTransfers, readLocalJson("sbw_transfers_v1", []).map(normalizeTransfer));
   }
 
   async function loadRecruitingTeams() {
@@ -391,7 +487,7 @@
         <div><small>De</small><strong>${escapeHtml(item.fromTeamName || "Sem equipe")}</strong></div>
         <div><small>Para</small><strong>${escapeHtml(item.toTeamName || "Sem equipe")}</strong></div>
         <div><small>Data</small><strong>${escapeHtml(formatDate(item.date))}</strong></div>
-        <span class="sbw-transfer-status ${statusClass}">${escapeHtml(item.status === "rumor" ? "Rumor" : "Confirmada")}</span>
+        <span class="sbw-transfer-status ${statusClass}">${escapeHtml(item.status === "rumor" ? "Rumor" : item.status === "cancelled" ? "Cancelada" : "Confirmada")}</span>
       </article>
     `;
   }
@@ -468,14 +564,54 @@
     });
   }
 
+  function showTransferFallbackError() {
+    if (elements.list) {
+      elements.list.innerHTML = `
+        <article class="sbw-transfer-card">
+          <div class="sbw-transfer-main">
+            <span class="sbw-transfer-status">Erro</span>
+            <h3>Não foi possível carregar transferências</h3>
+            <p>Recarregue a página ou tente novamente mais tarde.</p>
+          </div>
+        </article>
+      `;
+    }
+
+    if (elements.empty) {
+      elements.empty.hidden = true;
+    }
+  }
+
+  function showOptionalPageLoading() {
+    const pageState = window.SBWPageState;
+
+    if (!pageState || typeof pageState.showLoading !== "function") {
+      return;
+    }
+
+    pageState.showLoading(document.querySelector(".sbw-transfer-panel"), {
+      title: "Carregando transferências",
+      message: "Buscando movimentações oficiais da plataforma."
+    });
+  }
+
+  function showOptionalPageError() {
+    const pageState = window.SBWPageState;
+
+    if (pageState && typeof pageState.showError === "function") {
+      pageState.showError(document.querySelector(".sbw-transfer-panel"), {
+        title: "Não foi possível carregar transferências",
+        message: "Recarregue a página ou tente novamente mais tarde."
+      });
+      return;
+    }
+
+    showTransferFallbackError();
+  }
+
   async function init() {
     try {
-      if (window.SBWPageState) {
-        window.SBWPageState.showLoading(document.querySelector(".sbw-transfer-panel"), {
-          title: "Carregando transferências",
-          message: "Buscando movimentações oficiais da plataforma."
-        });
-      }
+      showOptionalPageLoading();
 
       const [transfers, recruitingTeams, freeAgents] = await Promise.all([
         loadTransfers(),
@@ -491,13 +627,7 @@
       render();
     } catch (error) {
       console.error("[SBW Transfers] Falha ao iniciar página:", error);
-
-      if (window.SBWPageState) {
-        window.SBWPageState.showError(document.querySelector(".sbw-transfer-panel"), {
-          title: "Não foi possível carregar transferências",
-          message: "Recarregue a página ou tente novamente mais tarde."
-        });
-      }
+      showOptionalPageError();
     } finally {
       document.body.classList.remove("sbw-sidebar-no-transition");
     }

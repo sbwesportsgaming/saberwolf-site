@@ -1113,6 +1113,95 @@
     };
   }
 
+
+  async function removeTeamMemberViaRpcV1650(member, teamKey) {
+    if (!teamsSupabaseEnabled()) {
+      return null;
+    }
+
+    const client = window.SBWSupabase?.client;
+
+    if (!client?.rpc) {
+      return {
+        ok: false,
+        message: "Supabase indisponível para remover membro."
+      };
+    }
+
+    const memberKey = String(
+      member?.supabaseId ||
+      member?.id ||
+      member?.profileSlug ||
+      member?.profileId ||
+      member?.userId ||
+      ""
+    );
+
+    if (!memberKey || !teamKey) {
+      return {
+        ok: false,
+        message: "Membro ou equipe inválidos para remoção."
+      };
+    }
+
+    try {
+      const result = await client.rpc("sbw_remove_team_member", {
+        p_member_id: memberKey,
+        p_team_key: teamKey
+      });
+
+      if (result.error) {
+        return {
+          ok: false,
+          message: result.error.message || "Não foi possível remover o membro no Supabase."
+        };
+      }
+
+      return Object.assign({ ok: true }, result.data || {});
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Não foi possível remover o membro no Supabase."
+      };
+    }
+  }
+
+  async function removeTeamMember(member, teamKey) {
+    const safeMember = member || {};
+    const safeTeamKey = String(teamKey || safeMember.teamSlug || safeMember.teamId || "");
+
+    if (teamsSupabaseEnabled()) {
+      if (config.allowSupabaseWrites !== true) {
+        return {
+          ok: false,
+          message: "Remoção real de membros está desativada nesta sessão."
+        };
+      }
+
+      const rpcResult = await removeTeamMemberViaRpcV1650(safeMember, safeTeamKey);
+
+      if (rpcResult?.ok) {
+        return rpcResult;
+      }
+
+      return rpcResult || {
+        ok: false,
+        message: "Não foi possível remover o membro no Supabase."
+      };
+    }
+
+    const localKey = safeMember.id || safeMember.supabaseId;
+    const localMembers = getLocalMembers();
+    const nextMembers = localMembers.filter((localMember) => localMember.id !== localKey);
+    saveLocalMembers(nextMembers);
+
+    return {
+      ok: true,
+      source: "local-demo",
+      message: "Membro local removido."
+    };
+  }
+
   async function getAllActiveTeamMembers() {
     const teams = await getAllTeams();
     const allMembers = [];
@@ -1702,6 +1791,8 @@
   getTeamInvitesFromSupabase,
   createTeamInvite,
   cancelTeamInvite,
+  removeTeamMember,
+  removeTeamMemberViaRpcV1650,
   saveTeamInviteToLocal,
   saveTeamInviteToSupabase,
   normalizeTeamInviteLocal,
