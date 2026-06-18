@@ -90,7 +90,13 @@
             <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="show-all-profiles">
               Mostrar todos
             </button>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="show-less-profiles" hidden>
+              Mostrar menos
+            </button>
           </div>
+
+          <div class="sbw-admin-alpha-filter" id="sbwAdminProfileAlphaFilter" aria-label="Filtrar perfis por letra"></div>
 
           <div class="sbw-admin-results" id="sbwAdminProfileResults">
             <p class="sbw-admin-muted">Clique em “Mostrar todos” ou busque por pelo menos 2 caracteres.</p>
@@ -116,7 +122,13 @@
             <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="show-all-teams">
               Mostrar todas
             </button>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="show-less-teams" hidden>
+              Mostrar menos
+            </button>
           </div>
+
+          <div class="sbw-admin-alpha-filter" id="sbwAdminTeamAlphaFilter" aria-label="Filtrar equipes por letra"></div>
 
           <div class="sbw-admin-results" id="sbwAdminTeamResults">
             <p class="sbw-admin-muted">Clique em “Mostrar todas” ou busque por pelo menos 2 caracteres.</p>
@@ -136,8 +148,8 @@
             <ul class="sbw-admin-checklist">
               <li>Master Admin</li>
               <li>Admin SBW</li>
-              <li>Criar torneios</li>
-              <li>Verificar equipes</li>
+              <li>Aprovar organizadores</li>
+              <li>Verificar equipes pela aba Equipes</li>
               <li>Gerenciar permissões</li>
             </ul>
           </article>

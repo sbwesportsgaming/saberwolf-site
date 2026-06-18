@@ -64,6 +64,49 @@
     return allowed ? url.replace(/["'\\()]/g, "") : "";
   }
 
+  function getMeta(team) {
+    const metadata = team?.metadata;
+    return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+  }
+
+  function clampNumber(value, min, max, fallback) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function getTeamAssetFrame(team, assetType) {
+    const metadata = getMeta(team);
+    const teamAssets = metadata.teamAssets && typeof metadata.teamAssets === "object" && !Array.isArray(metadata.teamAssets)
+      ? metadata.teamAssets
+      : {};
+    const fallbackAssets = metadata.assetFrames && typeof metadata.assetFrames === "object" && !Array.isArray(metadata.assetFrames)
+      ? metadata.assetFrames
+      : {};
+    const raw = teamAssets[assetType] || fallbackAssets[assetType] || {};
+
+    return {
+      positionX: clampNumber(raw.positionX ?? raw.x ?? raw.objectPositionX, 0, 100, 50),
+      positionY: clampNumber(raw.positionY ?? raw.y ?? raw.objectPositionY, 0, 100, 50),
+      zoom: clampNumber(raw.zoom ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
+    };
+  }
+
+  function getTeamAssetFrameStyle(team) {
+    const banner = getTeamAssetFrame(team, "banner");
+    const logo = getTeamAssetFrame(team, "logo");
+    const bannerSize = banner.zoom <= 100 ? "cover" : `${banner.zoom}% auto`;
+
+    return [
+      `--sbw-team-banner-x:${banner.positionX}%`,
+      `--sbw-team-banner-y:${banner.positionY}%`,
+      `--sbw-team-banner-size:${bannerSize}`,
+      `--sbw-team-logo-x:${logo.positionX}%`,
+      `--sbw-team-logo-y:${logo.positionY}%`,
+      `--sbw-team-logo-scale:${(logo.zoom / 100).toFixed(2)}`
+    ].join("; ") + ";";
+  }
+
   function getVerifiedStatus() {
     const config = getConfig();
     return config.verificationStatus?.verified || "verified";
@@ -470,12 +513,14 @@
     const memberCount = getMemberCount(team);
     const memberLimit = getTeamLimit(team);
     const cardClass = options.featured ? "sbw-team-card-v2 sbw-team-card-v2--featured" : "sbw-team-card-v2";
+    const assetFrameStyle = getTeamAssetFrameStyle(team);
+    const cardStyle = `--team-primary: ${escapeHtml(primary)}; --team-secondary: ${escapeHtml(secondary)}; ${assetFrameStyle}`;
     const bannerStyle = bannerUrl
       ? `background-image: linear-gradient(90deg, rgba(3,8,20,.92), rgba(3,8,20,.35), rgba(3,8,20,.88)), url('${escapeHtml(bannerUrl)}');`
       : "";
 
     return `
-      <article class="${cardClass}" style="--team-primary: ${escapeHtml(primary)}; --team-secondary: ${escapeHtml(secondary)};">
+      <article class="${cardClass}" style="${cardStyle}">
         <div class="sbw-team-card-v2__banner" style="${bannerStyle}"></div>
 
         <div class="sbw-team-card-v2__content">
@@ -600,6 +645,44 @@
   function setText(selector, value) {
     const element = document.querySelector(selector);
     if (element) element.textContent = String(value);
+  }
+
+  function renderPageLoading(root, title, description, items = 1) {
+    if (!root) return;
+
+    const safeItems = Math.max(1, Number(items) || 1);
+    const placeholders = Array.from({ length: safeItems })
+      .map(() => `
+        <div class="sbw-team-empty-v2">
+          <strong>${escapeHtml(title || "Carregando")}</strong>
+          <span>${escapeHtml(description || "Aguarde um instante.")}</span>
+        </div>
+      `)
+      .join("");
+
+    root.innerHTML = placeholders;
+  }
+
+  function renderPageError(root, title, description) {
+    if (!root) return;
+
+    root.innerHTML = `
+      <div class="sbw-team-empty-v2 sbw-team-empty-v2--large">
+        <strong>${escapeHtml(title || "Não foi possível carregar")}</strong>
+        <span>${escapeHtml(description || "Tente atualizar a página em instantes.")}</span>
+      </div>
+    `;
+  }
+
+  function renderPageEmpty(root, title, description) {
+    if (!root) return;
+
+    root.innerHTML = `
+      <div class="sbw-team-empty-v2 sbw-team-empty-v2--large">
+        <strong>${escapeHtml(title || "Nenhum resultado encontrado")}</strong>
+        <span>${escapeHtml(description || "Tente novamente mais tarde.")}</span>
+      </div>
+    `;
   }
 
   function renderFeaturedTeams() {

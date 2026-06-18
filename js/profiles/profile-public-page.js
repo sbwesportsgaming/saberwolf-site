@@ -23,6 +23,45 @@
     return params.get(name);
   }
 
+  function looksLikeInternalProfileCode(value) {
+    const raw = String(value || "").trim().toLowerCase();
+
+    if (!raw) {
+      return false;
+    }
+
+    return /^sbw-[a-z0-9]{4,}/.test(raw) || /^user-[a-z0-9]{4,}/.test(raw) || /^[0-9a-f]{8}-[0-9a-f-]{20,}$/i.test(raw);
+  }
+
+  function getPublicHandle(profile) {
+    const candidates = [profile?.nickname, profile?.username, profile?.slug]
+      .map(function (item) {
+        return String(item || "").trim();
+      })
+      .filter(Boolean);
+
+    const handle = candidates.find(function (item) {
+      return !looksLikeInternalProfileCode(item);
+    });
+
+    return handle || "";
+  }
+
+  function getPublicDisplayName(profile) {
+    const candidates = [profile?.displayName, profile?.display_name, profile?.nickname, profile?.username]
+      .map(function (item) {
+        return String(item || "").trim();
+      })
+      .filter(Boolean);
+
+    const name = candidates.find(function (item) {
+      return !looksLikeInternalProfileCode(item);
+    });
+
+    return name || "Perfil -SBW-";
+  }
+
+
   function getProfileIdFromUrl() {
     return getUrlParam("id") || getUrlParam("userId") || "";
   }
@@ -824,24 +863,26 @@
           <span class="sbw-profile-public-kicker">
             ${escapeHtml(getProfileTypeLabel(profile.profileType))}
             ${
-              profile.source === "supabase"
-                ? " · Supabase"
+              profile.isVerified || profile.is_verified
+                ? " · Verificado"
                 : ""
             }
           </span>
 
           <div class="sbw-profile-name-row">
-           <h1>${escapeHtml(profile.displayName || profile.nickname || "Perfil SaberWolf")}</h1>
+           <h1>${escapeHtml(getPublicDisplayName(profile))}</h1>
               ${renderFeaturedMedals(profile, competitiveSnapshot)}
               ${renderPlayerStatusBadge(profile)}
           </div>
 
-          <p class="sbw-profile-public-nickname">
-            @${escapeHtml(profile.nickname || profile.username || "jogador")}
-          </p>
+          ${getPublicHandle(profile) ? `
+            <p class="sbw-profile-public-nickname">
+              @${escapeHtml(getPublicHandle(profile))}
+            </p>
+          ` : ""}
 
           <p class="sbw-profile-public-headline">
-            ${escapeHtml(profile.headline || profile.bio || "Perfil público da plataforma SaberWolf.")}
+            ${escapeHtml(profile.headline || profile.bio || "Perfil público da plataforma -SBW-.")}
           </p>
 
           <div class="sbw-profile-public-tags">
@@ -1189,7 +1230,7 @@
     const teams = await getCurrentTeams(profile);
     const competitiveSnapshot = await getCompetitiveSnapshot(profile);
 
-    document.title = `${profile.displayName || profile.nickname || "Perfil"} | SaberWolf`;
+    document.title = `${getPublicDisplayName(profile)} | -SBW-`;
 
     root.innerHTML = `
       <div class="sbw-profile-public-shell">

@@ -402,7 +402,7 @@
       username: safeRow.username || "",
 
       nickname: safeRow.nickname || safeRow.username || "",
-      displayName: safeRow.display_name || safeRow.nickname || safeRow.username || "Usuário SaberWolf",
+      displayName: safeRow.display_name || safeRow.nickname || safeRow.username || "Usuário -SBW-",
 
       profileType: metadata.profileType || "player",
 
@@ -646,6 +646,44 @@
     };
   }
 
+  function addProfileLookupCandidate(candidates, value) {
+    const item = String(value || "").trim();
+
+    if (item && !candidates.includes(item)) {
+      candidates.push(item);
+    }
+  }
+
+  async function resolveProfileLookupCandidates(userId) {
+    const candidates = [];
+    addProfileLookupCandidate(candidates, userId);
+
+    if (!profilesSupabaseEnabled() || !userId) {
+      return candidates;
+    }
+
+    const columns = ["slug", "username", "id", "auth_user_id"];
+
+    for (const column of columns) {
+      try {
+        const profile = await getSupabaseProfileByColumn(column, userId);
+
+        if (profile) {
+          addProfileLookupCandidate(candidates, profile.slug);
+          addProfileLookupCandidate(candidates, profile.username);
+          addProfileLookupCandidate(candidates, profile.id);
+          addProfileLookupCandidate(candidates, profile.userId);
+          addProfileLookupCandidate(candidates, profile.authUserId);
+          addProfileLookupCandidate(candidates, profile.auth_user_id);
+        }
+      } catch (error) {
+        console.warn("[SaberWolf Profiles] Falha ao resolver candidato de vínculo por " + column + ":", error);
+      }
+    }
+
+    return candidates;
+  }
+
   async function getCurrentTeamsByUserIdFromSupabase(userId) {
     if (!profilesSupabaseEnabled() || !userId) {
       return [];
@@ -655,14 +693,30 @@
     const teamsTable = getProfileTeamsSupabaseTableName();
 
     try {
-      const membersResult = await window.SBWSupabase.client
+      const profileCandidates = await resolveProfileLookupCandidates(userId);
+      let membersResult = await window.SBWSupabase.client
         .from(teamMembersTable)
         .select("*")
-        .eq("profile_slug", userId)
+        .in("profile_slug", profileCandidates)
         .eq("status", "active")
         .order("joined_at", {
           ascending: false
         });
+
+      if ((!membersResult.data || !membersResult.data.length) && String(userId || "")) {
+        const authMembersResult = await window.SBWSupabase.client
+          .from(teamMembersTable)
+          .select("*")
+          .eq("auth_user_id", userId)
+          .eq("status", "active")
+          .order("joined_at", {
+            ascending: false
+          });
+
+        if (!authMembersResult.error && Array.isArray(authMembersResult.data) && authMembersResult.data.length) {
+          membersResult = authMembersResult;
+        }
+      }
 
       if (membersResult.error) {
         console.error("[SaberWolf Profiles] Erro ao buscar team_members do perfil:", membersResult.error);
@@ -729,6 +783,12 @@
     }
 
     const profile = await getProfileByUserIdAsync(userId);
+
+    if (profilesSupabaseEnabled() && profile && profile.source === "supabase") {
+      // Em produção, vínculos atuais de equipe devem vir de public.team_members + public.teams.
+      // Evita exibir equipes órfãs/legadas salvas diretamente no perfil como se fossem reais.
+      return [];
+    }
 
     if (profile && Array.isArray(profile.currentTeams) && profile.currentTeams.length > 0) {
       return profile.currentTeams.filter(profileTeamLooksReal);

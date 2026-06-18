@@ -3566,8 +3566,9 @@ body.sbw-team-list-body::before {
     linear-gradient(90deg, rgba(3, 8, 20, 0.88), rgba(3, 8, 20, 0.25), rgba(3, 8, 20, 0.86)),
     radial-gradient(circle at 72% 28%, color-mix(in srgb, var(--team-primary) 28%, transparent), transparent 14rem),
     linear-gradient(135deg, rgba(8, 19, 36, 0.96), rgba(2, 6, 23, 0.9));
-  background-size: cover;
-  background-position: center;
+  background-size: var(--sbw-team-banner-size, cover);
+  background-position: var(--sbw-team-banner-x, 50%) var(--sbw-team-banner-y, 50%);
+  background-repeat: no-repeat;
 }
 
 .sbw-team-card-v2__content {
@@ -3603,6 +3604,9 @@ body.sbw-team-list-body::before {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: var(--sbw-team-logo-x, 50%) var(--sbw-team-logo-y, 50%);
+  transform: scale(var(--sbw-team-logo-scale, 1));
+  transform-origin: var(--sbw-team-logo-x, 50%) var(--sbw-team-logo-y, 50%);
 }
 
 .sbw-team-card-v2__logo span {

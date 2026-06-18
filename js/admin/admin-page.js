@@ -7,7 +7,11 @@
     profiles: [],
     teams: [],
     logs: [],
-    rlsResults: []
+    rlsResults: [],
+    profileListExpanded: false,
+    teamListExpanded: false,
+    profileLetterFilter: "",
+    teamLetterFilter: ""
   };
 
   function $(selector, root = document) {
@@ -102,14 +106,63 @@
     return asObject(profile?.permissions || metadata.permissions);
   }
 
+  function isMasterProfile(profile) {
+    const permissions = getProfilePermissions(profile);
+    return Boolean(permissions.isMasterAdmin || permissions.is_master_admin);
+  }
+
+  function isAdminProfile(profile) {
+    const permissions = getProfilePermissions(profile);
+    return Boolean(
+      permissions.isAdmin ||
+      permissions.is_admin ||
+      permissions.isAdminSbw ||
+      permissions.is_admin_sbw ||
+      isMasterProfile(profile)
+    );
+  }
+
+  function isCurrentAdminProfile(profile) {
+    const userId = state.context?.user?.id || "";
+    const profileId = state.context?.profile?.id || "";
+
+    return Boolean(
+      (userId && (profile?.auth_user_id === userId || profile?.authUserId === userId)) ||
+      (profileId && profile?.id === profileId)
+    );
+  }
+
+  function hasOrganizerPermission(profile) {
+    const permissions = getProfilePermissions(profile);
+    return Boolean(
+      permissions.canCreateTournament ||
+      permissions.can_create_tournament ||
+      permissions.canCreateTournaments ||
+      permissions.can_create_tournaments ||
+      permissions.isOrganizer ||
+      permissions.is_organizer
+    );
+  }
+
+  function shouldShowApproveOrganizer(profile) {
+    if (!profile) return false;
+
+    // A conta Admin/Master atual não precisa ser tratada como aprovação pendente.
+    if (isCurrentAdminProfile(profile) && canAccessAdmin(state.context)) return false;
+
+    // Admins do site não usam este fluxo; organizadores devem ser usuários SBW aprovados para uma organização.
+    if (isAdminProfile(profile)) return false;
+
+    return !hasOrganizerPermission(profile);
+  }
+
   function getProfileBadges(profile) {
     const permissions = getProfilePermissions(profile);
     const badges = [];
 
     if (permissions.isMasterAdmin || permissions.is_master_admin) badges.push("Master Admin");
     if (permissions.isAdmin || permissions.is_admin || permissions.isAdminSbw || permissions.is_admin_sbw) badges.push("Admin SBW");
-    if (permissions.canCreateTournament || permissions.can_create_tournament || permissions.can_create_tournaments) badges.push("Criar torneios");
-    if (permissions.canVerifyTeam || permissions.can_verify_team) badges.push("Verificar equipes");
+    if (hasOrganizerPermission(profile)) badges.push("Organizador");
     if (permissions.canManagePermissions || permissions.can_manage_permissions) badges.push("Permissões");
 
     return badges;
@@ -178,6 +231,102 @@
       const nameB = normalizeSearch(getTeamName(b));
       return nameA.localeCompare(nameB, "pt-BR");
     });
+  }
+
+
+  function getInitialLetter(value) {
+    const normalized = normalizeSearch(value);
+    const first = normalized.charAt(0);
+
+    if (!first) return "#";
+    if (first >= "a" && first <= "z") return first.toUpperCase();
+    return "#";
+  }
+
+  function getProfileInitialLetter(profile) {
+    return getInitialLetter(getProfileName(profile));
+  }
+
+  function getTeamInitialLetter(team) {
+    return getInitialLetter(getTeamName(team));
+  }
+
+  function getCurrentProfileQuery() {
+    return $("[data-sbw-admin-profile-search] input")?.value || "";
+  }
+
+  function getCurrentTeamQuery() {
+    return $("[data-sbw-admin-team-search] input")?.value || "";
+  }
+
+  function applyLetterFilter(items, letter, getLetter) {
+    if (!letter) return items;
+    return items.filter((item) => getLetter(item) === letter);
+  }
+
+  function getFilteredProfiles() {
+    const query = getCurrentProfileQuery();
+    const filteredByQuery = state.profiles.filter((profile) => matchesProfile(profile, query));
+    return applyLetterFilter(filteredByQuery, state.profileLetterFilter, getProfileInitialLetter);
+  }
+
+  function getFilteredTeams() {
+    const query = getCurrentTeamQuery();
+    const filteredByQuery = state.teams.filter((team) => matchesTeam(team, query));
+    return applyLetterFilter(filteredByQuery, state.teamLetterFilter, getTeamInitialLetter);
+  }
+
+  function getListLimit(isExpanded, defaultLimit) {
+    return isExpanded ? 0 : defaultLimit;
+  }
+
+  function renderProfilesList() {
+    renderProfileResults(sortProfilesByName(getFilteredProfiles()), {
+      limit: getListLimit(state.profileListExpanded, 40)
+    });
+    updateListControls();
+  }
+
+  function renderTeamsList() {
+    renderTeamResults(sortTeamsByName(getFilteredTeams()), {
+      limit: getListLimit(state.teamListExpanded, 60)
+    });
+    updateListControls();
+  }
+
+  function renderAlphaFilter(rootId, scope, selectedLetter) {
+    const root = document.getElementById(rootId);
+    if (!root) return;
+
+    const letters = ["", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
+    root.innerHTML = letters
+      .map((letter) => {
+        const label = letter || "Todos";
+        const isActive = selectedLetter === letter;
+        return `
+          <button
+            class="sbw-admin-alpha-button ${isActive ? "is-active" : ""}"
+            type="button"
+            data-admin-action="filter-list-letter"
+            data-filter-scope="${escapeHtml(scope)}"
+            data-filter-letter="${escapeHtml(letter)}"
+          >${escapeHtml(label)}</button>
+        `;
+      })
+      .join("");
+  }
+
+  function renderAlphaFilters() {
+    renderAlphaFilter("sbwAdminProfileAlphaFilter", "profiles", state.profileLetterFilter);
+    renderAlphaFilter("sbwAdminTeamAlphaFilter", "teams", state.teamLetterFilter);
+  }
+
+  function updateListControls() {
+    const profileLess = $("[data-admin-action='show-less-profiles']");
+    const teamLess = $("[data-admin-action='show-less-teams']");
+
+    if (profileLess) profileLess.hidden = !state.profileListExpanded && !state.profileLetterFilter;
+    if (teamLess) teamLess.hidden = !state.teamListExpanded && !state.teamLetterFilter;
   }
 
   function setStatus(message, tone = "muted") {
@@ -536,19 +685,25 @@
     });
   }
 
-  function renderProfileResults(profiles) {
+  function renderProfileResults(profiles, options = {}) {
     const root = $("#sbwAdminProfileResults");
     if (!root) return;
 
-    if (!profiles.length) {
+    const safeProfiles = Array.isArray(profiles) ? profiles : [];
+    const limit = Number.isFinite(options.limit) ? Number(options.limit) : 40;
+    const visibleProfiles = limit > 0 ? safeProfiles.slice(0, limit) : safeProfiles;
+
+    if (!safeProfiles.length) {
       root.innerHTML = `<p class="sbw-admin-muted">Nenhum perfil encontrado.</p>`;
       return;
     }
 
-    root.innerHTML = profiles
-      .slice(0, 40)
-      .map((profile) => renderProfileCard(profile))
-      .join("");
+    root.innerHTML = `
+      <p class="sbw-admin-muted">
+        ${visibleProfiles.length} de ${safeProfiles.length} perfil(is) exibido(s).
+      </p>
+      ${visibleProfiles.map((profile) => renderProfileCard(profile)).join("")}
+    `;
   }
 
   function renderProfileCard(profile) {
@@ -576,13 +731,9 @@
         </div>
 
         <div class="sbw-admin-actions">
-          <button class="sbw-admin-button" type="button" data-admin-action="toggle-profile-permission" data-permission="canCreateTournament" data-profile-key="${escapeHtml(profileId)}">
-            Criar torneios
-          </button>
-
-          <button class="sbw-admin-button" type="button" data-admin-action="toggle-profile-permission" data-permission="canVerifyTeam" data-profile-key="${escapeHtml(profileId)}">
-            Verificar equipes
-          </button>
+          <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(window.SBWRoutes?.profile ? window.SBWRoutes.profile(key) : `../perfis/perfil.html?u=${encodeURIComponent(key)}`)}" target="_blank" rel="noopener">
+            Ver perfil
+          </a>
 
           <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="toggle-profile-permission" data-permission="isAdminSbw" data-profile-key="${escapeHtml(profileId)}">
             Admin SBW
@@ -594,27 +745,35 @@
             </button>
           ` : ""}
 
-          <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="approve-organizer" data-profile-key="${escapeHtml(profileId)}">
-            Aprovar organizador
-          </button>
+          ${shouldShowApproveOrganizer(profile) ? `
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="approve-organizer" data-profile-key="${escapeHtml(profileId)}">
+              Aprovar organizador
+            </button>
+          ` : ""}
         </div>
       </article>
     `;
   }
 
-  function renderTeamResults(teams) {
+  function renderTeamResults(teams, options = {}) {
     const root = $("#sbwAdminTeamResults");
     if (!root) return;
 
-    if (!teams.length) {
+    const safeTeams = Array.isArray(teams) ? teams : [];
+    const limit = Number.isFinite(options.limit) ? Number(options.limit) : 60;
+    const visibleTeams = limit > 0 ? safeTeams.slice(0, limit) : safeTeams;
+
+    if (!safeTeams.length) {
       root.innerHTML = `<p class="sbw-admin-muted">Nenhuma equipe encontrada.</p>`;
       return;
     }
 
-    root.innerHTML = teams
-      .slice(0, 60)
-      .map((team) => renderTeamCard(team))
-      .join("");
+    root.innerHTML = `
+      <p class="sbw-admin-muted">
+        ${visibleTeams.length} de ${safeTeams.length} equipe(s) exibida(s).
+      </p>
+      ${visibleTeams.map((team) => renderTeamCard(team)).join("")}
+    `;
   }
 
   function renderTeamCard(team) {
@@ -745,7 +904,7 @@
 
     if (saved) {
       addLog(`Permissão ${permissionKey} alternada para ${getProfileName(profile)}.`);
-      renderProfileResults(sortProfilesByName(state.profiles.filter((item) => matchesProfile(item, $("[data-sbw-admin-profile-search] input")?.value || ""))));
+      renderProfilesList();
 
       if (profile?.auth_user_id === state.context?.user?.id || profile?.id === state.context?.profile?.id) {
         window.SBWSessionContext?.clearCache?.();
@@ -876,7 +1035,7 @@
     if (saved) {
       addLog(`${shouldVerify ? "Verificação concedida" : "Verificação removida"} para ${getTeamName(team)}.`);
       await refreshData();
-      renderTeamResults(sortTeamsByName(state.teams.filter((item) => matchesTeam(item, $("[data-sbw-admin-team-search] input")?.value || ""))));
+      renderTeamsList();
     }
   }
 
@@ -905,13 +1064,18 @@
         event.preventDefault();
         const query = profileForm.query.value || "";
 
+        state.profileListExpanded = false;
+        state.profileLetterFilter = "";
+        renderAlphaFilters();
+
         if (query.trim().length < 2) {
           renderProfileResults([]);
           $("#sbwAdminProfileResults").innerHTML = `<p class="sbw-admin-muted">Digite pelo menos 2 caracteres para buscar perfis.</p>`;
+          updateListControls();
           return;
         }
 
-        renderProfileResults(sortProfilesByName(state.profiles.filter((profile) => matchesProfile(profile, query))));
+        renderProfilesList();
       });
     }
 
@@ -920,13 +1084,18 @@
         event.preventDefault();
         const query = teamForm.query.value || "";
 
+        state.teamListExpanded = false;
+        state.teamLetterFilter = "";
+        renderAlphaFilters();
+
         if (query.trim().length < 2) {
           renderTeamResults([]);
           $("#sbwAdminTeamResults").innerHTML = `<p class="sbw-admin-muted">Digite pelo menos 2 caracteres para buscar equipes.</p>`;
+          updateListControls();
           return;
         }
 
-        renderTeamResults(sortTeamsByName(state.teams.filter((team) => matchesTeam(team, query))));
+        renderTeamsList();
       });
     }
   }
@@ -945,13 +1114,54 @@
         }
 
         if (action === "show-all-profiles") {
-          renderProfileResults(sortProfilesByName(state.profiles));
-          addLog(`Listando ${state.profiles.length} perfil(is) carregado(s) para a conta Admin.`);
+          state.profileListExpanded = true;
+          state.profileLetterFilter = "";
+          renderAlphaFilters();
+          renderProfilesList();
+          addLog(`Listando todos os ${state.profiles.length} perfil(is) carregado(s) para a conta Admin.`);
+        }
+
+        if (action === "show-less-profiles") {
+          state.profileListExpanded = false;
+          state.profileLetterFilter = "";
+          renderAlphaFilters();
+          renderProfilesList();
+          addLog("Lista de perfis recolhida.");
         }
 
         if (action === "show-all-teams") {
-          renderTeamResults(sortTeamsByName(state.teams));
-          addLog(`Listando ${state.teams.length} equipe(s) carregada(s) para a conta Admin.`);
+          state.teamListExpanded = true;
+          state.teamLetterFilter = "";
+          renderAlphaFilters();
+          renderTeamsList();
+          addLog(`Listando todas as ${state.teams.length} equipe(s) carregada(s) para a conta Admin.`);
+        }
+
+        if (action === "show-less-teams") {
+          state.teamListExpanded = false;
+          state.teamLetterFilter = "";
+          renderAlphaFilters();
+          renderTeamsList();
+          addLog("Lista de equipes recolhida.");
+        }
+
+        if (action === "filter-list-letter") {
+          const scope = button.dataset.filterScope;
+          const letter = button.dataset.filterLetter || "";
+
+          if (scope === "profiles") {
+            state.profileLetterFilter = letter;
+            state.profileListExpanded = true;
+            renderAlphaFilters();
+            renderProfilesList();
+          }
+
+          if (scope === "teams") {
+            state.teamLetterFilter = letter;
+            state.teamListExpanded = true;
+            renderAlphaFilters();
+            renderTeamsList();
+          }
         }
 
         if (action === "toggle-profile-permission") {
@@ -1023,6 +1233,8 @@
 
       showShell();
       await refreshData();
+      renderAlphaFilters();
+      updateListControls();
       addLog("Painel Admin Master inicial carregado.");
     } catch (error) {
       console.error("[SBW Admin] Falha ao carregar painel Admin Master:", error);

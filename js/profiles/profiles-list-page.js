@@ -86,6 +86,37 @@
       .replace(/^-+|-+$/g, "");
   }
 
+  function looksLikeInternalProfileCode(value) {
+    const raw = String(value || "").trim().toLowerCase();
+
+    if (!raw) return false;
+
+    return /^sbw-[a-z0-9]{4,}/.test(raw) || /^user-[a-z0-9]{4,}/.test(raw) || /^[0-9a-f]{8}-[0-9a-f-]{20,}$/i.test(raw);
+  }
+
+  function getPublicDisplayName(profile) {
+    const candidates = [
+      profile?.displayName,
+      profile?.display_name,
+      profile?.nickname,
+      profile?.username
+    ]
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+
+    const name = candidates.find((item) => !looksLikeInternalProfileCode(item));
+    return name || "Perfil -SBW-";
+  }
+
+  function getPublicNickname(profile) {
+    const candidates = [profile?.nickname, profile?.username, profile?.slug]
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+
+    const nickname = candidates.find((item) => !looksLikeInternalProfileCode(item));
+    return nickname || getPublicDisplayName(profile);
+  }
+
   function getProfilesStorage() {
     return window.SBWProfilesStorage || null;
   }
@@ -131,11 +162,11 @@
   }
 
   function getDisplayName(profile) {
-    return profile?.displayName || profile?.display_name || profile?.nickname || profile?.username || "Perfil -SBW-";
+    return getPublicDisplayName(profile);
   }
 
   function getNickname(profile) {
-    return profile?.nickname || profile?.username || getDisplayName(profile);
+    return getPublicNickname(profile);
   }
 
   function getInitials(profile) {
@@ -570,7 +601,7 @@
         <div class="sbw-profiles-v2-featured-stats">
           <div class="sbw-profiles-v2-stat">
             <strong>${rank ? `#${rank}` : "—"}</strong>
-            <span>Ranking SBW</span>
+            <span>Ranking -SBW-</span>
           </div>
           <div class="sbw-profiles-v2-stat">
             <strong>${stats.points}</strong>
@@ -630,7 +661,7 @@
         <div class="sbw-profiles-v2-card__bottom">
           <div>
             <strong>${rank ? `#${rank}` : "—"}</strong>
-            <span>Ranking SBW</span>
+            <span>Ranking -SBW-</span>
           </div>
           <div>
             <strong>${stats.points}</strong>

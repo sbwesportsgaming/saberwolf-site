@@ -241,6 +241,33 @@ body.sbw-has-sidebar .sbw-admin-page {
   box-shadow: 0 0 0 3px rgba(56, 215, 255, 0.08);
 }
 
+
+.sbw-admin-alpha-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 18px;
+}
+
+.sbw-admin-alpha-button {
+  min-width: 34px;
+  min-height: 30px;
+  border: 1px solid rgba(76, 202, 255, 0.18);
+  border-radius: 999px;
+  color: var(--sbw-admin-muted);
+  background: rgba(255, 255, 255, 0.035);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sbw-admin-alpha-button.is-active,
+.sbw-admin-alpha-button:hover {
+  color: #fff;
+  border-color: rgba(76, 202, 255, 0.42);
+  background: rgba(56, 215, 255, 0.14);
+}
+
 .sbw-admin-search button,
 .sbw-admin-button {
   min-height: 42px;
