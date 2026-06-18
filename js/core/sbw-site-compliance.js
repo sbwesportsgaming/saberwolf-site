@@ -3,6 +3,9 @@
 
   const CONSENT_KEY = "sbw_cookie_consent_v1";
   const CONSENT_VERSION = "2026-06-10";
+  const SBW_SITE_VERSION = "v1.6.41";
+  const SBW_APP_VERSION = "App -SBW- Beta v0.1";
+  const SBW_PWA_SW_URL = "/service-worker.js?v=20260618-1641";
 
   function getStoredConsent() {
     try {
@@ -67,6 +70,7 @@
       <footer class="sbw-site-footer" data-sbw-site-footer>
         <div class="sbw-site-footer__inner">
           <p class="sbw-site-footer__copy">© 2026 -SBW- Project. Todos os direitos reservados.</p>
+          <p class="sbw-site-footer__version" data-sbw-version-label>Site ${SBW_SITE_VERSION} · ${SBW_APP_VERSION}</p>
 
           <nav class="sbw-site-footer__legal" aria-label="Links legais">
             <a href="${routeUrl("pages/termos.html")}">Termos</a>
@@ -78,6 +82,117 @@
     `);
 
     document.body.appendChild(footer);
+  }
+
+
+  function ensureVersionLabel() {
+    const text = `Site ${SBW_SITE_VERSION} · ${SBW_APP_VERSION}`;
+    const existing = document.querySelector("[data-sbw-version-label]");
+
+    if (existing) {
+      existing.textContent = text;
+      return;
+    }
+
+    const footer = document.querySelector("[data-sbw-site-footer], footer");
+    if (!footer) return;
+
+    const version = document.createElement("p");
+    version.className = "sbw-site-footer__version";
+    version.setAttribute("data-sbw-version-label", "");
+    version.textContent = text;
+
+    const inner = footer.querySelector(".sbw-site-footer__inner") || footer;
+    const legal = inner.querySelector(".sbw-site-footer__legal");
+
+    if (legal) {
+      inner.insertBefore(version, legal);
+    } else {
+      inner.appendChild(version);
+    }
+  }
+
+  function createPwaUpdateNotice(registration) {
+    if (document.querySelector("[data-sbw-pwa-update-notice]")) return;
+    if (!registration) return;
+
+    const notice = createElementFromHtml(`
+      <section class="sbw-pwa-update-notice" data-sbw-pwa-update-notice role="status" aria-live="polite">
+        <div class="sbw-pwa-update-notice__text">
+          <strong>Nova versão disponível</strong>
+          <span>Atualize o App -SBW- Beta para carregar as melhorias mais recentes.</span>
+        </div>
+        <div class="sbw-pwa-update-notice__actions">
+          <button type="button" class="sbw-pwa-update-notice__button" data-sbw-pwa-update-apply>Atualizar agora</button>
+          <button type="button" class="sbw-pwa-update-notice__dismiss" data-sbw-pwa-update-dismiss aria-label="Fechar aviso">×</button>
+        </div>
+      </section>
+    `);
+
+    document.body.appendChild(notice);
+
+    notice.querySelector("[data-sbw-pwa-update-dismiss]")?.addEventListener("click", () => notice.remove());
+    notice.querySelector("[data-sbw-pwa-update-apply]")?.addEventListener("click", () => {
+      const button = notice.querySelector("[data-sbw-pwa-update-apply]");
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Atualizando...";
+      }
+
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "SBW_APPLY_UPDATE" });
+        return;
+      }
+
+      window.location.reload();
+    });
+  }
+
+  function watchPwaUpdates() {
+    if (!("serviceWorker" in navigator)) return;
+    if (window.location.protocol === "file:") return;
+
+    let reloading = false;
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+
+    const getRegistration = navigator.serviceWorker
+      .getRegistration("/")
+      .then((registration) => {
+        if (registration) return registration;
+        return navigator.serviceWorker.register(SBW_PWA_SW_URL, { scope: "/", updateViaCache: "none" });
+      });
+
+    getRegistration
+      .then((registration) => {
+        if (!registration) return;
+
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          createPwaUpdateNotice(registration);
+        }
+
+        registration.addEventListener("updatefound", () => {
+          const installingWorker = registration.installing;
+          if (!installingWorker) return;
+
+          installingWorker.addEventListener("statechange", () => {
+            if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
+              createPwaUpdateNotice(registration);
+            }
+          });
+        });
+
+        if (typeof registration.update === "function") {
+          registration.update().catch(() => {});
+        }
+      })
+      .catch((error) => {
+        console.warn("[SBW PWA] Não foi possível verificar atualização:", error);
+      });
   }
 
   function closeCookieBanner() {
@@ -191,7 +306,14 @@
 
   function initCompliance() {
     ensureFooter();
+    ensureVersionLabel();
     ensureCookieBanner();
+    watchPwaUpdates();
+
+    window.SBWVersions = {
+      site: SBW_SITE_VERSION,
+      app: SBW_APP_VERSION
+    };
 
     window.SBWCompliance = {
       getConsent: getStoredConsent,
