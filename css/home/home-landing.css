@@ -173,10 +173,13 @@ body.sbw-home-page {
   justify-content: center;
   gap: 10px;
   padding: 0 26px;
+  border: 0;
   border-radius: 14px;
   text-decoration: none;
+  font: inherit;
   font-weight: 900;
   letter-spacing: -0.02em;
+  cursor: pointer;
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -195,6 +198,11 @@ body.sbw-home-page {
     inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
+.sbw-btn--app-install {
+  border: 1px solid rgba(153, 234, 255, 0.42);
+  white-space: nowrap;
+}
+
 .sbw-btn--ghost {
   color: #c7d8e7;
   background: rgba(4, 12, 24, 0.58);
@@ -204,6 +212,13 @@ body.sbw-home-page {
 .sbw-btn--ghost:hover {
   border-color: rgba(76, 202, 255, 0.64);
   box-shadow: 0 0 26px rgba(55, 200, 255, 0.12);
+}
+
+.sbw-btn:disabled,
+.sbw-btn[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.72;
+  transform: none;
 }
 
 .sbw-section {

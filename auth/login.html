@@ -50,7 +50,17 @@
 
           <label class="sbw-auth-field">
             <span>Senha</span>
-            <input type="password" name="password" autocomplete="current-password" required />
+            <span class="sbw-auth-password-control">
+              <input type="password" name="password" autocomplete="current-password" required />
+              <button
+                class="sbw-auth-password-toggle"
+                type="button"
+                data-sbw-password-toggle
+                aria-label="Mostrar senha"
+              >
+                Mostrar
+              </button>
+            </span>
           </label>
 
           <button class="sbw-auth-button" type="submit">
@@ -75,12 +85,32 @@
 
           <label class="sbw-auth-field">
   <span>Senha</span>
-  <input type="password" name="password" autocomplete="new-password" minlength="8" required />
+  <span class="sbw-auth-password-control">
+    <input type="password" name="password" autocomplete="new-password" minlength="8" required />
+    <button
+      class="sbw-auth-password-toggle"
+      type="button"
+      data-sbw-password-toggle
+      aria-label="Mostrar senha"
+    >
+      Mostrar
+    </button>
+  </span>
 </label>
 
 <label class="sbw-auth-field">
   <span>Confirmar senha</span>
-  <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required />
+  <span class="sbw-auth-password-control">
+    <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required />
+    <button
+      class="sbw-auth-password-toggle"
+      type="button"
+      data-sbw-password-toggle
+      aria-label="Mostrar senha"
+    >
+      Mostrar
+    </button>
+  </span>
 </label>
 
 <button class="sbw-auth-button" type="submit">
@@ -136,6 +166,27 @@
 
         setMessage("");
       }
+
+      function bindPasswordToggles() {
+        document.querySelectorAll("[data-sbw-password-toggle]").forEach(function (button) {
+          if (button.dataset.sbwPasswordBound === "true") return;
+          button.dataset.sbwPasswordBound = "true";
+
+          button.addEventListener("click", function () {
+            const field = button.closest(".sbw-auth-password-control");
+            const input = field ? field.querySelector('input[type="password"], input[type="text"]') : null;
+
+            if (!input) return;
+
+            const shouldShow = input.type === "password";
+            input.type = shouldShow ? "text" : "password";
+            button.textContent = shouldShow ? "Ocultar" : "Mostrar";
+            button.setAttribute("aria-label", shouldShow ? "Ocultar senha" : "Mostrar senha");
+          });
+        });
+      }
+
+      bindPasswordToggles();
 
       tabs.forEach(function (tab) {
         tab.addEventListener("click", function () {

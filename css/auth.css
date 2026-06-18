@@ -111,6 +111,39 @@ body {
   outline: none;
 }
 
+.sbw-auth-password-control {
+  position: relative;
+  display: block;
+}
+
+.sbw-auth-password-control input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 88px;
+}
+
+.sbw-auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  min-width: 70px;
+  min-height: 34px;
+  border: 1px solid rgba(103, 232, 249, 0.30);
+  border-radius: 10px;
+  background: rgba(8, 145, 178, 0.16);
+  color: #9be8ff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sbw-auth-password-toggle:hover,
+.sbw-auth-password-toggle:focus-visible {
+  border-color: rgba(103, 232, 249, 0.74);
+  outline: none;
+}
+
 .sbw-auth-field input:focus {
   border-color: rgba(103, 232, 249, 0.82);
 }
