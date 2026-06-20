@@ -9,6 +9,7 @@ const sbwOrganizerResetLocal = document.getElementById("organizerResetLocal");
 
 let sbwOrganizerEditorCurrent = null;
 let sbwOrganizerEditorSlug = "";
+let sbwOrganizerEditorIsNew = false;
 
 function sbwOrganizerEditorGetField(id) {
   return document.getElementById(id);
@@ -278,34 +279,79 @@ function sbwOrganizerEditorBindPreviewEvents() {
   });
 }
 
+function sbwOrganizerEditorSetSaving(isSaving) {
+  const submitButton = sbwOrganizerEditorForm?.querySelector('button[type="submit"]');
+
+  if (!submitButton) {
+    return;
+  }
+
+  submitButton.disabled = Boolean(isSaving);
+  submitButton.classList.toggle("is-loading", Boolean(isSaving));
+  submitButton.innerHTML = isSaving
+    ? `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`
+    : `<i class="fa-solid fa-floppy-disk"></i> Salvar organização`;
+}
+
 function sbwOrganizerEditorBindSave() {
   if (!sbwOrganizerEditorForm) {
     return;
   }
 
-  sbwOrganizerEditorForm.addEventListener("submit", (event) => {
+  sbwOrganizerEditorForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     sbwOrganizerEditorClearMessage();
+    sbwOrganizerEditorSetSaving(true);
 
     try {
       const formData = sbwOrganizerEditorReadForm();
+      let result = null;
 
-      if (typeof sbwSaveTournamentOrganizerLocalOverride !== "function") {
-        throw new Error("Função de salvamento local não encontrada.");
+      if (sbwOrganizerEditorIsNew) {
+        if (typeof sbwCreateTournamentOrganizerAsync !== "function") {
+          throw new Error("Função de criação real de organização não encontrada.");
+        }
+
+        result = await sbwCreateTournamentOrganizerAsync(formData);
+        sbwOrganizerEditorIsNew = false;
+      } else {
+        if (typeof sbwUpdateTournamentOrganizerProfileAsync !== "function") {
+          throw new Error("Função de edição real de organização não encontrada.");
+        }
+
+        result = await sbwUpdateTournamentOrganizerProfileAsync(sbwOrganizerEditorSlug, formData);
       }
 
-      sbwSaveTournamentOrganizerLocalOverride(sbwOrganizerEditorSlug, formData);
-      sbwOrganizerEditorCurrent = {
-        ...sbwOrganizerEditorCurrent,
-        ...formData,
-        localOverride: true
-      };
+      const organizer = result?.organizer || null;
 
+      if (!organizer) {
+        throw new Error("Supabase salvou, mas não retornou os dados da organização.");
+      }
+
+      sbwOrganizerEditorCurrent = organizer;
+      sbwOrganizerEditorSlug = organizer.slug || sbwOrganizerEditorSlug;
+
+      if (sbwOrganizerEditorSlug && window.history?.replaceState) {
+        const nextUrl = `${window.location.pathname}?slug=${encodeURIComponent(sbwOrganizerEditorSlug)}`;
+        window.history.replaceState({}, "", nextUrl);
+      }
+
+      if (sbwOrganizerOpenPublic) {
+        sbwOrganizerOpenPublic.href = `organizador.html?slug=${encodeURIComponent(sbwOrganizerEditorSlug)}`;
+      }
+
+      if (sbwOrganizerEditorStatusText) {
+        sbwOrganizerEditorStatusText.textContent = `${organizer.name || organizer.displayName || "Organização"} salva no Supabase. O perfil público já pode ser aberto.`;
+      }
+
+      sbwOrganizerEditorHydrateForm(organizer);
       sbwOrganizerEditorRenderPreview();
-      sbwOrganizerEditorSetMessage("Alterações salvas no teste local. Abra o perfil público para conferir o resultado.");
+      sbwOrganizerEditorSetMessage(result?.message || "Organização salva no Supabase.");
     } catch (error) {
-      console.error("Erro ao salvar organizador localmente:", error);
-      sbwOrganizerEditorSetMessage("Não foi possível salvar as alterações locais. Veja o Console para detalhes.", "error");
+      console.error("Erro ao salvar organização no Supabase:", error);
+      sbwOrganizerEditorSetMessage(error?.message || "Não foi possível salvar a organização no Supabase.", "error");
+    } finally {
+      sbwOrganizerEditorSetSaving(false);
     }
   });
 }
@@ -316,25 +362,47 @@ function sbwOrganizerEditorBindReset() {
   }
 
   sbwOrganizerResetLocal.addEventListener("click", async () => {
+    sbwOrganizerEditorClearMessage();
+
+    if (sbwOrganizerEditorIsNew) {
+      const shouldClear = window.confirm("Limpar o formulário de criação da organização?");
+
+      if (!shouldClear) {
+        return;
+      }
+
+      sbwOrganizerEditorCurrent = null;
+      sbwOrganizerEditorHydrateForm({
+        name: "",
+        tag: "",
+        type: "Organizador de torneios",
+        status: "active",
+        description: "",
+        games: [],
+        aliases: [],
+        links: {},
+        theme: {}
+      });
+      sbwOrganizerEditorRenderPreview();
+      sbwOrganizerEditorSetMessage("Formulário limpo. Preencha novamente para criar a organização.");
+      return;
+    }
+
     if (!sbwOrganizerEditorSlug) {
       return;
     }
 
-    const shouldReset = window.confirm("Limpar as alterações locais deste organizador e voltar para os dados originais?");
+    const shouldReload = window.confirm("Recarregar os dados reais desta organização do Supabase?");
 
-    if (!shouldReset) {
+    if (!shouldReload) {
       return;
-    }
-
-    if (typeof sbwClearTournamentOrganizerLocalOverride === "function") {
-      sbwClearTournamentOrganizerLocalOverride(sbwOrganizerEditorSlug);
     }
 
     const organizer = await sbwGetTournamentOrganizerBySlugAsync(sbwOrganizerEditorSlug);
     sbwOrganizerEditorCurrent = organizer;
     sbwOrganizerEditorHydrateForm(organizer);
     sbwOrganizerEditorRenderPreview();
-    sbwOrganizerEditorSetMessage("Alterações locais limpas. O organizador voltou para a origem Supabase/demo.");
+    sbwOrganizerEditorSetMessage("Dados recarregados do Supabase.");
   });
 }
 
@@ -349,21 +417,42 @@ async function sbwOrganizerEditorLoad() {
   }
 
   if (!sbwOrganizerEditorSlug && isNewOrganizationEntry) {
-    if (sbwOrganizerEditorShell) {
-      sbwOrganizerEditorShell.hidden = true;
-    }
+    sbwOrganizerEditorIsNew = true;
+    sbwOrganizerEditorCurrent = {
+      name: "",
+      tag: "",
+      type: "Organizador de torneios",
+      status: "active",
+      description: "",
+      games: [],
+      aliases: [],
+      links: {},
+      theme: {}
+    };
+
+    document.title = "Criar Organização de Torneios | -SBW-";
 
     if (sbwOrganizerEditorAccess) {
-      sbwOrganizerEditorAccess.hidden = false;
-      sbwOrganizerEditorAccess.innerHTML = `
-        <strong>Permissão confirmada.</strong><br>
-        Sua conta está autorizada pela -SBW- para criar uma Organização de Torneios.
-        A criação real do perfil da organização entra na v1.6.53, já usando Supabase e sem localStorage.
-        <br><br>
-        <a class="organizer-admin-btn secondary" href="torneios.html">Voltar para Torneios</a>
-      `;
+      sbwOrganizerEditorAccess.hidden = true;
     }
 
+    if (sbwOrganizerEditorShell) {
+      sbwOrganizerEditorShell.hidden = false;
+    }
+
+    if (sbwOrganizerEditorStatusText) {
+      sbwOrganizerEditorStatusText.textContent = "Permissão confirmada. Preencha os dados para criar uma Organização de Torneios real no Supabase.";
+    }
+
+    if (sbwOrganizerOpenPublic) {
+      sbwOrganizerOpenPublic.href = "torneios.html";
+    }
+
+    sbwOrganizerEditorHydrateForm(sbwOrganizerEditorCurrent);
+    sbwOrganizerEditorBindPreviewEvents();
+    sbwOrganizerEditorBindSave();
+    sbwOrganizerEditorBindReset();
+    sbwOrganizerEditorRenderPreview();
     return;
   }
 
@@ -413,7 +502,7 @@ async function sbwOrganizerEditorLoad() {
   document.title = `Editar ${organizer.name || organizer.displayName || "Organizador"} | -SBW-`;
 
   if (sbwOrganizerEditorStatusText) {
-    sbwOrganizerEditorStatusText.textContent = `${organizer.name || organizer.displayName || "Organizador"} carregado. As alterações desta versão ficam em localStorage para teste visual.`;
+    sbwOrganizerEditorStatusText.textContent = `${organizer.name || organizer.displayName || "Organizador"} carregado. As alterações agora são salvas no Supabase.`;
   }
 
   if (sbwOrganizerOpenPublic) {

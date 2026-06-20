@@ -672,6 +672,110 @@ async function sbwGetTournamentOrganizerBySlugAsync(slug) {
   }) || null;
 }
 
+
+function sbwBuildTournamentOrganizerPayload(organizer = {}) {
+  const links = organizer.links && typeof organizer.links === "object" ? organizer.links : {};
+  const theme = organizer.theme && typeof organizer.theme === "object" ? organizer.theme : {};
+
+  return {
+    slug: String(organizer.slug || "").trim(),
+    name: String(organizer.name || organizer.displayName || "").trim(),
+    displayName: String(organizer.displayName || organizer.name || "").trim(),
+    tag: String(organizer.tag || "").trim().slice(0, 24),
+    type: String(organizer.type || "Organizador de torneios").trim(),
+    status: String(organizer.status || "active").trim(),
+    description: String(organizer.description || "").trim(),
+    games: sbwNormalizeOrganizerListValue(organizer.games),
+    aliases: sbwNormalizeOrganizerListValue(organizer.aliases),
+    logoUrl: String(organizer.logoUrl || organizer.logo_url || "").trim(),
+    bannerUrl: String(organizer.bannerUrl || organizer.banner_url || "").trim(),
+    links: sbwNormalizeOrganizerLinks(links),
+    theme: sbwNormalizeTournamentOrganizerTheme(theme)
+  };
+}
+
+function sbwNormalizeTournamentOrganizerRpcResult(data) {
+  const result = data && typeof data === "object" ? data : {};
+  const organizer = result.organizer || result.data || result.row || result;
+  const normalized = sbwNormalizeSupabaseTournamentOrganizer(organizer);
+
+  return {
+    ok: result.ok !== false,
+    message: result.message || "Organização salva.",
+    organizer: normalized,
+    raw: result
+  };
+}
+
+async function sbwCreateTournamentOrganizerAsync(organizer = {}) {
+  if (!sbwIsSupabaseEnabled()) {
+    throw new Error("Supabase não está ativo. A criação real da Organização de Torneios exige conexão com o Supabase.");
+  }
+
+  const payload = sbwBuildTournamentOrganizerPayload(organizer);
+
+  if (!payload.name) {
+    throw new Error("Informe o nome público da Organização de Torneios.");
+  }
+
+  try {
+    const { data, error } = await window.SBWSupabase.client.rpc("sbw_create_tournament_organizer", {
+      p_payload: payload
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const result = sbwNormalizeTournamentOrganizerRpcResult(data);
+
+    if (!result.ok) {
+      throw new Error(result.message || "Não foi possível criar a Organização de Torneios.");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("[SaberWolf Supabase] Erro ao criar Organização de Torneios:", error);
+    throw error;
+  }
+}
+
+async function sbwUpdateTournamentOrganizerProfileAsync(slug, updates = {}) {
+  if (!sbwIsSupabaseEnabled()) {
+    throw new Error("Supabase não está ativo. A edição real da Organização de Torneios exige conexão com o Supabase.");
+  }
+
+  const organizerSlug = String(slug || updates.slug || "").trim();
+
+  if (!organizerSlug) {
+    throw new Error("Organização não informada para edição.");
+  }
+
+  const payload = sbwBuildTournamentOrganizerPayload(updates);
+
+  try {
+    const { data, error } = await window.SBWSupabase.client.rpc("sbw_update_tournament_organizer_profile", {
+      p_slug: organizerSlug,
+      p_payload: payload
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const result = sbwNormalizeTournamentOrganizerRpcResult(data);
+
+    if (!result.ok) {
+      throw new Error(result.message || "Não foi possível salvar a Organização de Torneios.");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("[SaberWolf Supabase] Erro ao atualizar Organização de Torneios:", error);
+    throw error;
+  }
+}
+
 function sbwNormalizeSupabaseTournamentOrganizerMember(row) {
   const profile = row.profile && typeof row.profile === "object"
     ? row.profile

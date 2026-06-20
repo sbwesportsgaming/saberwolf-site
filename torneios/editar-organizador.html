@@ -79,11 +79,11 @@
 
         <span>
           <i class="fa-solid fa-circle-info"></i>
-          v1.6.52
+          v1.6.53
         </span>
 
         <p id="organizerEditorStatusText">
-          A permissão para criar Organização de Torneios agora é validada no Supabase. A criação real da organização entra na v1.6.53.
+          A criação e edição de Organização de Torneios agora salva no Supabase. O criador vira owner da organização.
         </p>
 
       </div>
@@ -157,7 +157,7 @@
 
         <fieldset class="organizer-admin-fieldset">
           <legend>Imagens</legend>
-          <small>Nesta etapa use URLs de imagem para simular banner e logo. O upload real via Supabase Storage fica para uma próxima fase.</small>
+          <small>Use URLs de imagem para banner e logo nesta etapa. Upload direto via Supabase Storage fica para uma próxima fase.</small>
 
           <div class="organizer-admin-field">
             <label for="organizerBannerUrl">URL do banner</label>
@@ -242,11 +242,11 @@
         <div class="organizer-admin-actions">
           <button class="organizer-admin-btn" type="submit">
             <i class="fa-solid fa-floppy-disk"></i>
-            Salvar teste local
+            Salvar organização
           </button>
 
           <button id="organizerResetLocal" class="organizer-admin-btn danger" type="button">
-            Limpar alterações locais
+            Recarregar dados
           </button>
 
           <a id="organizerOpenPublic" class="organizer-admin-btn secondary" href="torneios.html">
@@ -255,7 +255,7 @@
         </div>
 
         <p class="organizer-admin-note">
-          Observação: este painel já prepara os campos para Supabase, mas nesta versão o salvamento fica local para validação visual e segurança.
+          Observação: este painel salva a Organização de Torneios no Supabase. A equipe/staff da organização entra na próxima fase.
         </p>
 
       </form>

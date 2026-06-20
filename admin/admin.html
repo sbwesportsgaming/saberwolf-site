@@ -67,6 +67,7 @@
       <nav class="sbw-admin-tabs" aria-label="Navegação do admin">
         <button class="is-active" type="button" data-sbw-admin-tab="usuarios">Usuários</button>
         <button type="button" data-sbw-admin-tab="equipes">Equipes</button>
+        <button type="button" data-sbw-admin-tab="organizadores">Organizadores</button>
         <button type="button" data-sbw-admin-tab="permissoes">Permissões</button>
         <button type="button" data-sbw-admin-tab="rls">RLS / Segurança</button>
         <button type="button" data-sbw-admin-tab="logs">Logs</button>
@@ -132,6 +133,30 @@
 
           <div class="sbw-admin-results" id="sbwAdminTeamResults">
             <p class="sbw-admin-muted">Clique em “Mostrar todas” ou busque por pelo menos 2 caracteres.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="sbw-admin-tab-panel" data-sbw-admin-panel="organizadores">
+        <div class="sbw-admin-card">
+          <div class="sbw-admin-card__header">
+            <div>
+              <h2>Organizadores autorizados</h2>
+              <p>Gerencie somente usuários que já receberam permissão real da -SBW- para criar Organização de Torneios.</p>
+            </div>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="refresh-organizers">
+              Atualizar
+            </button>
+          </div>
+
+          <div class="sbw-admin-message sbw-admin-message--warning">
+            Esta seção não lista todos os usuários do site. Ela mostra apenas permissões registradas em <code>organizer_permissions</code>.
+            Remover a permissão fecha a porta de criação de organização, mas não transforma nem remove organizações já existentes.
+          </div>
+
+          <div class="sbw-admin-results" id="sbwAdminOrganizerResults">
+            <p class="sbw-admin-muted">Carregando organizadores autorizados...</p>
           </div>
         </div>
       </section>
@@ -243,7 +268,7 @@
   <script src="../js/core/sbw-session-context.js"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/layout/sbw-sidebar.js"></script>
-  <script src="../js/admin/admin-page.js"></script>
+  <script src="../js/admin/admin-page.js?v=1.6.54.3"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

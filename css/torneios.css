@@ -3115,3 +3115,51 @@ body.sbw-has-sidebar .sbw-tournaments-hub {
   color: #ffffff;
   background: rgba(250, 204, 21, 0.15);
 }
+
+/* v1.6.54 — Área pública de Organizadores */
+.sbw-organizers-hub .sbw-tournaments-content {
+  align-items: start;
+}
+
+.sbw-organizers-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.sbw-organizers-public-card {
+  min-height: 100%;
+  padding: 16px;
+}
+
+.sbw-organizers-public-card p {
+  margin: 0;
+  color: rgba(226, 239, 255, 0.74);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.sbw-organizers-gate-card {
+  display: grid;
+  align-content: center;
+  min-height: 250px;
+}
+
+.sbw-organizers-gate-content {
+  display: grid;
+  gap: 12px;
+}
+
+.sbw-organizers-gate-content h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  letter-spacing: -0.05em;
+}
+
+.sbw-organizers-gate-content p,
+.sbw-organizers-gate-content small,
+.sbw-organizers-note {
+  margin: 0;
+  color: rgba(205, 221, 235, 0.72);
+  line-height: 1.6;
+}

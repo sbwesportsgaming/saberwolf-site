@@ -8,6 +8,7 @@
     { id: "creators", label: "Creators", href: "/creators/creators.html", icon: "✦" },
     { id: "profiles", label: "Perfis", href: "/perfis/perfis.html", icon: "♙", beta: true },
     { id: "teams", label: "Equipes", href: "/equipes/equipes.html", icon: "♟", beta: true },
+    { id: "organizers", label: "Organizadores", href: "/organizadores/organizadores.html", icon: "♜", beta: true },
     { id: "tournaments", label: "Torneios", href: "/torneios/torneios.html", icon: "🏆", beta: true },
     { id: "communities", label: "Comunidades", href: "/comunidades/comunidades.html", icon: "◎" },
     { id: "rankings", label: "Rankings", href: "/rankings/rankings.html", icon: "▥", beta: true },

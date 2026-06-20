@@ -12,7 +12,8 @@
     teamListExpanded: false,
     profileLetterFilter: "",
     teamLetterFilter: "",
-    organizerPermissions: new Map()
+    organizerPermissions: new Map(),
+    organizerPermissionRows: []
   };
 
   function $(selector, root = document) {
@@ -128,6 +129,75 @@
     }
 
     return null;
+  }
+
+  function getProfileByOrganizerPermission(row) {
+    if (!row) return null;
+
+    const keys = [
+      row.auth_user_id,
+      row.user_id,
+      row.profile_id,
+      row.profile_slug,
+      row.slug,
+      row.email,
+      row.user_email
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+
+    return state.profiles.find((profile) => {
+      const profileKeys = [
+        profile?.id,
+        profile?.auth_user_id,
+        profile?.authUserId,
+        profile?.user_id,
+        profile?.slug,
+        profile?.username,
+        profile?.email,
+        profile?.auth_email,
+        getProfileKey(profile)
+      ].map((value) => String(value || "").trim()).filter(Boolean);
+
+      return keys.some((key) => profileKeys.includes(key));
+    }) || null;
+  }
+
+  function getOrganizerPermissionTarget(profile, row) {
+    const permissionRow = row || getOrganizerPermissionForProfile(profile) || {};
+    const targetProfile = profile || getProfileByOrganizerPermission(permissionRow) || {};
+
+    return {
+      authUserId: String(
+        permissionRow.auth_user_id ||
+        permissionRow.authUserId ||
+        permissionRow.user_id ||
+        getProfileAuthUserId(targetProfile) ||
+        ""
+      ).trim(),
+      profileId: String(
+        permissionRow.profile_id ||
+        permissionRow.profileId ||
+        targetProfile.id ||
+        ""
+      ).trim(),
+      profileSlug: String(
+        permissionRow.profile_slug ||
+        permissionRow.profileSlug ||
+        permissionRow.slug ||
+        targetProfile.slug ||
+        targetProfile.username ||
+        getProfileKey(targetProfile) ||
+        ""
+      ).trim(),
+      displayName: getProfileName(targetProfile) !== "Perfil sem nome"
+        ? getProfileName(targetProfile)
+        : String(permissionRow.profile_slug || permissionRow.auth_user_id || "organizador").trim()
+    };
+  }
+
+  function getActiveOrganizerPermissionRows() {
+    return (state.organizerPermissionRows || [])
+      .filter(organizerPermissionCanCreateOrganization)
+      .sort((a, b) => normalizeSearch(getOrganizerPermissionTarget(null, a).displayName).localeCompare(normalizeSearch(getOrganizerPermissionTarget(null, b).displayName), "pt-BR"));
   }
 
   function getTeamKey(team) {
@@ -761,8 +831,9 @@
       loadOrganizerPermissions()
     ]);
 
-    state.organizerPermissions = indexOrganizerPermissions(organizerPermissionRows);
-    const organizerCount = countApprovedOrganizerPermissions(organizerPermissionRows);
+    state.organizerPermissionRows = Array.isArray(organizerPermissionRows) ? organizerPermissionRows : [];
+    state.organizerPermissions = indexOrganizerPermissions(state.organizerPermissionRows);
+    const organizerCount = countApprovedOrganizerPermissions(state.organizerPermissionRows);
 
     const profilesByKey = new Map();
 
@@ -775,6 +846,7 @@
     state.teams = sortTeamsByName(teams);
 
     renderStats(organizerCount);
+    renderOrganizerPermissionResults();
   }
 
   function renderStats(organizerCount = 0) {
@@ -938,9 +1010,91 @@
     `;
   }
 
+  function renderOrganizerPermissionResults() {
+    const root = $("#sbwAdminOrganizerResults");
+    if (!root) return;
+
+    const rows = getActiveOrganizerPermissionRows();
+
+    if (!rows.length) {
+      root.innerHTML = `
+        <p class="sbw-admin-muted">
+          Nenhum usuário autorizado para criar Organização de Torneios foi encontrado.
+          Conceda a permissão pela aba Usuários.
+        </p>
+      `;
+      return;
+    }
+
+    root.innerHTML = `
+      <p class="sbw-admin-muted">${rows.length} usuário(s) com permissão ativa para criar Organização de Torneios.</p>
+      ${rows.map((row) => renderOrganizerPermissionCard(row)).join("")}
+    `;
+  }
+
+  function renderOrganizerPermissionCard(row) {
+    const profile = getProfileByOrganizerPermission(row);
+    const target = getOrganizerPermissionTarget(profile, row);
+    const initial = String(target.displayName || "O").charAt(0).toUpperCase();
+    const grantedAt = row?.granted_at || row?.created_at || "";
+    const grantedLabel = grantedAt ? new Date(grantedAt).toLocaleDateString("pt-BR") : "Data não informada";
+    const authUserId = target.authUserId || "";
+    const profileId = target.profileId || "";
+    const profileSlug = target.profileSlug || "";
+
+    return `
+      <article class="sbw-admin-result-card" data-organizer-permission-id="${escapeHtml(row?.id || "")}">
+        <div class="sbw-admin-result-main">
+          <div class="sbw-admin-avatar">${escapeHtml(initial)}</div>
+
+          <div class="sbw-admin-result-title">
+            <strong>${escapeHtml(target.displayName || "Organizador autorizado")}</strong>
+            <small>${escapeHtml([profileSlug, authUserId, `desde ${grantedLabel}`].filter(Boolean).join(" · "))}</small>
+          </div>
+
+          <div class="sbw-admin-badges">
+            <span class="sbw-admin-badge sbw-admin-badge--success">Criar organização</span>
+            <span class="sbw-admin-badge">Torneios: ${row?.can_create_tournaments === true ? "liberado" : "bloqueado"}</span>
+          </div>
+        </div>
+
+        <div class="sbw-admin-actions">
+          ${profileSlug ? `
+            <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(window.SBWRoutes?.profile ? window.SBWRoutes.profile(profileSlug) : `../perfis/perfil.html?u=${encodeURIComponent(profileSlug)}`)}" target="_blank" rel="noopener">
+              Ver perfil
+            </a>
+          ` : ""}
+
+          <button
+            class="sbw-admin-button sbw-admin-button--danger"
+            type="button"
+            data-admin-action="revoke-organizer-permission"
+            data-permission-id="${escapeHtml(row?.id || "")}" 
+            data-auth-user-id="${escapeHtml(authUserId)}"
+            data-profile-id="${escapeHtml(profileId)}"
+            data-profile-slug="${escapeHtml(profileSlug)}"
+          >
+            Remover permissão
+          </button>
+        </div>
+      </article>
+    `;
+  }
+
   function getProfileByKey(key) {
+    const normalizedKey = String(key || "").trim();
+    if (!normalizedKey) return null;
+
     return state.profiles.find((profile) => {
-      return String(profile?.id || "") === String(key) || String(getProfileKey(profile) || "") === String(key);
+      return [
+        profile?.id,
+        profile?.auth_user_id,
+        profile?.authUserId,
+        profile?.user_id,
+        profile?.slug,
+        profile?.username,
+        getProfileKey(profile)
+      ].map((value) => String(value || "").trim()).includes(normalizedKey);
     }) || null;
   }
 
@@ -1055,6 +1209,7 @@
       addLog(`Permissão para criar organização concedida a ${getProfileName(profile)}.`);
       await refreshData();
       renderProfilesList();
+      renderOrganizerPermissionResults();
     } catch (error) {
       console.warn("[SBW Admin] Falha ao liberar criação de organização:", error);
       addLog("Não foi possível liberar criação de organização. Rode o SQL da v1.6.52 no Supabase e confira permissão Admin Master.", "warning");
@@ -1064,10 +1219,19 @@
   async function revokeOrganizer(profile) {
     if (!profile) return;
 
-    const authUserId = getProfileAuthUserId(profile);
+    const permissionRow = getOrganizerPermissionForProfile(profile);
+    await revokeOrganizerPermission(profile, permissionRow);
+  }
 
-    if (!authUserId) {
-      addLog(`Perfil ${getProfileName(profile)} não tem auth_user_id para remover permissão.`, "error");
+  async function revokeOrganizerPermission(profile, permissionRow) {
+    const target = getOrganizerPermissionTarget(profile, permissionRow);
+    const permissionId = String(permissionRow?.id || permissionRow?.permissionId || permissionRow?.permission_id || "").trim();
+    const authUserId = String(target.authUserId || permissionRow?.auth_user_id || permissionRow?.authUserId || "").trim();
+    const profileId = String(target.profileId || permissionRow?.profile_id || permissionRow?.profileId || "").trim();
+    const profileSlug = String(target.profileSlug || permissionRow?.profile_slug || permissionRow?.profileSlug || "").trim();
+
+    if (!permissionId && !authUserId && !profileId && !profileSlug) {
+      addLog(`Não há identificador suficiente para remover a permissão de ${target.displayName || "organizador"}.`, "error");
       return;
     }
 
@@ -1076,26 +1240,53 @@
       return;
     }
 
-    const shouldRevoke = window.confirm(`Remover permissão de criar organização de ${getProfileName(profile)}?`);
+    const shouldRevoke = window.confirm(`Remover permissão de criar organização de ${target.displayName || "este usuário"}?`);
 
     if (!shouldRevoke) {
       return;
     }
 
     try {
-      const result = await state.client.rpc("sbw_admin_revoke_organizer_permission", {
-        p_target_auth_user_id: authUserId,
-        p_reason: "Permissão removida pelo Admin Master -SBW-"
+      const reason = "Permissão removida pelo Admin Master -SBW-";
+
+      const revokePayload = {
+        permissionId,
+        permission_id: permissionId,
+        authUserId,
+        auth_user_id: authUserId,
+        profileId,
+        profile_id: profileId,
+        profileSlug,
+        profile_slug: profileSlug,
+        reason
+      };
+
+      const result = await state.client.rpc("sbw_admin_revoke_organizer_permission_json", {
+        p_payload: revokePayload
       });
 
-      if (result.error) throw result.error;
+      if (result?.error) {
+        throw result.error;
+      }
 
-      addLog(`Permissão de criar organização removida de ${getProfileName(profile)}.`);
+      const data = result?.data;
+
+      if (data && data.ok === false) {
+        const debug = data.debug ? ` Debug: ${JSON.stringify(data.debug)}` : "";
+        throw new Error(`${data.message || "Permissão não encontrada."}${debug}`);
+      }
+
+      addLog(`Permissão de criar organização removida de ${target.displayName || "usuário"}.`);
       await refreshData();
       renderProfilesList();
+      renderOrganizerPermissionResults();
     } catch (error) {
       console.warn("[SBW Admin] Falha ao remover permissão de organização:", error);
-      addLog("Não foi possível remover permissão de organização. Confira o SQL/RLS da v1.6.52.", "warning");
+      const isMissingRpc = error && (error.code === "PGRST202" || error.status === 404 || String(error.message || "").toLowerCase().includes("schema cache"));
+      const message = isMissingRpc
+        ? "RPC de remoção não encontrada pelo Supabase. Rode o SQL da v1.6.54.2, aguarde o cache recarregar e atualize o Admin com Ctrl + F5."
+        : "Não foi possível remover permissão de organização. Confira se a conta atual é Admin Master/Admin SBW e se a permissão ainda existe.";
+      addLog(message, "warning");
     }
   }
 
@@ -1258,6 +1449,12 @@
           addLog("Lista de perfis recolhida.");
         }
 
+        if (action === "refresh-organizers") {
+          await refreshData();
+          renderOrganizerPermissionResults();
+          addLog("Lista de organizadores autorizados atualizada.");
+        }
+
         if (action === "show-all-teams") {
           state.teamListExpanded = true;
           state.teamLetterFilter = "";
@@ -1306,6 +1503,22 @@
         if (action === "revoke-organizer") {
           const profile = getProfileByKey(button.dataset.profileKey);
           await revokeOrganizer(profile);
+        }
+
+        if (action === "revoke-organizer-permission") {
+          const permissionRow = (state.organizerPermissionRows || []).find((row) => {
+            return String(row?.id || "") === String(button.dataset.permissionId || "") ||
+              String(row?.auth_user_id || "") === String(button.dataset.authUserId || "") ||
+              String(row?.profile_slug || "") === String(button.dataset.profileSlug || "");
+          }) || {
+            id: button.dataset.permissionId || "",
+            auth_user_id: button.dataset.authUserId || "",
+            profile_id: button.dataset.profileId || "",
+            profile_slug: button.dataset.profileSlug || ""
+          };
+
+          const profile = getProfileByOrganizerPermission(permissionRow);
+          await revokeOrganizerPermission(profile, permissionRow);
         }
 
         if (action === "verify-team") {
