@@ -241,10 +241,6 @@
             <strong>Convites</strong>
           </a>
 
-          <a class="sbw-account-dropdown__item" href="/torneios/create-tournament/criar-torneio.html">
-            <span>🏆</span>
-            <strong>Criar torneio</strong>
-          </a>
 
           ${adminItem}
 

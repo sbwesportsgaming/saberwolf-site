@@ -15,6 +15,7 @@
 let currentAuthUser = null;
 let currentProfile = null;
 let availableTournamentOrganizers = [];
+let requestedOrganizerKey = "";
 
         let activePlayoffMatchId = null;
         let activeMatchChatId = null;
@@ -68,6 +69,48 @@ let availableTournamentOrganizers = [];
     let managedTournamentsCache = [];
     let resultDrafts = {};
 
+
+function getTournamentAdminQueryParam(name) {
+  try {
+    return new URLSearchParams(window.location.search).get(name) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function normalizeTournamentAdminKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
+
+function getRequestedOrganizerKey() {
+  return (
+    getTournamentAdminQueryParam("organizer") ||
+    getTournamentAdminQueryParam("organizer_slug") ||
+    getTournamentAdminQueryParam("organizer_id") ||
+    getTournamentAdminQueryParam("org") ||
+    ""
+  );
+}
+
+function organizerCanCreateTournament(organizer) {
+  if (!organizer) {
+    return false;
+  }
+
+  const role = String(organizer.memberRole || organizer.role || organizer.currentUserRole || "").toLowerCase();
+
+  return Boolean(
+    organizer.canCreateTournament === true ||
+    organizer.can_create_tournaments === true ||
+    ["owner", "admin", "manager", "organizer_admin", "tournament_admin"].includes(role)
+  );
+}
    function getSafeProfileName(profile, authUser) {
   return (
     profile?.display_name ||
@@ -119,6 +162,7 @@ async function initAccessControl() {
 
   accessDenied.classList.add("hidden");
   userBadge.textContent = "Verificando permissão...";
+  requestedOrganizerKey = getRequestedOrganizerKey();
 
   if (!window.SBWAuth || typeof window.SBWAuth.getUser !== "function") {
     denyCreatorAccess("Login -SBW- não carregado. Volte pelo menu principal e tente novamente.");
@@ -141,20 +185,6 @@ async function initAccessControl() {
 
   currentProfile = profile || null;
 
-  const permissions = profile?.permissions || {};
-  const canCreateTournament = Boolean(
-    permissions.canCreateTournament ||
-    permissions.can_create_tournament ||
-    permissions.can_create_tournaments ||
-    permissions.isAdmin ||
-    permissions.is_admin
-  );
-
-  if (!canCreateTournament) {
-    denyCreatorAccess("Acesso restrito. Apenas organizadores aprovados pela -SBW- podem criar torneios.");
-    return false;
-  }
-
   currentUser = {
     id: getSafeProfileId(profile, authUser),
     name: getSafeProfileName(profile, authUser),
@@ -162,21 +192,12 @@ async function initAccessControl() {
     playerId: profile?.id || null,
 
     permissions: {
-      canCreateTournament: true,
+      canCreateTournament: false,
       canManageTournamentResults: true,
       canResolveMatchDisputes: true,
       canViewAllMatchChats: true
     }
   };
-
-  creatorArea.classList.remove("hidden");
-  accessDenied.classList.add("hidden");
-
-  if (managerArea) {
-    managerArea.classList.add("hidden");
-  }
-
-  userBadge.textContent = `${currentUser.name} | Organizador -SBW-`;
 
   return true;
 }
@@ -358,29 +379,40 @@ async function initAccessControl() {
         return [];
       }
 
-      organizerSelect.innerHTML = `<option value="">Carregando organizadores...</option>`;
+      organizerSelect.innerHTML = `<option value="">Carregando organizações permitidas...</option>`;
 
       try {
-        if (typeof sbwGetAllTournamentOrganizersAsync === "function") {
-          availableTournamentOrganizers = await sbwGetAllTournamentOrganizersAsync();
+        if (typeof sbwGetMyTournamentOrganizerAccessAsync === "function") {
+          availableTournamentOrganizers = await sbwGetMyTournamentOrganizerAccessAsync();
         } else {
           availableTournamentOrganizers = [];
         }
       } catch (error) {
-        console.warn("[SBW Torneios] Não foi possível carregar organizadores:", error);
+        console.warn("[SBW Torneios] Não foi possível carregar organizações permitidas:", error);
         availableTournamentOrganizers = [];
       }
 
-      if (!Array.isArray(availableTournamentOrganizers) || availableTournamentOrganizers.length === 0) {
-        availableTournamentOrganizers = [
-          {
-            id: currentUser.id || "sbw-organizer",
-            slug: "sbw-championship",
-            name: currentUser.name || "-SBW- Championship",
-            displayName: currentUser.name || "-SBW- Championship",
-            role: "Organizador"
-          }
-        ];
+      availableTournamentOrganizers = (Array.isArray(availableTournamentOrganizers) ? availableTournamentOrganizers : [])
+        .filter(organizerCanCreateTournament);
+
+      if (requestedOrganizerKey) {
+        const requestedNormalized = normalizeTournamentAdminKey(requestedOrganizerKey);
+        availableTournamentOrganizers = availableTournamentOrganizers.filter((organizer) => {
+          return [organizer.id, organizer.slug, organizer.name, organizer.displayName]
+            .some((value) => {
+              const raw = String(value || "").trim();
+              return raw === requestedOrganizerKey || normalizeTournamentAdminKey(raw) === requestedNormalized;
+            });
+        });
+      }
+
+      if (!availableTournamentOrganizers.length) {
+        denyCreatorAccess(
+          requestedOrganizerKey
+            ? "Você não tem permissão para criar torneios nesta organização."
+            : "Você não possui nenhuma Organização de Torneios com permissão para criar torneios."
+        );
+        return [];
       }
 
       organizerSelect.innerHTML = availableTournamentOrganizers
@@ -389,6 +421,22 @@ async function initAccessControl() {
           return `<option value="${escapeHTML(value)}">${escapeHTML(getOrganizerOptionLabel(organizer))}</option>`;
         })
         .join("");
+
+      if (availableTournamentOrganizers.length === 1) {
+        organizerSelect.value = availableTournamentOrganizers[0].id || availableTournamentOrganizers[0].slug || "";
+        organizerSelect.disabled = Boolean(requestedOrganizerKey);
+      }
+
+      currentUser.permissions.canCreateTournament = true;
+      creatorArea.classList.remove("hidden");
+      accessDenied.classList.add("hidden");
+
+      if (managerArea) {
+        managerArea.classList.add("hidden");
+      }
+
+      const selectedOrganizer = getSelectedOrganizer();
+      userBadge.textContent = `${currentUser.name} | ${selectedOrganizer?.name || selectedOrganizer?.displayName || "Organizador"}`;
 
       return availableTournamentOrganizers;
     }
@@ -634,6 +682,14 @@ async function initAccessControl() {
           if (element) element.focus();
           return false;
         }
+      }
+
+      const selectedOrganizer = getSelectedOrganizer();
+
+      if (!selectedOrganizer || !organizerCanCreateTournament(selectedOrganizer)) {
+        alert("Você precisa selecionar uma organização onde tenha permissão para criar torneios.");
+        if (organizerSelect) organizerSelect.focus();
+        return false;
       }
 
       const maxPlayers = Number(document.getElementById("maxPlayers").value);

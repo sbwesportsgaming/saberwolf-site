@@ -491,7 +491,6 @@ function renderInstantAuthState(nav) {
     const initials = getInitials(displayName);
     const permissions = getProfilePermissions(profile);
     const canCreateTournamentOrganizer = Boolean(permissions.canCreateTournamentOrganizer || permissions.isAdmin);
-    const canCreateTournament = Boolean(permissions.canCreateTournament || permissions.isAdmin);
 
     const wrapper = document.createElement("span");
     wrapper.className = "sbw-auth-nav-item";
@@ -525,12 +524,11 @@ function renderInstantAuthState(nav) {
       <a href="${getUrl("equipes/minha-equipe.html")}">Minha equipe</a>
 
       ${
-        canCreateTournamentOrganizer || canCreateTournament
+        canCreateTournamentOrganizer
           ? `
             <div class="sbw-auth-dropdown-divider"></div>
-            ${canCreateTournamentOrganizer ? `<a href="${getUrl("torneios/editar-organizador.html?novo=1")}">Criar organização</a>` : ``}
-            ${canCreateTournament ? `<a href="${getUrl("torneios/create-tournament/criar-torneio.html")}">Criar torneio</a>` : ``}
-            <span>Minhas organizações em breve</span>
+            <a href="${getUrl("torneios/editar-organizador.html?novo=1")}">Criar organização</a>
+            <a href="${getUrl("organizadores/organizadores.html")}">Organizadores</a>
           `
           : ``
       }

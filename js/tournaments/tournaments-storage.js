@@ -2065,6 +2065,103 @@ async function sbwSaveSupabaseTournamentResultsAsync(tournament, options = {}) {
 }
 
 
+
+async function sbwGetMyTournamentOrganizerAccessAsync() {
+  if (!sbwIsSupabaseEnabled()) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await window.SBWSupabase.client.rpc("sbw_get_my_tournament_organizer_access");
+
+    if (error) {
+      console.error("[SaberWolf Supabase] Erro ao buscar organizações permitidas para torneios:", error);
+      return [];
+    }
+
+    const rows = Array.isArray(data) ? data : [];
+
+    return rows.map((row) => {
+      const normalized = sbwNormalizeSupabaseTournamentOrganizer({
+        id: row.id || row.organizer_id,
+        slug: row.slug || row.organizer_slug,
+        name: row.name || row.display_name,
+        display_name: row.display_name || row.name,
+        tag: row.tag || "",
+        status: row.organizer_status || row.status || "active",
+        logo_url: row.logo_url || "",
+        banner_url: row.banner_url || "",
+        metadata: row.metadata || {}
+      });
+
+      return {
+        ...normalized,
+        memberRole: row.member_role || row.role || "member",
+        role: row.member_role || row.role || "member",
+        canCreateTournament: row.can_create_tournaments === true || row.canCreateTournament === true,
+        can_create_tournaments: row.can_create_tournaments === true || row.canCreateTournament === true,
+        source: "supabase-access",
+        access: row
+      };
+    });
+  } catch (error) {
+    console.error("[SaberWolf Supabase] Falha inesperada ao buscar organizações permitidas:", error);
+    return [];
+  }
+}
+
+function sbwNormalizeTournamentRpcResult(data, fallbackTournament = null) {
+  const result = data && typeof data === "object" ? data : {};
+  const tournamentRow = result.tournament || result.row || result.data || result;
+
+  if (result.ok === false) {
+    return {
+      success: false,
+      source: "supabase",
+      message: result.message || "Não foi possível criar o torneio.",
+      error: result
+    };
+  }
+
+  return {
+    success: true,
+    source: "supabase",
+    message: result.message || "Torneio criado no Supabase com sucesso.",
+    tournament: tournamentRow ? sbwNormalizeSupabaseTournament(tournamentRow) : fallbackTournament,
+    raw: tournamentRow || result
+  };
+}
+
+async function sbwCreateSupabaseTournamentViaOrganizerRpc(tournament, options = {}) {
+  const payload = sbwBuildSupabaseTournamentPayload(tournament, options);
+
+  try {
+    const { data, error } = await window.SBWSupabase.client.rpc("sbw_create_tournament_for_organizer", {
+      p_payload: payload
+    });
+
+    if (error) {
+      console.error("[SaberWolf Supabase] Erro ao criar torneio via organização:", error);
+      return {
+        success: false,
+        source: "supabase",
+        message: error.message || "Não foi possível criar o torneio pela organização selecionada.",
+        error
+      };
+    }
+
+    return sbwNormalizeTournamentRpcResult(data, tournament);
+  } catch (error) {
+    console.error("[SaberWolf Supabase] Falha inesperada ao criar torneio via organização:", error);
+    return {
+      success: false,
+      source: "supabase",
+      message: "Erro inesperado ao criar torneio pela organização selecionada.",
+      error
+    };
+  }
+}
+
 async function sbwCreateSupabaseTournament(tournament, options = {}) {
   if (!sbwIsSupabaseEnabled()) {
     return {
@@ -2083,6 +2180,18 @@ async function sbwCreateSupabaseTournament(tournament, options = {}) {
       message: "Você precisa entrar com Login -SBW- para criar torneios reais."
     };
   }
+
+  const selectedOrganizer = options.organizer || tournament?.selectedOrganizer || null;
+
+  if (!selectedOrganizer?.id && !selectedOrganizer?.slug) {
+    return {
+      success: false,
+      source: "supabase",
+      message: "Selecione uma Organização de Torneios válida para criar o torneio."
+    };
+  }
+
+  return await sbwCreateSupabaseTournamentViaOrganizerRpc(tournament, options);
 
   const tableName = sbwGetTournamentsTableName();
   const payload = sbwBuildSupabaseTournamentPayload(tournament, options);

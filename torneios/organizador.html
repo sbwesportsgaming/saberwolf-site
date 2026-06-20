@@ -1,726 +1,168 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Organizador de Torneios | -SBW-</title>
-
   <meta
     name="description"
-    content="Página pública de organizador de torneios da -SBW-, com identidade, torneios publicados, histórico e equipe de gestão."
-  >
-
-  <link rel="icon" href="../assets/images/logo-sbw.jpg" type="image/jpeg">
-
-  <link rel="stylesheet" href="../css/style.css">
-  <link rel="stylesheet" href="../css/torneios.css">
-
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-  >
-
-  <style>
-    .organizer-profile-layout {
-      display: grid;
-      gap: 24px;
-    }
-
-    .organizer-profile-hero {
-      position: relative;
-      overflow: hidden;
-      border-radius: 28px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.22);
-      background:
-        radial-gradient(circle at top left, rgba(var(--org-primary-rgb, 56, 189, 248), 0.2), transparent 42%),
-        radial-gradient(circle at bottom right, rgba(var(--org-secondary-rgb, 124, 58, 237), 0.16), transparent 44%),
-        linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.98));
-      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
-    }
-
-    .organizer-profile-cover {
-      position: relative;
-      min-height: 230px;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at 18% 12%, rgba(var(--org-primary-rgb, 56, 189, 248), 0.34), transparent 32%),
-        radial-gradient(circle at 86% 24%, rgba(var(--org-secondary-rgb, 124, 58, 237), 0.28), transparent 30%),
-        linear-gradient(135deg, rgba(8, 47, 73, 0.96), rgba(15, 23, 42, 0.96));
-    }
-
-    .organizer-profile-cover-image {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.42;
-    }
-
-    .organizer-profile-cover-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(2, 6, 23, 0.06), rgba(2, 6, 23, 0.82));
-    }
-
-    .organizer-profile-main-card {
-      position: relative;
-      z-index: 1;
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 18px;
-      align-items: end;
-      margin-top: -76px;
-      padding: 0 22px 22px;
-    }
-
-    .organizer-profile-logo {
-      width: 132px;
-      height: 132px;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      border-radius: 28px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.38);
-      background:
-        radial-gradient(circle at top, rgba(var(--org-primary-rgb, 56, 189, 248), 0.2), transparent 55%),
-        rgba(15, 23, 42, 0.96);
-      color: var(--org-primary, #bae6fd);
-      font-size: 1.7rem;
-      font-weight: 950;
-      letter-spacing: 0.06em;
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
-    }
-
-    .organizer-profile-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .organizer-profile-heading {
-      display: grid;
-      gap: 10px;
-      min-width: 0;
-    }
-
-    .organizer-profile-kicker,
-    .organizer-profile-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .organizer-profile-kicker span,
-    .organizer-profile-tags span {
-      display: inline-flex;
-      align-items: center;
-      width: fit-content;
-      padding: 6px 9px;
-      border-radius: 999px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.18);
-      background: rgba(15, 23, 42, 0.78);
-      color: #cbd5e1;
-      font-size: 0.72rem;
-      font-weight: 850;
-      line-height: 1;
-    }
-
-    .organizer-profile-kicker span:first-child {
-      border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.34);
-      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.12);
-      color: var(--org-primary, #a5f3fc);
-    }
-
-    .organizer-profile-heading h2 {
-      margin: 0;
-      color: var(--text, #f5f5f5);
-      font-size: clamp(2rem, 5vw, 3.5rem);
-      line-height: 0.98;
-      letter-spacing: -0.04em;
-    }
-
-    .organizer-profile-heading p {
-      max-width: 880px;
-      margin: 0;
-      color: var(--muted, #9ca3af);
-      font-size: 0.98rem;
-      line-height: 1.65;
-    }
-
-    .organizer-profile-loading,
-    .organizer-profile-empty,
-    .organizer-profile-empty-card {
-      padding: 24px;
-      border-radius: 22px;
-      border: 1px dashed rgba(var(--org-primary-rgb, 56, 189, 248), 0.24);
-      background: rgba(15, 23, 42, 0.58);
-      color: var(--muted, #9ca3af);
-      line-height: 1.55;
-    }
-
-    .organizer-profile-empty h2 {
-      margin: 6px 0 8px;
-      color: var(--text, #f5f5f5);
-    }
-
-    .organizer-profile-status {
-      margin: 0;
-      color: var(--muted, #9ca3af);
-      font-size: 0.86rem;
-      line-height: 1.5;
-    }
-
-    .organizer-profile-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 14px;
-    }
-
-    .organizer-profile-stats article {
-      padding: 16px;
-      border-radius: 20px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
-      background:
-        radial-gradient(circle at top left, rgba(var(--org-primary-rgb, 56, 189, 248), 0.14), transparent 44%),
-        rgba(15, 23, 42, 0.76);
-    }
-
-    .organizer-profile-stats span {
-      display: block;
-      color: var(--muted, #9ca3af);
-      font-size: 0.76rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .organizer-profile-stats strong {
-      display: block;
-      margin-top: 8px;
-      color: #f8fafc;
-      font-size: 1.8rem;
-      line-height: 1;
-    }
-
-    .organizer-profile-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
-      justify-content: start;
-      gap: 18px;
-    }
-
-    .organizer-tournament-card {
-      display: grid;
-      gap: 12px;
-      max-width: 360px;
-      padding: 16px;
-      border-radius: 22px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.18);
-      background:
-        linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.96)),
-        radial-gradient(circle at top left, rgba(var(--org-primary-rgb, 56, 189, 248), 0.18), transparent 44%),
-        radial-gradient(circle at bottom right, rgba(var(--org-secondary-rgb, 124, 58, 237), 0.12), transparent 44%);
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
-    }
-
-    .organizer-tournament-topline {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .organizer-tournament-topline > span:last-child {
-      color: var(--org-primary, #93c5fd);
-      font-size: 0.72rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .organizer-tournament-card h3 {
-      margin: 0;
-      color: var(--text, #f5f5f5);
-      font-size: 1.04rem;
-      line-height: 1.25;
-    }
-
-    .organizer-tournament-card p {
-      margin: 0;
-      color: var(--muted, #9ca3af);
-      font-size: 0.84rem;
-      line-height: 1.5;
-    }
-
-    .organizer-tournament-meta {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .organizer-tournament-meta div {
-      padding: 9px;
-      border-radius: 14px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.1);
-      background: rgba(15, 23, 42, 0.72);
-    }
-
-    .organizer-tournament-meta span {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--muted, #9ca3af);
-      font-size: 0.68rem;
-    }
-
-    .organizer-tournament-meta strong {
-      display: block;
-      color: var(--text, #f5f5f5);
-      font-size: 0.8rem;
-    }
-
-    .organizer-members-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-      gap: 14px;
-    }
-
-    .organizer-member-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px;
-      border-radius: 20px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
-      background: rgba(15, 23, 42, 0.72);
-    }
-
-    .organizer-member-avatar {
-      width: 48px;
-      height: 48px;
-      flex: 0 0 48px;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      border-radius: 16px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.24);
-      background: rgba(2, 6, 23, 0.72);
-      color: var(--org-primary, #bae6fd);
-      font-size: 0.86rem;
-      font-weight: 900;
-    }
-
-    .organizer-member-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .organizer-member-card strong,
-    .organizer-member-card span {
-      display: block;
-    }
-
-    .organizer-member-card strong {
-      color: var(--text, #f5f5f5);
-      font-size: 0.92rem;
-    }
-
-    .organizer-member-card span {
-      margin-top: 3px;
-      color: var(--muted, #9ca3af);
-      font-size: 0.76rem;
-    }
-
-    .organizer-profile-btn {
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      width: fit-content;
-      min-height: 40px;
-      padding: 0 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.44);
-      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.1);
-      color: var(--org-primary, #7dd3fc);
-      font-size: 0.76rem;
-      font-weight: 900;
-      line-height: 1;
-      text-decoration: none;
-      transition:
-        border-color 0.18s ease,
-        background 0.18s ease,
-        color 0.18s ease;
-    }
-
-    .organizer-profile-btn:hover {
-      border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.76);
-      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
-      color: #f8fafc;
-    }
-
-
-    .organizer-profile-actions,
-    .organizer-profile-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .organizer-profile-links a {
-      display: inline-flex;
-      align-items: center;
-      width: fit-content;
-      padding: 6px 9px;
-      border-radius: 999px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.2);
-      background: rgba(15, 23, 42, 0.72);
-      color: var(--org-primary, #7dd3fc);
-      font-size: 0.72rem;
-      font-weight: 850;
-      text-decoration: none;
-    }
-
-    .organizer-profile-links a:hover {
-      border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.52);
-      color: #f8fafc;
-    }
-
-    .organizer-permission-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 14px;
-    }
-
-    .organizer-permission-card {
-      padding: 16px;
-      border-radius: 20px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
-      background: rgba(15, 23, 42, 0.7);
-    }
-
-    .organizer-permission-card h3 {
-      margin: 0 0 8px;
-      color: var(--text, #f5f5f5);
-      font-size: 0.98rem;
-    }
-
-    .organizer-permission-card p {
-      margin: 0;
-      color: var(--muted, #9ca3af);
-      font-size: 0.84rem;
-      line-height: 1.5;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      width: fit-content;
-      max-width: 100%;
-      padding: 6px 9px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .status-pill.open {
-      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.32);
-      color: var(--org-primary, #7dd3fc);
-    }
-
-    .status-pill.running {
-      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.14);
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.3);
-      color: var(--org-primary, #bae6fd);
-    }
-
-    .status-pill.finished {
-      background: rgba(var(--org-secondary-rgb, 124, 58, 237), 0.14);
-      border: 1px solid rgba(var(--org-secondary-rgb, 124, 58, 237), 0.28);
-      color: var(--org-secondary, #c7d2fe);
-    }
-
-    .status-pill.draft {
-      background: rgba(148, 163, 184, 0.12);
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      color: #cbd5e1;
-    }
-
-
-    .organizer-hero-top-actions {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 12px;
-    }
-
-    .organizer-top-tournaments-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      width: fit-content;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.28);
-      background: rgba(15, 23, 42, 0.68);
-      color: var(--org-primary, #bae6fd);
-      font-size: 0.82rem;
-      font-weight: 900;
-      text-decoration: none;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .organizer-top-tournaments-link:hover {
-      border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.48);
-      background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.12);
-      color: #f8fafc;
-    }
-
-    @media (max-width: 720px) {
-      .organizer-profile-main-card {
-        grid-template-columns: 1fr;
-        align-items: start;
-        margin-top: -64px;
-      }
-
-      .organizer-profile-logo {
-        width: 112px;
-        height: 112px;
-        border-radius: 24px;
-      }
-
-      .organizer-profile-grid,
-      .organizer-members-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .organizer-tournament-card {
-        max-width: none;
-      }
-
-      .organizer-tournament-meta {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+    content="Perfil público individual de Organizador de Torneios da -SBW-, com torneios, temporadas, rankings e histórico do organizador."
+  />
+
+  <link rel="icon" href="../assets/images/logo-sbw.png" type="image/png" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
+  <link rel="stylesheet" href="../css/torneios.css" />
+  <link rel="stylesheet" href="../css/organizers/organizer-profile.css" />
+  <link rel="stylesheet" href="../css/core/sbw-page-state.css" />
   <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
 </head>
 
-<body>
+<body class="sbw-tournaments-body sbw-organizer-profile-body sbw-sidebar-no-transition" data-sbw-active-page="organizers">
+  <div id="sbwSidebarMount"></div>
 
-<header>
+  <button class="sbw-sidebar-toggle" type="button" aria-label="Abrir menu" data-sbw-sidebar-toggle>☰</button>
+  <div class="sbw-sidebar-backdrop" data-sbw-sidebar-close></div>
 
-  <h1>SaberWolf</h1>
+  <main class="sbw-organizer-profile-page" id="organizerPageRoot">
+    <section class="sbw-organizer-profile-topbar" aria-label="Navegação do organizador">
+      <a class="sbw-organizer-back-link" href="../organizadores/organizadores.html">
+        <span aria-hidden="true">←</span>
+        Organizadores
+      </a>
+      <p id="organizerStatusText">Carregando perfil público do organizador...</p>
+    </section>
 
-  <div class="menu-toggle">
-    ☰
-  </div>
+    <section class="sbw-organizer-public-hero" id="organizerHero" aria-label="Perfil público do organizador">
+      <div class="sbw-organizer-loading-card">Carregando organizador...</div>
+    </section>
 
-<nav class="main-nav">
-  <a href="../index.html">Home</a>
-  <a href="../blog/noticias.html">Notícias</a>
-  <a href="../pages/sobre.html">Sobre</a>
-  <a href="../creators/creators.html">Creators</a>
-  <a href="../perfis/perfis.html">Perfis</a>
-  <a href="../equipes/equipes.html">Equipes</a>
-  <a href="../torneios/torneios.html">Torneios</a>
-  <a href="../comunidades/comunidades.html">Comunidades</a>
-  <a href="../rankings/rankings.html">Rankings</a>
-  <a href="../transferencias/transferencias.html">Transferências</a>
-  <a href="../pages/loja.html">Loja</a>
-</nav>
+    <nav class="sbw-organizer-tabs" aria-label="Áreas públicas do organizador">
+      <button class="is-active" type="button" data-organizer-tab="overview">Visão Geral</button>
+      <button type="button" data-organizer-tab="tournaments">Torneios</button>
+      <button type="button" data-organizer-tab="seasons">Temporadas</button>
+      <button type="button" data-organizer-tab="rankings">Rankings</button>
+      <button type="button" data-organizer-tab="history">Histórico</button>
+    </nav>
 
-</header>
+    <section class="sbw-organizer-tab-panel is-active" id="organizerTabOverview" data-organizer-panel="overview">
+      <div class="sbw-organizer-dashboard-grid">
+        <article class="sbw-organizer-section-card sbw-organizer-section-card--wide">
+          <div class="sbw-organizer-section-head">
+            <div>
+              <span class="sbw-organizer-eyebrow">Visão Geral</span>
+              <h2>Resumo do organizador</h2>
+            </div>
+          </div>
+          <div class="sbw-organizer-stats-grid" id="organizerStats"></div>
+          <p class="sbw-organizer-card-note">Esta página pública mostra apenas dados do organizador selecionado.</p>
+        </article>
 
-<main class="tournaments-main" id="organizerPageRoot">
+        <article class="sbw-organizer-section-card">
+          <div class="sbw-organizer-section-head">
+            <div>
+              <span class="sbw-organizer-eyebrow">Torneios recentes</span>
+              <h2>Últimos eventos</h2>
+            </div>
+            <button class="sbw-organizer-small-action" type="button" data-organizer-tab-shortcut="tournaments">Ver todos</button>
+          </div>
+          <div class="sbw-organizer-compact-list" id="organizerRecentTournaments"></div>
+        </article>
 
-  <section class="hero torneios-hero">
-
-    <div class="torneios-hero-content">
-
-      <div class="organizer-hero-top-actions">
-        <a class="organizer-top-tournaments-link" href="torneios.html">
-          <i class="fa-solid fa-arrow-left"></i>
-          Torneios
-        </a>
+        <article class="sbw-organizer-section-card">
+          <div class="sbw-organizer-section-head">
+            <div>
+              <span class="sbw-organizer-eyebrow">Ranking</span>
+              <h2>Ranking do organizador</h2>
+            </div>
+            <button class="sbw-organizer-small-action" type="button" data-organizer-tab-shortcut="rankings">Ver ranking</button>
+          </div>
+          <div class="sbw-organizer-empty-state" id="organizerOverviewRanking">
+            O ranking aparecerá quando houver torneios pontuáveis e temporada ativa.
+          </div>
+        </article>
       </div>
+    </section>
 
-      <span class="hero-label">
-        <i class="fa-solid fa-shield-halved"></i>
-        Organizador de torneios
-      </span>
-
-      <h2>Perfil do Organizador</h2>
-
-      <p>
-        Página pública para apresentar a entidade responsável por torneios,
-        histórico competitivo, identidade visual própria e eventos publicados.
-      </p>
-
-      <div class="tournament-dev-notice">
-
-        <span>
-          <i class="fa-solid fa-circle-info"></i>
-          v1.5.7.5
-        </span>
-
-        <p id="organizerStatusText">
-          Carregando dados do organizador. A página tenta Supabase primeiro, aplica tema visual próprio, aceita ajustes locais do painel e mantém fallback local-demo.
-        </p>
-
-      </div>
-
-    </div>
-
-  </section>
-
-  <section class="organizer-profile-layout">
-
-    <div class="organizer-profile-hero" id="organizerHero"></div>
-
-    <div class="organizer-profile-stats" id="organizerStats"></div>
-
-  </section>
-
-  <section class="tournament-section-block">
-
-    <div class="section-heading-line">
-
-      <span class="section-label">
-        Eventos
-      </span>
-
-      <h2>Torneios deste Organizador</h2>
-
-      <p class="section-description">
-        Lista pública dos torneios vinculados a esta entidade. O vínculo é feito por slug/id/nome do organizador.
-      </p>
-
-    </div>
-
-    <div class="organizer-profile-grid" id="organizerTournamentsGrid"></div>
-
-  </section>
-
-  <section class="tournament-section-block">
-
-    <div class="section-heading-line">
-
-      <span class="section-label">
-        Gestão
-      </span>
-
-      <h2>Membros e Responsáveis</h2>
-
-      <p class="section-description">
-        Área preparada para exibir donos, administradores e gestores autorizados do organizador.
-      </p>
-
-    </div>
-
-    <div class="organizer-members-grid" id="organizerMembersGrid"></div>
-
-  </section>
-
-  <section class="tournament-section-block">
-
-    <div class="section-heading-line">
-
-      <span class="section-label">
-        Próximas permissões
-      </span>
-
-      <h2>Controle do Organizador</h2>
-
-      <p class="section-description">
-        Esta página é pública. A edição de dados ficará para painel privado do organizador autorizado.
-      </p>
-
-    </div>
-
-    <div class="organizer-permission-grid">
-
-      <article class="organizer-permission-card">
-        <h3>Identidade visual</h3>
-        <p>Preparado para banner, logo, descrição, tags, tipo e cores próprias do organizador.</p>
+    <section class="sbw-organizer-tab-panel" id="organizerTabTournaments" data-organizer-panel="tournaments" hidden>
+      <article class="sbw-organizer-section-card">
+        <div class="sbw-organizer-section-head sbw-organizer-section-head--stacked">
+          <div>
+            <span class="sbw-organizer-eyebrow">Torneios</span>
+            <h2>Torneios deste organizador</h2>
+            <p>Somente torneios vinculados a este organizador aparecem aqui.</p>
+          </div>
+          <div class="sbw-organizer-filter-row">
+            <input id="organizerTournamentSearch" type="search" placeholder="Buscar torneio..." />
+            <select id="organizerTournamentStatusFilter" aria-label="Filtrar por status">
+              <option value="all">Todos os status</option>
+              <option value="open">Inscrições abertas</option>
+              <option value="running">Em andamento</option>
+              <option value="finished">Finalizados</option>
+              <option value="draft">Rascunho</option>
+            </select>
+          </div>
+        </div>
+        <div class="sbw-organizer-tournament-grid" id="organizerTournamentsGrid"></div>
       </article>
+    </section>
 
-      <article class="organizer-permission-card">
-        <h3>Torneios vinculados</h3>
-        <p>Os eventos publicados por essa entidade aparecem agrupados nesta página pública.</p>
+    <section class="sbw-organizer-tab-panel" id="organizerTabSeasons" data-organizer-panel="seasons" hidden>
+      <article class="sbw-organizer-section-card">
+        <div class="sbw-organizer-section-head">
+          <div>
+            <span class="sbw-organizer-eyebrow">Temporadas</span>
+            <h2>Temporadas do organizador</h2>
+          </div>
+        </div>
+        <div class="sbw-organizer-empty-state" id="organizerSeasonsGrid">
+          Nenhuma temporada pública encontrada.
+        </div>
       </article>
+    </section>
 
-      <article class="organizer-permission-card">
-        <h3>Equipe gestora</h3>
-        <p>Base preparada para donos, administradores e membros com permissões específicas.</p>
+    <section class="sbw-organizer-tab-panel" id="organizerTabRankings" data-organizer-panel="rankings" hidden>
+      <article class="sbw-organizer-section-card">
+        <div class="sbw-organizer-section-head">
+          <div>
+            <span class="sbw-organizer-eyebrow">Rankings</span>
+            <h2>Rankings do organizador</h2>
+            <p>Este ranking é próprio do organizador, separado do ranking global -SBW-.</p>
+          </div>
+        </div>
+        <div class="sbw-organizer-ranking-layout" id="organizerRankingsGrid">
+          <div class="sbw-organizer-empty-state">O ranking aparecerá quando houver torneios pontuáveis.</div>
+        </div>
       </article>
+    </section>
 
-    </div>
+    <section class="sbw-organizer-tab-panel" id="organizerTabHistory" data-organizer-panel="history" hidden>
+      <article class="sbw-organizer-section-card">
+        <div class="sbw-organizer-section-head">
+          <div>
+            <span class="sbw-organizer-eyebrow">Histórico</span>
+            <h2>Memória competitiva</h2>
+          </div>
+        </div>
+        <div class="sbw-organizer-history-list" id="organizerHistoryList"></div>
+      </article>
+    </section>
+  </main>
 
-  </section>
-
-  <section class="tournament-section-block organizer-profile-empty-card">
-    <a class="organizer-profile-btn" href="torneios.html">Voltar para Torneios</a>
-  </section>
-
-</main>
-
-<footer>
-
-  <div class="footer-content">
-
-    <h2>SaberWolf</h2>
-
-    <p>
-      Ecossistema brasileiro de esports,
-      creators, campeonatos e comunidade.
-    </p>
-
-    <div class="footer-links">
-
-      <a href="../index.html">Home</a>
-      <a href="../pages/sobre.html">Sobre</a>
-      <a href="../equipes/equipes.html">Equipes</a>
-      <a href="../creators/creators.html">Creators</a>
-      <a href="../comunidades/comunidades.html">Comunidades</a>
-      <a href="torneios.html">Torneios</a>
-      <a href="../pages/loja.html">Loja</a>
-
-    </div>
-
-    <p class="footer-copy">
-      -SBW- © 2026 — Todos os direitos reservados.
-    </p>
-
-  </div>
-
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/supabase/supabase-config.js"></script>
-<script src="../js/supabase/supabase-client.js"></script>
-<script src="../js/auth/auth-service.js"></script>
-<script src="../js/core/sbw-routes.js"></script>
-<script src="../js/auth/auth-header.js"></script>
-
-<script src="../js/menu.js"></script>
-
-<script src="../js/tournaments/tournaments-config.js"></script>
-<script src="../js/tournaments/tournaments-demo-data.js"></script>
-<script src="../js/tournaments/tournaments-utils.js"></script>
-<script src="../js/tournaments/tournaments-models.js"></script>
-<script src="../js/tournaments/tournaments-storage.js"></script>
-<script src="../js/tournaments/tournament-organizer-page.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase/supabase-config.js"></script>
+  <script src="../js/supabase/supabase-client.js"></script>
+  <script src="../js/auth/auth-service.js"></script>
+  <script src="../js/core/sbw-routes.js"></script>
+  <script src="../js/core/sbw-session-context.js"></script>
+  <script src="../js/layout/sbw-sidebar.js"></script>
+  <script src="../js/tournaments/tournaments-config.js"></script>
+  <script src="../js/tournaments/tournaments-demo-data.js"></script>
+  <script src="../js/tournaments/tournaments-utils.js"></script>
+  <script src="../js/tournaments/tournaments-models.js"></script>
+  <script src="../js/tournaments/tournaments-storage.js"></script>
+  <script src="../js/tournaments/tournament-organizer-page.js?v=1.6.56"></script>
+  <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

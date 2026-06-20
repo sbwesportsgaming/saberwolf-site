@@ -6,6 +6,7 @@ const sbwOrganizerEditorStatusText = document.getElementById("organizerEditorSta
 const sbwOrganizerPreview = document.getElementById("organizerPreview");
 const sbwOrganizerOpenPublic = document.getElementById("organizerOpenPublic");
 const sbwOrganizerResetLocal = document.getElementById("organizerResetLocal");
+const sbwOrganizerCreateTournament = document.getElementById("organizerCreateTournament");
 
 let sbwOrganizerEditorCurrent = null;
 let sbwOrganizerEditorSlug = "";
@@ -75,6 +76,90 @@ function sbwOrganizerEditorGetLoginUrl() {
   }
 
   return "../auth/login.html";
+}
+
+function sbwOrganizerEditorCanCreateTournament(organizer) {
+  if (!organizer) {
+    return false;
+  }
+
+  const role = String(organizer.memberRole || organizer.role || organizer.currentUserRole || "").toLowerCase();
+
+  return Boolean(
+    organizer.canCreateTournament === true ||
+    organizer.can_create_tournaments === true ||
+    organizer.canManage === true ||
+    organizer.can_manage === true ||
+    ["owner", "admin", "manager", "organizer_admin", "tournament_admin"].includes(role)
+  );
+}
+
+function sbwOrganizerEditorBuildCreateTournamentUrl(organizer) {
+  const slug = organizer?.slug || sbwOrganizerEditorSlug || "";
+  const id = organizer?.id || organizer?.raw?.id || "";
+  const key = slug || id;
+
+  if (!key) {
+    return "create-tournament/criar-torneio.html";
+  }
+
+  return `create-tournament/criar-torneio.html?organizer=${encodeURIComponent(key)}`;
+}
+
+function sbwOrganizerEditorUpdateCreateTournamentLink(organizer) {
+  if (!sbwOrganizerCreateTournament) {
+    return;
+  }
+
+  const slug = organizer?.slug || sbwOrganizerEditorSlug || "";
+  const id = organizer?.id || organizer?.raw?.id || "";
+  const canCreateTournament = sbwOrganizerEditorCanCreateTournament(organizer);
+
+  if (!slug && !id) {
+    sbwOrganizerCreateTournament.hidden = true;
+    sbwOrganizerCreateTournament.removeAttribute("href");
+    return;
+  }
+
+  sbwOrganizerCreateTournament.hidden = !canCreateTournament;
+  sbwOrganizerCreateTournament.href = sbwOrganizerEditorBuildCreateTournamentUrl(organizer);
+}
+
+async function sbwOrganizerEditorMergeAccess(organizer) {
+  if (!organizer || typeof sbwGetMyTournamentOrganizerAccessAsync !== "function") {
+    return organizer;
+  }
+
+  try {
+    const accessList = await sbwGetMyTournamentOrganizerAccessAsync();
+    const organizerKeys = [organizer.id, organizer.slug, organizer.name, organizer.displayName, organizer.raw?.id, organizer.raw?.slug]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+
+    const match = (Array.isArray(accessList) ? accessList : []).find((item) => {
+      const itemKeys = [item.id, item.slug, item.name, item.displayName, item.raw?.id, item.raw?.slug]
+        .filter(Boolean)
+        .map((value) => String(value).trim().toLowerCase());
+
+      return itemKeys.some((key) => organizerKeys.includes(key));
+    });
+
+    if (!match) {
+      return organizer;
+    }
+
+    return {
+      ...organizer,
+      memberRole: match.memberRole || match.role || organizer.memberRole || organizer.role,
+      role: match.memberRole || match.role || organizer.role,
+      canCreateTournament: match.canCreateTournament === true || match.can_create_tournaments === true || ["owner", "admin", "manager", "organizer_admin", "tournament_admin"].includes(String(match.memberRole || match.role || "").toLowerCase()),
+      can_create_tournaments: match.can_create_tournaments === true || match.canCreateTournament === true || ["owner", "admin", "manager", "organizer_admin", "tournament_admin"].includes(String(match.memberRole || match.role || "").toLowerCase()),
+      canManage: true
+    };
+  } catch (error) {
+    console.warn("[SBW Organizadores] Não foi possível validar permissão de criar torneio:", error);
+    return organizer;
+  }
 }
 
 async function sbwOrganizerEditorCheckAccess() {
@@ -322,12 +407,13 @@ function sbwOrganizerEditorBindSave() {
         result = await sbwUpdateTournamentOrganizerProfileAsync(sbwOrganizerEditorSlug, formData);
       }
 
-      const organizer = result?.organizer || null;
+      let organizer = result?.organizer || null;
 
       if (!organizer) {
         throw new Error("Supabase salvou, mas não retornou os dados da organização.");
       }
 
+      organizer = await sbwOrganizerEditorMergeAccess(organizer);
       sbwOrganizerEditorCurrent = organizer;
       sbwOrganizerEditorSlug = organizer.slug || sbwOrganizerEditorSlug;
 
@@ -339,6 +425,8 @@ function sbwOrganizerEditorBindSave() {
       if (sbwOrganizerOpenPublic) {
         sbwOrganizerOpenPublic.href = `organizador.html?slug=${encodeURIComponent(sbwOrganizerEditorSlug)}`;
       }
+
+      sbwOrganizerEditorUpdateCreateTournamentLink(organizer);
 
       if (sbwOrganizerEditorStatusText) {
         sbwOrganizerEditorStatusText.textContent = `${organizer.name || organizer.displayName || "Organização"} salva no Supabase. O perfil público já pode ser aberto.`;
@@ -398,10 +486,12 @@ function sbwOrganizerEditorBindReset() {
       return;
     }
 
-    const organizer = await sbwGetTournamentOrganizerBySlugAsync(sbwOrganizerEditorSlug);
+    let organizer = await sbwGetTournamentOrganizerBySlugAsync(sbwOrganizerEditorSlug);
+    organizer = await sbwOrganizerEditorMergeAccess(organizer);
     sbwOrganizerEditorCurrent = organizer;
     sbwOrganizerEditorHydrateForm(organizer);
     sbwOrganizerEditorRenderPreview();
+    sbwOrganizerEditorUpdateCreateTournamentLink(organizer);
     sbwOrganizerEditorSetMessage("Dados recarregados do Supabase.");
   });
 }
@@ -447,6 +537,8 @@ async function sbwOrganizerEditorLoad() {
     if (sbwOrganizerOpenPublic) {
       sbwOrganizerOpenPublic.href = "torneios.html";
     }
+
+    sbwOrganizerEditorUpdateCreateTournamentLink(null);
 
     sbwOrganizerEditorHydrateForm(sbwOrganizerEditorCurrent);
     sbwOrganizerEditorBindPreviewEvents();
@@ -497,6 +589,7 @@ async function sbwOrganizerEditorLoad() {
     return;
   }
 
+  organizer = await sbwOrganizerEditorMergeAccess(organizer);
   sbwOrganizerEditorCurrent = organizer;
 
   document.title = `Editar ${organizer.name || organizer.displayName || "Organizador"} | -SBW-`;
@@ -508,6 +601,8 @@ async function sbwOrganizerEditorLoad() {
   if (sbwOrganizerOpenPublic) {
     sbwOrganizerOpenPublic.href = `organizador.html?slug=${encodeURIComponent(organizer.slug || sbwOrganizerEditorSlug)}`;
   }
+
+  sbwOrganizerEditorUpdateCreateTournamentLink(organizer);
 
   sbwOrganizerEditorHydrateForm(organizer);
   sbwOrganizerEditorBindPreviewEvents();
