@@ -209,6 +209,7 @@ function sbwRenderOrganizerHero(organizer, tournaments, access) {
   const runningCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "running").length;
   const openCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "open").length;
   const finishedCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "finished").length;
+  const uniqueGames = new Set(tournaments.map((tournament) => tournament?.game || tournament?.gameName).filter(Boolean));
   const linkLabels = {
     website: "Site",
     discord: "Discord",
@@ -238,10 +239,10 @@ function sbwRenderOrganizerHero(organizer, tournaments, access) {
           <div class="sbw-organizer-logo">${logoHTML}</div>
           <div>
             <div class="sbw-organizer-badges">
-              <span class="sbw-organizer-badge sbw-organizer-badge--primary">Organizador</span>
+              <span class="sbw-organizer-badge sbw-organizer-badge--primary">Organizador Verificado</span>
               <span class="sbw-organizer-badge">${sbwOrganizerEscape(status)}</span>
-              ${organizer?.verified ? `<span class="sbw-organizer-badge">Verificado</span>` : ""}
-              ${canManage ? `<span class="sbw-organizer-badge">Área liberada para sua conta</span>` : ""}
+              ${organizer?.verified ? `<span class="sbw-organizer-badge">Selo -SBW-</span>` : ""}
+              ${canManage ? `<span class="sbw-organizer-badge">Sua conta pode gerenciar</span>` : ""}
             </div>
             <h1>${sbwOrganizerEscape(name)}</h1>
           </div>
@@ -250,8 +251,8 @@ function sbwRenderOrganizerHero(organizer, tournaments, access) {
         <p>${sbwOrganizerEscape(description)}</p>
 
         <div class="sbw-organizer-tags">
+          <span class="sbw-organizer-tag">${sbwOrganizerEscape(organizer?.country || "Brasil")}</span>
           <span class="sbw-organizer-tag">${sbwOrganizerEscape(organizer?.type || "Organizador de torneios")}</span>
-          <span class="sbw-organizer-tag">${tournaments.length} torneio${tournaments.length === 1 ? "" : "s"}</span>
           ${games.slice(0, 5).map((game) => `<span class="sbw-organizer-tag">${sbwOrganizerEscape(game)}</span>`).join("")}
         </div>
 
@@ -267,7 +268,10 @@ function sbwRenderOrganizerHero(organizer, tournaments, access) {
       <aside class="sbw-organizer-hero-side" aria-label="Resumo do organizador">
         <article class="sbw-organizer-hero-metric"><span>Torneios ativos</span><strong>${openCount + runningCount}</strong></article>
         <article class="sbw-organizer-hero-metric"><span>Finalizados</span><strong>${finishedCount}</strong></article>
+        <article class="sbw-organizer-hero-metric"><span>Jogos/modalidades</span><strong>${uniqueGames.size || games.length || 0}</strong></article>
+        <article class="sbw-organizer-hero-metric"><span>Staff público</span><strong>${Array.isArray(sbwOrganizerPageState.members) ? sbwOrganizerPageState.members.length : 0}</strong></article>
         <article class="sbw-organizer-hero-metric"><span>Temporada atual</span><strong>Beta</strong></article>
+        <article class="sbw-organizer-hero-metric"><span>Total publicado</span><strong>${tournaments.length}</strong></article>
       </aside>
     </div>
   `;
