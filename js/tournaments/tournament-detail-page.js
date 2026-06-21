@@ -11,6 +11,56 @@ let sbwCurrentDetailParticipants = [];
 let sbwCurrentDetailRegistrationChecked = false;
 let sbwCurrentDetailRegistrationBusy = false;
 
+
+function sbwGetTournamentCoverData(tournament) {
+  const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+  const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+  const assets = metadata.tournamentAssets || metadata.tournament_assets || settings.tournamentAssets || settings.tournament_assets || {};
+  const cover = assets.cover || assets.banner || metadata.cover || settings.cover || {};
+  const coverUrl =
+    tournament?.coverUrl ||
+    tournament?.cover_url ||
+    tournament?.bannerUrl ||
+    tournament?.banner_url ||
+    tournament?.imageUrl ||
+    tournament?.image_url ||
+    cover.url ||
+    cover.publicUrl ||
+    cover.public_url ||
+    metadata.coverUrl ||
+    metadata.cover_url ||
+    settings.coverUrl ||
+    settings.cover_url ||
+    "";
+
+  const framing = cover.framing || cover.frame || cover.crop || cover.position || metadata.coverFrame || metadata.coverFraming || settings.coverFrame || {};
+  const zoom = Number(framing.zoom || framing.scale || cover.zoom || 100);
+  const x = Number(framing.x || framing.positionX || framing.horizontal || cover.x || 50);
+  const y = Number(framing.y || framing.positionY || framing.vertical || cover.y || 50);
+
+  return {
+    url: String(coverUrl || "").trim(),
+    zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 100,
+    x: Number.isFinite(x) ? x : 50,
+    y: Number.isFinite(y) ? y : 50
+  };
+}
+
+function sbwBuildTournamentHeroStyle(tournament) {
+  const cover = sbwGetTournamentCoverData(tournament);
+
+  if (!cover.url) {
+    return "";
+  }
+
+  const safeUrl = String(cover.url).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  const size = Math.max(100, Math.min(180, cover.zoom));
+  const x = Math.max(0, Math.min(100, cover.x));
+  const y = Math.max(0, Math.min(100, cover.y));
+
+  return ` style="--tournament-cover: url('${safeUrl}'); --tournament-cover-x: ${x}%; --tournament-cover-y: ${y}%; --tournament-cover-size: ${size}% auto; --tournament-cover-opacity: 0.88;"`;
+}
+
 function findTournamentById(tournamentId) {
   if (typeof sbwGetTournamentById === "function") {
     return sbwGetTournamentById(tournamentId);
@@ -99,7 +149,7 @@ function renderLoading() {
         <h2>Carregando torneio...</h2>
 
         <p>
-          Buscando informações do torneio na plataforma SaberWolf.
+          Buscando informações do torneio na plataforma -SBW-.
         </p>
       </div>
     </section>
@@ -2010,14 +2060,16 @@ async function handleTournamentRegistration(tournamentId) {
     root.innerHTML = `
       <div class="tournament-detail-page">
 
-        <section class="detail-hero">
+        <section class="detail-topbar" aria-label="Navegação do torneio">
+          <a href="torneios.html" class="detail-back-link">
+            <i class="fa-solid fa-arrow-left"></i>
+            Torneios
+          </a>
+        </section>
+
+        <section class="detail-hero"${sbwBuildTournamentHeroStyle(tournament)}>
 
           <div class="detail-hero-content">
-
-            <a href="torneios.html" class="detail-back-link">
-              <i class="fa-solid fa-arrow-left"></i>
-              Voltar para Torneios
-            </a>
 
             <div class="detail-hero-grid">
 

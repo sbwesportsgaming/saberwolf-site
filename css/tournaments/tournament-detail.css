@@ -1,0 +1,617 @@
+/*
+  -SBW- v1.6.62.1 — Página pública premium de Torneio.
+  Remove navegação superior legada e aplica o padrão visual com sidebar.
+*/
+.sbw-tournament-detail-body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.18), transparent 32rem),
+    radial-gradient(circle at 82% 8%, rgba(37, 99, 235, 0.14), transparent 34rem),
+    linear-gradient(180deg, #020711 0%, #03101f 44%, #020711 100%);
+  color: #f8fafc;
+}
+
+.sbw-tournament-detail-body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.024) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 78%);
+}
+
+.sbw-tournament-detail-root,
+.tournament-detail-page {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1520px);
+  margin: 0 auto;
+}
+
+.tournament-detail-page {
+  padding: 24px 28px 58px;
+  display: grid;
+  gap: 18px;
+}
+
+.detail-topbar {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-back-link {
+  min-height: 36px;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  background: rgba(2, 6, 23, 0.58);
+  color: #dff8ff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: inset 0 0 18px rgba(56, 189, 248, 0.04);
+  backdrop-filter: blur(14px);
+}
+
+.detail-back-link:hover,
+.detail-btn:hover,
+.detail-nav a:hover {
+  border-color: rgba(56, 189, 248, 0.62);
+  color: #ffffff;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.detail-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: clamp(330px, 33vw, 455px);
+  border-radius: 16px;
+  border: 1px solid rgba(56, 189, 248, 0.20);
+  background:
+    radial-gradient(circle at 16% 100%, rgba(56, 189, 248, 0.20), transparent 36rem),
+    linear-gradient(90deg, rgba(3, 7, 18, 0.98), rgba(3, 12, 25, 0.90) 50%, rgba(2, 6, 23, 0.96));
+  box-shadow:
+    0 24px 74px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.detail-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(90deg, rgba(2, 6, 23, 0.92) 0%, rgba(2, 6, 23, 0.64) 42%, rgba(2, 6, 23, 0.32) 68%, rgba(2, 6, 23, 0.88) 100%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.10), rgba(2, 6, 23, 0.76)),
+    var(--tournament-cover, url("../../assets/images/logo-sbw.png"));
+  background-position:
+    center,
+    center,
+    var(--tournament-cover-x, center) var(--tournament-cover-y, center);
+  background-size:
+    cover,
+    cover,
+    var(--tournament-cover-size, cover);
+  background-repeat: no-repeat;
+  opacity: var(--tournament-cover-opacity, 0.82);
+  filter: saturate(1.05) contrast(1.05);
+}
+
+.detail-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.70), transparent);
+  opacity: 0.52;
+}
+
+.detail-hero-content {
+  position: relative;
+  z-index: 2;
+  min-height: clamp(330px, 33vw, 455px);
+  display: grid;
+  align-items: end;
+  padding: 54px 30px 26px;
+}
+
+.detail-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.42fr) minmax(320px, 0.58fr);
+  gap: 26px;
+  align-items: end;
+}
+
+.detail-hero-main {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  align-content: end;
+}
+
+.detail-hero-main h2 {
+  max-width: 860px;
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(2.4rem, 5.6vw, 5.6rem);
+  line-height: 0.92;
+  letter-spacing: -0.075em;
+  text-shadow: 0 22px 48px rgba(0, 0, 0, 0.46);
+}
+
+.detail-hero-main p {
+  max-width: 780px;
+  margin: 0;
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 0.96rem;
+  line-height: 1.52;
+}
+
+.status-pill,
+.detail-hero-tags span {
+  min-height: 26px;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(2, 6, 23, 0.56);
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.status-pill.open {
+  border-color: rgba(34, 197, 94, 0.30);
+  background: rgba(34, 197, 94, 0.10);
+  color: #86efac;
+}
+
+.status-pill.running {
+  border-color: rgba(56, 189, 248, 0.34);
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+}
+
+.status-pill.finished,
+.status-pill.completed {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.09);
+  color: #bbf7d0;
+}
+
+.status-pill.draft {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.10);
+  color: #cbd5e1;
+}
+
+.detail-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-summary-card,
+.detail-card,
+.info-mini-card,
+.registration-card,
+.not-found-card,
+.participant-card,
+.match-row,
+.structure-card,
+.public-structure-card,
+.league-standings-table,
+.league-match-row,
+.public-final-placement-row {
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(8, 19, 36, 0.82), rgba(3, 8, 18, 0.74));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.20);
+  backdrop-filter: blur(16px);
+}
+
+.detail-summary-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+}
+
+.detail-summary-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-summary-item {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 11px;
+  border-radius: 11px;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  background: rgba(2, 6, 23, 0.36);
+}
+
+.detail-summary-item span,
+.info-mini-card span,
+.detail-section-header span,
+.structure-meta-grid b {
+  color: rgba(148, 163, 184, 0.94);
+  font-size: 0.66rem;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail-summary-item strong,
+.info-mini-card strong {
+  color: #f8fafc;
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.detail-btn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.30);
+  background: rgba(56, 189, 248, 0.12);
+  color: #dff8ff;
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.detail-btn.secondary {
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(2, 6, 23, 0.44);
+  color: rgba(226, 232, 240, 0.86);
+}
+
+.detail-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.detail-nav-section {
+  position: sticky;
+  top: 12px;
+  z-index: 8;
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(3, 8, 18, 0.94), rgba(3, 8, 18, 0.76));
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.detail-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px;
+}
+
+.detail-nav a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 0 13px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: rgba(226, 232, 240, 0.72);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.detail-nav a:first-child,
+.detail-nav a:hover {
+  border-color: rgba(56, 189, 248, 0.14);
+  background: rgba(56, 189, 248, 0.12);
+  color: #e0faff;
+}
+
+.detail-content {
+  display: grid;
+  gap: 18px;
+}
+
+.detail-section {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.detail-section-header {
+  display: grid;
+  gap: 5px;
+}
+
+.detail-section-header h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(1.35rem, 2.2vw, 2rem);
+  letter-spacing: -0.045em;
+}
+
+.stats-grid,
+.timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.info-mini-card,
+.detail-card,
+.registration-card,
+.not-found-card {
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.info-mini-card {
+  min-height: 78px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.detail-card p,
+.registration-card p,
+.not-found-card p {
+  margin: 0;
+  color: rgba(203, 213, 225, 0.78);
+  line-height: 1.6;
+}
+
+.participants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.participant-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.participant-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.participant-card strong {
+  color: #f8fafc;
+}
+
+.participant-card span {
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 0.8rem;
+}
+
+.participant-seed,
+.participant-status {
+  color: #7dd3fc !important;
+  font-weight: 900;
+}
+
+.registration-card {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+}
+
+.registration-card strong {
+  color: #f8fafc;
+  font-size: 1.06rem;
+}
+
+.not-found-state {
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+  padding: 80px 20px;
+}
+
+.not-found-card {
+  max-width: 640px;
+  text-align: center;
+}
+
+.not-found-card h2 {
+  margin: 0 0 8px;
+  color: #f8fafc;
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  letter-spacing: -0.06em;
+}
+
+.structure-meta-grid,
+.final-results-grid,
+.public-final-placements {
+  display: grid;
+  gap: 10px;
+}
+
+.structure-meta-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.structure-meta-grid span {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.10);
+  background: rgba(2, 6, 23, 0.36);
+  color: #f8fafc;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.public-final-placement-row {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px;
+  border-radius: 13px;
+}
+
+.public-final-placement-row strong {
+  color: #7dd3fc;
+  font-size: 0.78rem;
+}
+
+.public-final-placement-row em {
+  color: rgba(203, 213, 225, 0.70);
+  font-style: normal;
+}
+
+.match-row,
+.league-match-row {
+  border-radius: 12px;
+  padding: 12px;
+}
+
+@media (max-width: 1200px) {
+  .detail-hero-grid,
+  .stats-grid,
+  .timeline-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .tournament-detail-page {
+    padding: 78px 16px 44px;
+  }
+
+  .detail-hero,
+  .detail-hero-content {
+    min-height: 420px;
+  }
+
+  .detail-hero-content {
+    padding: 52px 18px 20px;
+  }
+
+  .detail-hero-grid,
+  .stats-grid,
+  .timeline-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-nav-section {
+    top: 0;
+    margin-inline: -16px;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .detail-hero-main h2 {
+    font-size: 2.45rem;
+  }
+
+  .detail-summary-card {
+    padding: 12px;
+  }
+
+  .participants-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+  -SBW- v1.6.62.2 — ajuste de respiro superior do detalhe do torneio.
+  O banner/hero sobe para ocupar melhor o espaço livre acima dele, mantendo o botão de voltar discreto.
+*/
+.tournament-detail-page {
+  padding-top: 12px;
+  gap: 14px;
+}
+
+.detail-topbar {
+  position: absolute;
+  top: 18px;
+  left: 28px;
+  right: 28px;
+  z-index: 5;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.detail-topbar .detail-back-link {
+  pointer-events: auto;
+  min-height: 34px;
+  background: rgba(2, 6, 23, 0.62);
+  border-color: rgba(226, 232, 240, 0.16);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(14px);
+}
+
+.detail-hero {
+  margin-top: 0;
+}
+
+.detail-hero-content {
+  padding-top: 70px;
+}
+
+@media (max-width: 980px) {
+  .tournament-detail-page {
+    padding-top: 76px;
+  }
+
+  .detail-topbar {
+    top: 76px;
+    left: 16px;
+    right: 16px;
+  }
+
+  .detail-hero-content {
+    padding-top: 64px;
+  }
+}

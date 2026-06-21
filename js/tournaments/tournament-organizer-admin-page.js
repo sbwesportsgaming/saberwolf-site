@@ -24,10 +24,34 @@ const sbwOrganizerSeasonEnd = document.getElementById("organizerSeasonEnd");
 const sbwOrganizerSeasonMessage = document.getElementById("organizerSeasonMessage");
 const sbwOrganizerEditorRankingPlayers = document.getElementById("organizerEditorRankingPlayers");
 const sbwOrganizerEditorRankingTeams = document.getElementById("organizerEditorRankingTeams");
+const sbwOrganizerTournamentEditForm = document.getElementById("organizerTournamentEditForm");
+const sbwOrganizerTournamentEditTitle = document.getElementById("organizerTournamentEditTitle");
+const sbwOrganizerTournamentEditId = document.getElementById("organizerTournamentEditId");
+const sbwOrganizerTournamentEditName = document.getElementById("organizerTournamentEditName");
+const sbwOrganizerTournamentEditGame = document.getElementById("organizerTournamentEditGame");
+const sbwOrganizerTournamentEditFormat = document.getElementById("organizerTournamentEditFormat");
+const sbwOrganizerTournamentEditStatus = document.getElementById("organizerTournamentEditStatus");
+const sbwOrganizerTournamentEditStartDate = document.getElementById("organizerTournamentEditStartDate");
+const sbwOrganizerTournamentEditStartTime = document.getElementById("organizerTournamentEditStartTime");
+const sbwOrganizerTournamentEditMax = document.getElementById("organizerTournamentEditMax");
+const sbwOrganizerTournamentEditCover = document.getElementById("organizerTournamentEditCover");
+const sbwOrganizerTournamentEditCoverManual = document.getElementById("organizerTournamentEditCoverManual");
+const sbwOrganizerTournamentCoverFile = document.getElementById("organizerTournamentCoverFile");
+const sbwOrganizerTournamentCoverPreview = document.getElementById("organizerTournamentCoverPreview");
+const sbwOrganizerTournamentCoverMessage = document.getElementById("organizerTournamentCoverMessage");
+const sbwOrganizerTournamentEditDescription = document.getElementById("organizerTournamentEditDescription");
+const sbwOrganizerTournamentEditRules = document.getElementById("organizerTournamentEditRules");
+const sbwOrganizerTournamentEditSave = document.getElementById("organizerTournamentEditSave");
+const sbwOrganizerTournamentEditCancel = document.getElementById("organizerTournamentEditCancel");
+const sbwOrganizerTournamentEditPublicLink = document.getElementById("organizerTournamentEditPublicLink");
+const sbwOrganizerTournamentEditManageLink = document.getElementById("organizerTournamentEditManageLink");
+const sbwOrganizerTournamentEditMessage = document.getElementById("organizerTournamentEditMessage");
 
 let sbwOrganizerEditorCurrent = null;
 let sbwOrganizerEditorSlug = "";
 let sbwOrganizerEditorIsNew = false;
+let sbwOrganizerEditorTournamentsCache = [];
+let sbwOrganizerEditorEditingTournament = null;
 
 const sbwOrganizerEditorAssetConfig = {
   bucket: "sbw-team-assets",
@@ -1223,10 +1247,385 @@ function sbwOrganizerEditorGetTournamentManageUrl(tournament) {
   return `create-tournament/criar-torneio.html${query ? `?${query}` : ""}`;
 }
 
+function sbwOrganizerEditorGetTournamentKey(tournament) {
+  return String(tournament?.supabaseId || tournament?.raw?.id || tournament?.id || tournament?.slug || "");
+}
+
+function sbwOrganizerEditorFormatInputDate(raw) {
+  if (!raw) return "";
+  const value = String(raw);
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function sbwOrganizerEditorFormatInputTime(raw) {
+  if (!raw) return "";
+  const value = String(raw);
+  const match = value.match(/T?(\d{2}:\d{2})/);
+  if (match) return match[1];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(11, 16);
+}
+
+function sbwOrganizerEditorGetTournamentAssets(tournament = sbwOrganizerEditorEditingTournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata || tournament?.raw?.metadata);
+  return sbwOrganizerEditorAsObject(
+    tournament?.tournamentAssets ||
+    metadata.tournamentAssets ||
+    metadata.tournament_assets ||
+    metadata.assets ||
+    {}
+  );
+}
+
+function sbwOrganizerEditorGetTournamentCoverFrame(tournament = sbwOrganizerEditorEditingTournament) {
+  const assets = sbwOrganizerEditorGetTournamentAssets(tournament);
+  const raw = sbwOrganizerEditorAsObject(assets.cover || assets.banner || assets.coverImage || {});
+  const nested = sbwOrganizerEditorAsObject(raw.frame || raw.framing || raw.crop || raw.position);
+  const source = Object.keys(nested).length ? { ...raw, ...nested } : raw;
+
+  return {
+    positionX: sbwOrganizerEditorClampNumber(source.positionX ?? source.x ?? source.objectPositionX, 0, 100, 50),
+    positionY: sbwOrganizerEditorClampNumber(source.positionY ?? source.y ?? source.objectPositionY, 0, 100, 50),
+    zoom: sbwOrganizerEditorClampNumber(source.zoom ?? source.scale ?? source.size, 100, 180, 100)
+  };
+}
+
+function sbwOrganizerEditorGetTournamentCoverFrameForm() {
+  const group = document.querySelector("[data-tournament-cover-frame-group]");
+  if (!group) return sbwOrganizerEditorGetTournamentCoverFrame();
+
+  return {
+    zoom: sbwOrganizerEditorClampNumber(group.querySelector('[data-tournament-cover-frame="zoom"]')?.value, 100, 180, 100),
+    positionX: sbwOrganizerEditorClampNumber(group.querySelector('[data-tournament-cover-frame="positionX"]')?.value, 0, 100, 50),
+    positionY: sbwOrganizerEditorClampNumber(group.querySelector('[data-tournament-cover-frame="positionY"]')?.value, 0, 100, 50)
+  };
+}
+
+function sbwOrganizerEditorSetTournamentCoverFrameForm(frame) {
+  const group = document.querySelector("[data-tournament-cover-frame-group]");
+  if (!group) return;
+
+  const safeFrame = {
+    zoom: sbwOrganizerEditorClampNumber(frame?.zoom, 100, 180, 100),
+    positionX: sbwOrganizerEditorClampNumber(frame?.positionX, 0, 100, 50),
+    positionY: sbwOrganizerEditorClampNumber(frame?.positionY, 0, 100, 50)
+  };
+
+  const zoomInput = group.querySelector('[data-tournament-cover-frame="zoom"]');
+  const xInput = group.querySelector('[data-tournament-cover-frame="positionX"]');
+  const yInput = group.querySelector('[data-tournament-cover-frame="positionY"]');
+
+  if (zoomInput) zoomInput.value = String(Math.round(safeFrame.zoom));
+  if (xInput) xInput.value = String(Math.round(safeFrame.positionX));
+  if (yInput) yInput.value = String(Math.round(safeFrame.positionY));
+
+  sbwOrganizerEditorUpdateTournamentCoverFrameOutputs(safeFrame);
+}
+
+function sbwOrganizerEditorUpdateTournamentCoverFrameOutputs(frame = sbwOrganizerEditorGetTournamentCoverFrameForm()) {
+  document.querySelectorAll('[data-tournament-cover-output="zoom"]').forEach((item) => { item.textContent = `${Math.round(frame.zoom)}%`; });
+  document.querySelectorAll('[data-tournament-cover-output="positionX"]').forEach((item) => { item.textContent = `${Math.round(frame.positionX)}%`; });
+  document.querySelectorAll('[data-tournament-cover-output="positionY"]').forEach((item) => { item.textContent = `${Math.round(frame.positionY)}%`; });
+}
+
+function sbwOrganizerEditorGetTournamentCoverFrameStyle(frame = sbwOrganizerEditorGetTournamentCoverFrameForm()) {
+  return [
+    `--org-tournament-cover-x:${frame.positionX}%`,
+    `--org-tournament-cover-y:${frame.positionY}%`,
+    `--org-tournament-cover-scale:${Math.max(1, frame.zoom / 100).toFixed(2)}`
+  ].join("; ");
+}
+
+function sbwOrganizerEditorApplyTournamentCoverPreview() {
+  if (!sbwOrganizerTournamentCoverPreview) return;
+
+  sbwOrganizerTournamentCoverPreview.setAttribute("style", sbwOrganizerEditorGetTournamentCoverFrameStyle());
+}
+
+function sbwOrganizerEditorSetTournamentCoverUrl(url) {
+  const safeUrl = String(url || "").trim();
+  if (sbwOrganizerTournamentEditCover) sbwOrganizerTournamentEditCover.value = safeUrl;
+  if (sbwOrganizerTournamentEditCoverManual) sbwOrganizerTournamentEditCoverManual.value = safeUrl;
+
+  if (sbwOrganizerTournamentCoverPreview) {
+    sbwOrganizerTournamentCoverPreview.classList.toggle("has-image", Boolean(safeUrl));
+    sbwOrganizerTournamentCoverPreview.innerHTML = safeUrl
+      ? `<img src="${sbwOrganizerEditorEscape(safeUrl)}" alt="Prévia da capa do torneio">`
+      : `<span>Prévia da capa</span>`;
+    sbwOrganizerEditorApplyTournamentCoverPreview();
+  }
+}
+
+function sbwOrganizerEditorSetTournamentCoverMessage(message, type = "") {
+  if (!sbwOrganizerTournamentCoverMessage) return;
+  sbwOrganizerTournamentCoverMessage.textContent = message || "";
+  sbwOrganizerTournamentCoverMessage.classList.remove("is-error", "is-success", "is-loading");
+  if (type) sbwOrganizerTournamentCoverMessage.classList.add(`is-${type}`);
+}
+
+function sbwOrganizerEditorGetSafeTournamentKey(tournament = sbwOrganizerEditorEditingTournament) {
+  const raw = sbwOrganizerEditorGetTournamentKey(tournament) || tournament?.slug || tournament?.title || tournament?.name || "torneio";
+  return String(raw || "torneio")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 80) || "torneio";
+}
+
+function sbwOrganizerEditorBuildTournamentCoverPath(file) {
+  const organizerKey = sbwOrganizerEditorGetSafeAssetOrganizerKey();
+  const tournamentKey = sbwOrganizerEditorGetSafeTournamentKey();
+  const extension = sbwOrganizerEditorGetFileExtension(file);
+  const randomSuffix = Math.random().toString(36).slice(2, 8);
+  return `tournaments/${organizerKey}/${tournamentKey}/cover/cover-${Date.now()}-${randomSuffix}.${extension}`;
+}
+
+async function sbwOrganizerEditorUploadTournamentCover(file) {
+  const validationMessage = sbwOrganizerEditorValidateAssetFile(file, "banner");
+  if (validationMessage) throw new Error(validationMessage);
+
+  const storageClient = sbwOrganizerEditorGetSupabaseStorageClient();
+  if (!storageClient) throw new Error("Supabase Storage indisponível nesta sessão.");
+
+  const path = sbwOrganizerEditorBuildTournamentCoverPath(file);
+  const bucket = storageClient.from(sbwOrganizerEditorAssetConfig.bucket);
+  const uploadResult = await bucket.upload(path, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false
+  });
+
+  if (uploadResult.error) throw uploadResult.error;
+
+  const publicUrl = bucket.getPublicUrl(path)?.data?.publicUrl || "";
+  if (!publicUrl) throw new Error("Upload concluído, mas não foi possível gerar a URL pública.");
+
+  return publicUrl;
+}
+
+function sbwOrganizerEditorBindTournamentCoverEditor() {
+  if (sbwOrganizerTournamentCoverFile && sbwOrganizerTournamentCoverFile.dataset.bound !== "true") {
+    sbwOrganizerTournamentCoverFile.dataset.bound = "true";
+    sbwOrganizerTournamentCoverFile.addEventListener("change", async () => {
+      const file = sbwOrganizerTournamentCoverFile.files?.[0] || null;
+      if (!file) return;
+
+      try {
+        sbwOrganizerEditorSetTournamentCoverMessage("Enviando capa do torneio...", "loading");
+        const publicUrl = await sbwOrganizerEditorUploadTournamentCover(file);
+        sbwOrganizerEditorSetTournamentCoverUrl(publicUrl);
+        sbwOrganizerEditorSetTournamentCoverMessage("Upload concluído. Clique em Salvar alterações para gravar no torneio.", "success");
+      } catch (error) {
+        console.error("[SBW Organizadores] Erro no upload da capa do torneio:", error);
+        sbwOrganizerEditorSetTournamentCoverMessage(error?.message || "Não foi possível enviar a capa.", "error");
+      } finally {
+        sbwOrganizerTournamentCoverFile.value = "";
+      }
+    });
+  }
+
+  if (sbwOrganizerTournamentEditCoverManual && sbwOrganizerTournamentEditCoverManual.dataset.bound !== "true") {
+    sbwOrganizerTournamentEditCoverManual.dataset.bound = "true";
+    sbwOrganizerTournamentEditCoverManual.addEventListener("change", () => {
+      sbwOrganizerEditorSetTournamentCoverUrl(sbwOrganizerTournamentEditCoverManual.value);
+      sbwOrganizerEditorSetTournamentCoverMessage("URL manual aplicada. Clique em Salvar alterações para gravar.", "success");
+    });
+  }
+
+  document.querySelectorAll("[data-tournament-cover-frame]").forEach((input) => {
+    if (input.dataset.boundTournamentCoverFrame === "true") return;
+    input.dataset.boundTournamentCoverFrame = "true";
+    input.addEventListener("input", () => {
+      const frame = sbwOrganizerEditorGetTournamentCoverFrameForm();
+      sbwOrganizerEditorUpdateTournamentCoverFrameOutputs(frame);
+      sbwOrganizerEditorApplyTournamentCoverPreview();
+    });
+  });
+}
+
+function sbwOrganizerEditorSetTournamentEditMessage(message, type = "") {
+  if (!sbwOrganizerTournamentEditMessage) return;
+  sbwOrganizerTournamentEditMessage.textContent = message || "";
+  sbwOrganizerTournamentEditMessage.classList.remove("is-error", "is-success", "is-loading");
+  if (type) sbwOrganizerTournamentEditMessage.classList.add(`is-${type}`);
+}
+
+function sbwOrganizerEditorHideTournamentEditForm() {
+  sbwOrganizerEditorEditingTournament = null;
+
+  if (sbwOrganizerTournamentEditForm) {
+    sbwOrganizerTournamentEditForm.hidden = true;
+  }
+
+  sbwOrganizerEditorSetTournamentEditMessage("");
+}
+
+function sbwOrganizerEditorOpenTournamentEditForm(tournament) {
+  if (!sbwOrganizerTournamentEditForm || !tournament) return;
+
+  const key = sbwOrganizerEditorGetTournamentKey(tournament);
+  sbwOrganizerEditorEditingTournament = tournament;
+
+  if (sbwOrganizerTournamentEditTitle) {
+    sbwOrganizerTournamentEditTitle.textContent = sbwOrganizerEditorGetTournamentTitle(tournament);
+  }
+
+  if (sbwOrganizerTournamentEditId) sbwOrganizerTournamentEditId.value = key;
+  if (sbwOrganizerTournamentEditName) sbwOrganizerTournamentEditName.value = sbwOrganizerEditorGetTournamentTitle(tournament);
+  if (sbwOrganizerTournamentEditGame) sbwOrganizerTournamentEditGame.value = sbwOrganizerEditorGetTournamentGame(tournament);
+  if (sbwOrganizerTournamentEditFormat) sbwOrganizerTournamentEditFormat.value = tournament?.format || tournament?.raw?.format || "double-elimination";
+  if (sbwOrganizerTournamentEditStatus) sbwOrganizerTournamentEditStatus.value = tournament?.status || tournament?.raw?.status || "draft";
+  if (sbwOrganizerTournamentEditStartDate) sbwOrganizerTournamentEditStartDate.value = sbwOrganizerEditorFormatInputDate(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.date);
+  if (sbwOrganizerTournamentEditStartTime) sbwOrganizerTournamentEditStartTime.value = sbwOrganizerEditorFormatInputTime(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.time);
+  if (sbwOrganizerTournamentEditMax) sbwOrganizerTournamentEditMax.value = tournament?.maxParticipants || tournament?.max_participants || tournament?.raw?.max_participants || "";
+  sbwOrganizerEditorSetTournamentCoverFrameForm(sbwOrganizerEditorGetTournamentCoverFrame(tournament));
+  sbwOrganizerEditorSetTournamentCoverUrl(tournament?.coverUrl || tournament?.cover_url || tournament?.raw?.cover_url || "");
+  sbwOrganizerEditorSetTournamentCoverMessage("");
+  if (sbwOrganizerTournamentEditDescription) sbwOrganizerTournamentEditDescription.value = tournament?.description || tournament?.raw?.description || "";
+  if (sbwOrganizerTournamentEditRules) sbwOrganizerTournamentEditRules.value = tournament?.rules || tournament?.raw?.rules || "";
+
+  if (sbwOrganizerTournamentEditPublicLink) {
+    sbwOrganizerTournamentEditPublicLink.href = sbwOrganizerEditorGetTournamentDetailUrl(tournament);
+  }
+
+  if (sbwOrganizerTournamentEditManageLink) {
+    sbwOrganizerTournamentEditManageLink.href = sbwOrganizerEditorGetTournamentManageUrl(tournament);
+  }
+
+  sbwOrganizerTournamentEditForm.hidden = false;
+  sbwOrganizerEditorSetTournamentEditMessage("Editando dados básicos deste torneio.");
+  sbwOrganizerTournamentEditForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function sbwOrganizerEditorBindTournamentEditor() {
+  sbwOrganizerEditorBindTournamentCoverEditor();
+
+  if (sbwOrganizerEditorTournamentsList && sbwOrganizerEditorTournamentsList.dataset.boundTournamentEdit !== "true") {
+    sbwOrganizerEditorTournamentsList.dataset.boundTournamentEdit = "true";
+
+    sbwOrganizerEditorTournamentsList.addEventListener("click", (event) => {
+      const button = event.target.closest?.("[data-organizer-tournament-edit]");
+      if (!button) return;
+
+      event.preventDefault();
+      const key = button.dataset.organizerTournamentEdit || "";
+      const tournament = sbwOrganizerEditorTournamentsCache.find((item) => {
+        return String(sbwOrganizerEditorGetTournamentKey(item)) === String(key)
+          || String(item?.slug || "") === String(key)
+          || String(item?.id || "") === String(key);
+      });
+
+      if (!tournament) {
+        sbwOrganizerEditorSetTournamentEditMessage("Torneio não encontrado na lista carregada.", "error");
+        return;
+      }
+
+      sbwOrganizerEditorOpenTournamentEditForm(tournament);
+    });
+  }
+
+  if (sbwOrganizerTournamentEditCancel && sbwOrganizerTournamentEditCancel.dataset.bound !== "true") {
+    sbwOrganizerTournamentEditCancel.dataset.bound = "true";
+    sbwOrganizerTournamentEditCancel.addEventListener("click", sbwOrganizerEditorHideTournamentEditForm);
+  }
+
+  if (sbwOrganizerTournamentEditForm && sbwOrganizerTournamentEditForm.dataset.bound !== "true") {
+    sbwOrganizerTournamentEditForm.dataset.bound = "true";
+
+    sbwOrganizerTournamentEditForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (!sbwOrganizerEditorEditingTournament) {
+        sbwOrganizerEditorSetTournamentEditMessage("Selecione um torneio para editar.", "error");
+        return;
+      }
+
+      if (typeof sbwUpdateTournamentForOrganizerAsync !== "function") {
+        sbwOrganizerEditorSetTournamentEditMessage("Função de edição do torneio não carregada.", "error");
+        return;
+      }
+
+      const title = String(sbwOrganizerTournamentEditName?.value || "").trim();
+      const game = String(sbwOrganizerTournamentEditGame?.value || "").trim();
+
+      if (!title) {
+        sbwOrganizerEditorSetTournamentEditMessage("Informe o nome do torneio.", "error");
+        return;
+      }
+
+      if (!game) {
+        sbwOrganizerEditorSetTournamentEditMessage("Informe o jogo do torneio.", "error");
+        return;
+      }
+
+      const startDate = sbwOrganizerTournamentEditStartDate?.value || "";
+      const startTime = sbwOrganizerTournamentEditStartTime?.value || "";
+      const startsAt = startDate
+        ? `${startDate}T${startTime || "00:00"}:00`
+        : "";
+
+      const tournamentId = sbwOrganizerTournamentEditId?.value || sbwOrganizerEditorGetTournamentKey(sbwOrganizerEditorEditingTournament);
+
+      try {
+        if (sbwOrganizerTournamentEditSave) sbwOrganizerTournamentEditSave.disabled = true;
+        sbwOrganizerEditorSetTournamentEditMessage("Salvando alterações do torneio...", "loading");
+
+        const result = await sbwUpdateTournamentForOrganizerAsync({
+          organizer: sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorCurrent?.id || sbwOrganizerEditorSlug,
+          tournamentId,
+          payload: {
+            title,
+            name: title,
+            gameName: game,
+            game_name: game,
+            format: sbwOrganizerTournamentEditFormat?.value || "double-elimination",
+            status: sbwOrganizerTournamentEditStatus?.value || "draft",
+            starts_at: startsAt,
+            max_participants: sbwOrganizerTournamentEditMax?.value || null,
+            cover_url: sbwOrganizerTournamentEditCover?.value || "",
+            description: sbwOrganizerTournamentEditDescription?.value || "",
+            rules: sbwOrganizerTournamentEditRules?.value || "",
+            tournamentAssets: {
+              cover: {
+                ...sbwOrganizerEditorGetTournamentCoverFrameForm(),
+                url: sbwOrganizerTournamentEditCover?.value || "",
+                updatedAt: new Date().toISOString()
+              }
+            }
+          }
+        });
+
+        const updated = result?.tournament || result?.data || result?.row || result;
+        sbwOrganizerEditorSetTournamentEditMessage("Torneio atualizado.", "success");
+
+        if (updated && typeof updated === "object") {
+          sbwOrganizerEditorEditingTournament = updated;
+        }
+
+        await sbwOrganizerEditorLoadTournaments();
+      } catch (error) {
+        console.error("[SBW Organizadores] Erro ao salvar torneio:", error);
+        sbwOrganizerEditorSetTournamentEditMessage(error?.message || "Não foi possível salvar o torneio.", "error");
+      } finally {
+        if (sbwOrganizerTournamentEditSave) sbwOrganizerTournamentEditSave.disabled = false;
+      }
+    });
+  }
+}
+
 async function sbwOrganizerEditorLoadTournaments() {
   if (!sbwOrganizerEditorTournamentsList) return;
 
+  sbwOrganizerEditorBindTournamentEditor();
+
   if (!sbwOrganizerEditorCurrent) {
+    sbwOrganizerEditorTournamentsCache = [];
     sbwOrganizerEditorTournamentsList.innerHTML = `<div class="organizer-admin-empty-row">Organizador ainda não carregado.</div>`;
     return;
   }
@@ -1239,6 +1638,7 @@ async function sbwOrganizerEditorLoadTournaments() {
       : [];
 
     const list = Array.isArray(tournaments) ? tournaments : [];
+    sbwOrganizerEditorTournamentsCache = list;
 
     if (!list.length) {
       sbwOrganizerEditorTournamentsList.innerHTML = `
@@ -1250,6 +1650,7 @@ async function sbwOrganizerEditorLoadTournaments() {
     }
 
     sbwOrganizerEditorTournamentsList.innerHTML = list.map((tournament) => {
+      const key = sbwOrganizerEditorGetTournamentKey(tournament);
       const status = typeof sbwGetStatusInfo === "function"
         ? sbwGetStatusInfo(tournament?.status)
         : { label: tournament?.status || "Ativo", className: "open" };
@@ -1267,6 +1668,7 @@ async function sbwOrganizerEditorLoadTournaments() {
           <span class="status-pill ${sbwOrganizerEditorEscape(status.className || "open")}">${sbwOrganizerEditorEscape(status.label || "Ativo")}</span>
           <div class="organizer-admin-tournament-actions">
             <a class="organizer-admin-small-link" href="${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentDetailUrl(tournament))}">Ver</a>
+            <button class="organizer-admin-small-link organizer-admin-small-link--button" type="button" data-organizer-tournament-edit="${sbwOrganizerEditorEscape(key)}">Editar</button>
             <a class="organizer-admin-small-link organizer-admin-small-link--primary" href="${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentManageUrl(tournament))}">Gerenciar</a>
           </div>
         </article>
@@ -1274,6 +1676,7 @@ async function sbwOrganizerEditorLoadTournaments() {
     }).join("");
   } catch (error) {
     console.error("[SBW Organizadores] Erro ao carregar torneios do painel:", error);
+    sbwOrganizerEditorTournamentsCache = [];
     sbwOrganizerEditorTournamentsList.innerHTML = `
       <div class="organizer-admin-empty-row">
         Não foi possível carregar os torneios desta organização agora.

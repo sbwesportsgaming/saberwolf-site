@@ -2422,6 +2422,48 @@ function sbwIsOpenForRegistration(tournament) {
   return true;
 }
 // =========================================================
+// v1.6.61 — Gestão real dos torneios pelo Organizador
+// =========================================================
+async function sbwUpdateTournamentForOrganizerAsync(options = {}) {
+  if (!sbwIsSupabaseEnabled()) {
+    throw new Error("Supabase não está habilitado para editar torneios do organizador.");
+  }
+
+  const organizerKey = options?.organizer || options?.organizerSlug || options?.organizerId || "";
+  const tournamentKey = options?.tournamentId || options?.tournament || options?.id || "";
+  const payload = options?.payload && typeof options.payload === "object" ? options.payload : {};
+
+  if (!organizerKey) {
+    throw new Error("Organizador não informado para editar o torneio.");
+  }
+
+  if (!tournamentKey) {
+    throw new Error("Torneio não informado para edição.");
+  }
+
+  const { data, error } = await window.SBWSupabase.client.rpc("sbw_update_tournament_for_organizer", {
+    p_organizer: organizerKey,
+    p_tournament: tournamentKey,
+    p_payload: payload
+  });
+
+  if (error) {
+    console.error("[SaberWolf Supabase] Erro ao atualizar torneio do organizador:", error);
+    throw error;
+  }
+
+  const result = data && typeof data === "object" ? data : {};
+  const row = result.tournament || result.row || result.data || result;
+
+  return {
+    ok: result.ok !== false,
+    message: result.message || "Torneio atualizado.",
+    tournament: row && typeof row === "object" ? sbwNormalizeSupabaseTournament(row) : row,
+    raw: data
+  };
+}
+
+// =========================================================
 // v1.6.60 — Staff real do Organizador
 // =========================================================
 function sbwNormalizeOrganizerStaffListResponse(data) {

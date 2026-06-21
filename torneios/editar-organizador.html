@@ -103,6 +103,139 @@
           <div id="organizerEditorTournamentsList" class="organizer-admin-tournament-list">
             <div class="organizer-admin-empty-row">Carregando torneios vinculados...</div>
           </div>
+
+          <form id="organizerTournamentEditForm" class="organizer-admin-tournament-edit-form" hidden>
+            <div class="organizer-admin-edit-form-head">
+              <div>
+                <span class="organizer-admin-eyebrow">Editar torneio</span>
+                <h3 id="organizerTournamentEditTitle">Dados do torneio</h3>
+              </div>
+              <button id="organizerTournamentEditCancel" class="organizer-admin-small-link" type="button">Fechar</button>
+            </div>
+
+            <input id="organizerTournamentEditId" type="hidden">
+
+            <div class="organizer-admin-tournament-edit-grid">
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditName">Nome do torneio</label>
+                <input id="organizerTournamentEditName" type="text" placeholder="Nome público do torneio" autocomplete="off">
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditGame">Jogo</label>
+                <input id="organizerTournamentEditGame" type="text" placeholder="Ex: Street Fighter 6" autocomplete="off">
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditFormat">Formato</label>
+                <select id="organizerTournamentEditFormat">
+                  <option value="double-elimination">Double Elimination</option>
+                  <option value="single-elimination">Single Elimination</option>
+                  <option value="groups-playoffs">Grupos + Playoffs</option>
+                  <option value="round-robin">Pontos corridos</option>
+                  <option value="league">Liga</option>
+                </select>
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditStatus">Status</label>
+                <select id="organizerTournamentEditStatus">
+                  <option value="draft">Rascunho</option>
+                  <option value="published">Publicado</option>
+                  <option value="registration-open">Inscrições abertas</option>
+                  <option value="scheduled">Agendado</option>
+                  <option value="in-progress">Em andamento</option>
+                  <option value="completed">Finalizado</option>
+                  <option value="cancelled">Cancelado</option>
+                  <option value="archived">Arquivado</option>
+                </select>
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditStartDate">Data</label>
+                <input id="organizerTournamentEditStartDate" type="date">
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditStartTime">Horário</label>
+                <input id="organizerTournamentEditStartTime" type="time">
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditMax">Limite de participantes</label>
+                <input id="organizerTournamentEditMax" type="number" min="2" step="1" placeholder="Ex: 32">
+              </div>
+
+              <div class="organizer-admin-field organizer-admin-field--wide">
+                <label>Capa/banner do torneio</label>
+                <input id="organizerTournamentEditCover" type="hidden">
+                <div class="organizer-admin-tournament-media-editor">
+                  <div id="organizerTournamentCoverPreview" class="organizer-admin-tournament-cover-preview" data-tournament-cover-preview>
+                    <span>Prévia da capa</span>
+                  </div>
+
+                  <div class="organizer-admin-tournament-media-controls">
+                    <span class="organizer-admin-eyebrow">Imagem do torneio</span>
+                    <strong>Banner/capa pública</strong>
+                    <p>Use upload de imagem para a capa do torneio. URL manual fica disponível apenas como opção avançada.</p>
+
+                    <label class="organizer-admin-upload-btn" for="organizerTournamentCoverFile">
+                      <i class="fa-regular fa-image"></i>
+                      Alterar capa
+                    </label>
+                    <input id="organizerTournamentCoverFile" class="organizer-admin-visually-hidden" type="file" accept="image/png,image/jpeg,image/webp">
+
+                    <div class="organizer-admin-tournament-frame-controls" data-tournament-cover-frame-group>
+                      <div class="organizer-admin-frame-control-head">
+                        <strong>Enquadramento</strong>
+                        <span>Ajuste antes de salvar.</span>
+                      </div>
+                      <label>
+                        Zoom <output data-tournament-cover-output="zoom">100%</output>
+                        <input data-tournament-cover-frame="zoom" type="range" min="100" max="180" value="100">
+                      </label>
+                      <label>
+                        Horizontal <output data-tournament-cover-output="positionX">50%</output>
+                        <input data-tournament-cover-frame="positionX" type="range" min="0" max="100" value="50">
+                      </label>
+                      <label>
+                        Vertical <output data-tournament-cover-output="positionY">50%</output>
+                        <input data-tournament-cover-frame="positionY" type="range" min="0" max="100" value="50">
+                      </label>
+                    </div>
+
+                    <details class="organizer-admin-manual-url">
+                      <summary>Usar URL manual</summary>
+                      <input id="organizerTournamentEditCoverManual" type="url" placeholder="https://...">
+                    </details>
+
+                    <div id="organizerTournamentCoverMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerTournamentEditDescription">Descrição</label>
+              <textarea id="organizerTournamentEditDescription" rows="4" placeholder="Resumo público do torneio"></textarea>
+            </div>
+
+            <div class="organizer-admin-field">
+              <label for="organizerTournamentEditRules">Regras</label>
+              <textarea id="organizerTournamentEditRules" rows="4" placeholder="Regras principais, formato, plataforma e observações"></textarea>
+            </div>
+
+            <div class="organizer-admin-edit-actions">
+              <button id="organizerTournamentEditSave" class="organizer-admin-action-btn organizer-admin-action-btn--cyan" type="submit">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Salvar alterações
+              </button>
+              <a id="organizerTournamentEditPublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
+              <a id="organizerTournamentEditManageLink" class="organizer-admin-small-link organizer-admin-small-link--primary" href="#">Gerenciamento avançado</a>
+            </div>
+
+            <div id="organizerTournamentEditMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+          </form>
         </article>
 
         <article id="organizerEditorRankings" class="organizer-admin-card organizer-admin-card--full" data-organizer-admin-panel="rankings" hidden>
