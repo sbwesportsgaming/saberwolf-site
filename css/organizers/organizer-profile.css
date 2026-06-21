@@ -2180,3 +2180,50 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/*
+  v1.6.59 — enquadramento de banner/logo do organizador.
+  Usa as mesmas ideias de Perfis/Equipes: posição e zoom persistidos em metadata.organizerAssets.
+*/
+.sbw-organizer-hero-cover {
+  --org-banner-x: 50%;
+  --org-banner-y: 50%;
+  --org-banner-scale: 1;
+}
+
+.sbw-organizer-hero-cover img {
+  object-position: var(--org-banner-x) var(--org-banner-y);
+  transform: scale(var(--org-banner-scale));
+  transform-origin: var(--org-banner-x) var(--org-banner-y);
+}
+
+.sbw-organizer-logo {
+  --org-logo-x: 50%;
+  --org-logo-y: 50%;
+  --org-logo-scale: 1;
+}
+
+.sbw-organizer-logo img {
+  object-position: var(--org-logo-x) var(--org-logo-y);
+  transform: scale(var(--org-logo-scale));
+  transform-origin: var(--org-logo-x) var(--org-logo-y);
+}
+
+/*
+  v1.6.59.3 — leitura mais fiel do enquadramento do banner no perfil público.
+  Mantém a imagem maior por padrão e aplica posição/zoom salvos em metadata.organizerAssets.
+*/
+.sbw-organizer-hero-cover {
+  overflow: hidden;
+}
+
+.sbw-organizer-hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--org-banner-x) var(--org-banner-y);
+  transform: scale(var(--org-banner-scale));
+  transform-origin: var(--org-banner-x) var(--org-banner-y);
+  will-change: transform;
+}

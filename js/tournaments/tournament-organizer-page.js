@@ -38,6 +38,62 @@ function sbwOrganizerNormalizeKey(value) {
     .toLowerCase();
 }
 
+
+function sbwOrganizerAsObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function sbwOrganizerClampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
+
+function sbwGetOrganizerAssetFrame(organizer, assetType) {
+  const metadata = sbwOrganizerAsObject(organizer?.metadata);
+  const assets = sbwOrganizerAsObject(
+    organizer?.organizerAssets ||
+    metadata.organizerAssets ||
+    metadata.organizer_assets ||
+    metadata.assetFrames
+  );
+  const raw = sbwOrganizerAsObject(assets[assetType] || assets[assetType === "logo" ? "avatar" : assetType]);
+  const nestedFrame = sbwOrganizerAsObject(raw.frame || raw.framing || raw.crop || raw.position);
+  const source = Object.keys(nestedFrame).length ? { ...raw, ...nestedFrame } : raw;
+  const defaultZoom = assetType === "banner" ? 112 : 100;
+  const defaultPositionY = assetType === "banner" ? 46 : 50;
+
+  return {
+    positionX: sbwOrganizerClampNumber(source.positionX ?? source.x ?? source.objectPositionX, 0, 100, 50),
+    positionY: sbwOrganizerClampNumber(source.positionY ?? source.y ?? source.objectPositionY, 0, 100, defaultPositionY),
+    zoom: sbwOrganizerClampNumber(source.zoom ?? source.scale ?? source.size, 100, assetType === "banner" ? 180 : 160, defaultZoom)
+  };
+}
+
+function sbwGetOrganizerAssetStyle(organizer, assetType) {
+  const frame = sbwGetOrganizerAssetFrame(organizer, assetType);
+
+  if (assetType === "banner") {
+    return [
+      `--org-banner-x:${frame.positionX}%`,
+      `--org-banner-y:${frame.positionY}%`,
+      `--org-banner-scale:${Math.max(1, frame.zoom / 100).toFixed(2)}`
+    ].join("; ");
+  }
+
+  return [
+    `--org-logo-x:${frame.positionX}%`,
+    `--org-logo-y:${frame.positionY}%`,
+    `--org-logo-scale:${Math.max(1, frame.zoom / 100).toFixed(2)}`
+  ].join("; ");
+}
+
+function sbwOrganizerStyleAttribute(value) {
+  const style = String(value || "").trim();
+  return style ? `style="${sbwOrganizerEscape(style)}"` : "";
+}
+
+
 function sbwGetOrganizerInitials(organizer) {
   return String(organizer?.tag || organizer?.name || organizer?.displayName || "ORG")
     .trim()
@@ -334,15 +390,17 @@ function sbwRenderOrganizerHero(organizer, tournaments, access) {
   const bannerHTML = organizer?.bannerUrl
     ? `<img src="${sbwOrganizerEscape(organizer.bannerUrl)}" alt="" aria-hidden="true">`
     : "";
+  const bannerFrameStyle = sbwGetOrganizerAssetStyle(organizer, "banner");
+  const logoFrameStyle = sbwGetOrganizerAssetStyle(organizer, "logo");
 
   sbwSetOrganizerTheme(organizer);
 
   sbwOrganizerHero.innerHTML = `
-    <div class="sbw-organizer-hero-cover">${bannerHTML}</div>
+    <div class="sbw-organizer-hero-cover" ${sbwOrganizerStyleAttribute(bannerFrameStyle)}>${bannerHTML}</div>
     <div class="sbw-organizer-hero-grid sbw-organizer-hero-grid--compact">
       <div class="sbw-organizer-identity">
         <div class="sbw-organizer-brand-row">
-          <div class="sbw-organizer-logo">${logoHTML}</div>
+          <div class="sbw-organizer-logo" ${sbwOrganizerStyleAttribute(logoFrameStyle)}>${logoHTML}</div>
           <div class="sbw-organizer-title-stack">
             <div class="sbw-organizer-badges">
               <span class="sbw-organizer-badge sbw-organizer-badge--primary">Organizador</span>

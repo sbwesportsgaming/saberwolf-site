@@ -12,6 +12,648 @@ let sbwOrganizerEditorCurrent = null;
 let sbwOrganizerEditorSlug = "";
 let sbwOrganizerEditorIsNew = false;
 
+const sbwOrganizerEditorAssetConfig = {
+  bucket: "sbw-team-assets",
+  allowedTypes: ["image/png", "image/jpeg", "image/webp"],
+  logoMaxBytes: 2 * 1024 * 1024,
+  bannerMaxBytes: 4 * 1024 * 1024
+};
+
+function sbwOrganizerEditorEscape(value) {
+  if (typeof sbwEscapeHTML === "function") {
+    return sbwEscapeHTML(value);
+  }
+
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function sbwOrganizerEditorAsObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function sbwOrganizerEditorClampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
+
+function sbwOrganizerEditorStyleAttribute(...parts) {
+  const value = parts.filter(Boolean).join(" ").trim();
+  return value ? `style="${sbwOrganizerEditorEscape(value)}"` : "";
+}
+
+function sbwOrganizerEditorGetAssetLabel(assetType) {
+  return assetType === "banner" ? "banner" : "logo";
+}
+
+function sbwOrganizerEditorGetAssetMaxBytes(assetType) {
+  return assetType === "banner"
+    ? sbwOrganizerEditorAssetConfig.bannerMaxBytes
+    : sbwOrganizerEditorAssetConfig.logoMaxBytes;
+}
+
+function sbwOrganizerEditorFormatBytes(bytes) {
+  const safeBytes = Number(bytes || 0);
+  if (safeBytes >= 1024 * 1024) {
+    return `${(safeBytes / (1024 * 1024)).toFixed(1).replace(".0", "")} MB`;
+  }
+
+  return `${Math.max(1, Math.round(safeBytes / 1024))} KB`;
+}
+
+function sbwOrganizerEditorGetFileExtension(file) {
+  const byName = String(file?.name || "").split(".").pop().toLowerCase();
+
+  if (["png", "jpg", "jpeg", "webp"].includes(byName)) {
+    return byName === "jpeg" ? "jpg" : byName;
+  }
+
+  if (file?.type === "image/png") return "png";
+  if (file?.type === "image/webp") return "webp";
+
+  return "jpg";
+}
+
+function sbwOrganizerEditorGetOrganizerAssets(organizer = sbwOrganizerEditorCurrent) {
+  const metadata = sbwOrganizerEditorAsObject(organizer?.metadata);
+  const assets =
+    organizer?.organizerAssets ||
+    metadata.organizerAssets ||
+    metadata.organizer_assets ||
+    metadata.assetFrames ||
+    {};
+
+  return sbwOrganizerEditorAsObject(assets);
+}
+
+function sbwOrganizerEditorGetAssetFrame(organizer, assetType) {
+  const assets = sbwOrganizerEditorGetOrganizerAssets(organizer);
+  const raw = sbwOrganizerEditorAsObject(
+    assets[assetType] ||
+    assets[assetType === "logo" ? "avatar" : assetType] ||
+    {}
+  );
+  const nestedFrame = sbwOrganizerEditorAsObject(raw.frame || raw.framing || raw.crop || raw.position);
+  const source = Object.keys(nestedFrame).length ? { ...raw, ...nestedFrame } : raw;
+
+  const defaultPositionY = assetType === "banner" ? 46 : 50;
+
+  return {
+    positionX: sbwOrganizerEditorClampNumber(source.positionX ?? source.x ?? source.objectPositionX, 0, 100, 50),
+    positionY: sbwOrganizerEditorClampNumber(source.positionY ?? source.y ?? source.objectPositionY, 0, 100, defaultPositionY),
+    zoom: sbwOrganizerEditorClampNumber(source.zoom ?? source.scale ?? source.size, 100, assetType === "banner" ? 180 : 160, 100)
+  };
+}
+
+function sbwOrganizerEditorGetAssetFrameStyle(organizer, assetType) {
+  const frame = sbwOrganizerEditorGetAssetFrame(organizer, assetType);
+
+  if (assetType === "banner") {
+    const scale = Math.max(1, frame.zoom / 100).toFixed(2);
+    return [
+      `--org-editor-banner-x:${frame.positionX}%`,
+      `--org-editor-banner-y:${frame.positionY}%`,
+      `--org-editor-banner-scale:${scale}`
+    ].join("; ");
+  }
+
+  return [
+    `--org-editor-logo-x:${frame.positionX}%`,
+    `--org-editor-logo-y:${frame.positionY}%`,
+    `--org-editor-logo-scale:${Math.max(1, frame.zoom / 100).toFixed(2)}`
+  ].join("; ");
+}
+
+function sbwOrganizerEditorGetAssetFrameForm(assetType) {
+  const controls = document.querySelector(`[data-organizer-asset-frame-group="${assetType}"]`);
+
+  if (!controls) {
+    return sbwOrganizerEditorGetAssetFrame(sbwOrganizerEditorCurrent, assetType);
+  }
+
+  const defaultPositionY = assetType === "banner" ? 46 : 50;
+
+  return {
+    positionX: sbwOrganizerEditorClampNumber(controls.querySelector(`[data-organizer-asset-frame="positionX"]`)?.value, 0, 100, 50),
+    positionY: sbwOrganizerEditorClampNumber(controls.querySelector(`[data-organizer-asset-frame="positionY"]`)?.value, 0, 100, defaultPositionY),
+    zoom: sbwOrganizerEditorClampNumber(controls.querySelector(`[data-organizer-asset-frame="zoom"]`)?.value, 100, assetType === "banner" ? 180 : 160, 100)
+  };
+}
+
+function sbwOrganizerEditorSetAssetFrameForm(assetType, frame) {
+  const controls = document.querySelector(`[data-organizer-asset-frame-group="${assetType}"]`);
+  if (!controls) return;
+
+  const safeFrame = {
+    positionX: sbwOrganizerEditorClampNumber(frame?.positionX, 0, 100, 50),
+    positionY: sbwOrganizerEditorClampNumber(frame?.positionY, 0, 100, 50),
+    zoom: sbwOrganizerEditorClampNumber(frame?.zoom, 100, assetType === "banner" ? 180 : 160, 100)
+  };
+
+  const xInput = controls.querySelector(`[data-organizer-asset-frame="positionX"]`);
+  const yInput = controls.querySelector(`[data-organizer-asset-frame="positionY"]`);
+  const zoomInput = controls.querySelector(`[data-organizer-asset-frame="zoom"]`);
+
+  if (xInput) xInput.value = String(Math.round(safeFrame.positionX));
+  if (yInput) yInput.value = String(Math.round(safeFrame.positionY));
+  if (zoomInput) zoomInput.value = String(Math.round(safeFrame.zoom));
+
+  sbwOrganizerEditorUpdateAssetFrameOutputs(assetType, safeFrame);
+}
+
+function sbwOrganizerEditorUpdateAssetFrameOutputs(assetType, frame) {
+  const controls = document.querySelector(`[data-organizer-asset-frame-group="${assetType}"]`);
+  if (!controls) return;
+
+  const zoomOutput = controls.querySelector(`[data-organizer-asset-frame-output="zoom"]`);
+  const xOutput = controls.querySelector(`[data-organizer-asset-frame-output="positionX"]`);
+  const yOutput = controls.querySelector(`[data-organizer-asset-frame-output="positionY"]`);
+
+  if (zoomOutput) zoomOutput.textContent = `${Math.round(frame.zoom)}%`;
+  if (xOutput) xOutput.textContent = `${Math.round(frame.positionX)}%`;
+  if (yOutput) yOutput.textContent = `${Math.round(frame.positionY)}%`;
+}
+
+function sbwOrganizerEditorSetAssetFeedback(assetType, message, status) {
+  document.querySelectorAll(`[data-organizer-asset-feedback="${assetType}"], [data-organizer-asset-frame-feedback="${assetType}"]`).forEach((feedback) => {
+    feedback.textContent = message || "";
+    feedback.classList.remove("is-error", "is-success", "is-loading");
+    if (status) feedback.classList.add(`is-${status}`);
+  });
+}
+
+function sbwOrganizerEditorSetAssetUploading(assetType, isUploading) {
+  document.querySelectorAll(`[data-organizer-asset-input="${assetType}"]`).forEach((input) => {
+    input.disabled = Boolean(isUploading);
+  });
+
+  document.querySelectorAll(`[data-organizer-asset-trigger="${assetType}"]`).forEach((label) => {
+    label.classList.toggle("is-uploading", Boolean(isUploading));
+    label.setAttribute("aria-busy", isUploading ? "true" : "false");
+  });
+}
+
+function sbwOrganizerEditorValidateAssetFile(file, assetType) {
+  if (!file) {
+    return `Selecione uma imagem para alterar o ${sbwOrganizerEditorGetAssetLabel(assetType)}.`;
+  }
+
+  if (!sbwOrganizerEditorAssetConfig.allowedTypes.includes(file.type)) {
+    return "Formato inválido. Use PNG, JPG ou WebP.";
+  }
+
+  const maxBytes = sbwOrganizerEditorGetAssetMaxBytes(assetType);
+  if (file.size > maxBytes) {
+    return `Arquivo muito grande. O limite para ${sbwOrganizerEditorGetAssetLabel(assetType)} é ${sbwOrganizerEditorFormatBytes(maxBytes)}.`;
+  }
+
+  return "";
+}
+
+function sbwOrganizerEditorGetSafeAssetOrganizerKey() {
+  const raw =
+    sbwOrganizerEditorCurrent?.slug ||
+    sbwOrganizerEditorCurrent?.id ||
+    sbwOrganizerEditorSlug ||
+    sbwOrganizerEditorGetField("organizerName")?.value ||
+    "organizer";
+
+  return String(raw || "organizer")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 80) || "organizer";
+}
+
+function sbwOrganizerEditorBuildAssetPath(file, assetType) {
+  const organizerKey = sbwOrganizerEditorGetSafeAssetOrganizerKey();
+  const extension = sbwOrganizerEditorGetFileExtension(file);
+  const randomSuffix = Math.random().toString(36).slice(2, 8);
+  return `organizers/${organizerKey}/${assetType}/${assetType}-${Date.now()}-${randomSuffix}.${extension}`;
+}
+
+function sbwOrganizerEditorGetSupabaseStorageClient() {
+  return window.SBWSupabase?.client?.storage || null;
+}
+
+async function sbwOrganizerEditorUploadAssetToSupabase(file, assetType) {
+  const storageClient = sbwOrganizerEditorGetSupabaseStorageClient();
+
+  if (!storageClient) {
+    throw new Error("Supabase Storage indisponível nesta sessão.");
+  }
+
+  const path = sbwOrganizerEditorBuildAssetPath(file, assetType);
+  const bucket = storageClient.from(sbwOrganizerEditorAssetConfig.bucket);
+  const uploadResult = await bucket.upload(path, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false
+  });
+
+  if (uploadResult.error) {
+    throw uploadResult.error;
+  }
+
+  const publicUrlResult = bucket.getPublicUrl(path);
+  const publicUrl = publicUrlResult?.data?.publicUrl || "";
+
+  if (!publicUrl) {
+    throw new Error("Upload concluído, mas não foi possível gerar a URL pública.");
+  }
+
+  return publicUrl;
+}
+
+function sbwOrganizerEditorGetAssetUrl(assetType) {
+  const fieldId = assetType === "banner" ? "organizerBannerUrl" : "organizerLogoUrl";
+  return sbwOrganizerEditorGetField(fieldId)?.value.trim() || "";
+}
+
+function sbwOrganizerEditorSetAssetUrl(assetType, value) {
+  const url = String(value || "").trim();
+  const hiddenId = assetType === "banner" ? "organizerBannerUrl" : "organizerLogoUrl";
+  const manualId = assetType === "banner" ? "organizerBannerUrlManual" : "organizerLogoUrlManual";
+  const hidden = sbwOrganizerEditorGetField(hiddenId);
+  const manual = sbwOrganizerEditorGetField(manualId);
+
+  if (hidden) hidden.value = url;
+  if (manual) manual.value = url;
+}
+
+function sbwOrganizerEditorBuildAssetMetadataPatch(assetType, extra = {}) {
+  const frame = sbwOrganizerEditorGetAssetFrameForm(assetType);
+  return {
+    [assetType]: {
+      ...frame,
+      ...extra,
+      updatedAt: new Date().toISOString()
+    }
+  };
+}
+
+async function sbwOrganizerEditorSaveMediaPatch(payload) {
+  const client = window.SBWSupabase?.client;
+
+  if (!client?.rpc) {
+    throw new Error("Sessão Supabase indisponível para salvar mídia do organizador.");
+  }
+
+  const organizerKey = sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorSlug || sbwOrganizerEditorCurrent?.id || "";
+
+  if (!organizerKey || sbwOrganizerEditorIsNew) {
+    throw new Error("Salve a organização uma vez antes de enviar ou enquadrar imagens.");
+  }
+
+  const result = await client.rpc("sbw_update_tournament_organizer_media", {
+    p_slug: organizerKey,
+    p_payload: payload
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const organizer = result.data?.organizer || result.data?.data || result.data || null;
+
+  if (organizer) {
+    const normalized = typeof sbwNormalizeSupabaseTournamentOrganizer === "function"
+      ? sbwNormalizeSupabaseTournamentOrganizer(organizer)
+      : organizer;
+
+    sbwOrganizerEditorCurrent = {
+      ...(sbwOrganizerEditorCurrent || {}),
+      ...(normalized || {})
+    };
+    sbwOrganizerEditorSlug = sbwOrganizerEditorCurrent.slug || sbwOrganizerEditorSlug;
+  }
+
+  return result.data;
+}
+
+async function sbwOrganizerEditorSaveAssetUrl(assetType, publicUrl) {
+  const urlKey = assetType === "banner" ? "bannerUrl" : "logoUrl";
+  const framePatch = sbwOrganizerEditorBuildAssetMetadataPatch(assetType, { url: publicUrl });
+
+  try {
+    await sbwOrganizerEditorSaveMediaPatch({
+      [urlKey]: publicUrl,
+      organizerAssets: framePatch
+    });
+  } catch (error) {
+    console.warn("[SBW Organizadores] RPC dedicada de mídia falhou, tentando salvar pelo formulário principal:", error);
+
+    if (typeof sbwUpdateTournamentOrganizerProfileAsync !== "function") {
+      throw error;
+    }
+
+    const fallbackResult = await sbwUpdateTournamentOrganizerProfileAsync(
+      sbwOrganizerEditorSlug || sbwOrganizerEditorCurrent?.slug,
+      sbwOrganizerEditorReadForm()
+    );
+
+    if (fallbackResult?.organizer) {
+      sbwOrganizerEditorCurrent = fallbackResult.organizer;
+      sbwOrganizerEditorSlug = fallbackResult.organizer.slug || sbwOrganizerEditorSlug;
+    }
+  }
+}
+
+async function sbwOrganizerEditorSaveAssetFrame(assetType) {
+  const framePatch = sbwOrganizerEditorBuildAssetMetadataPatch(assetType, {
+    url: sbwOrganizerEditorGetAssetUrl(assetType)
+  });
+
+  try {
+    sbwOrganizerEditorSetAssetFeedback(assetType, "Salvando enquadramento...", "loading");
+    await sbwOrganizerEditorSaveMediaPatch({ organizerAssets: framePatch });
+    sbwOrganizerEditorSetAssetFrameEditMode(assetType, false);
+    sbwOrganizerEditorSetAssetFeedback(assetType, "Enquadramento salvo.", "success");
+  } catch (error) {
+    console.error("[SBW Organizadores] Falha ao salvar enquadramento:", error);
+    sbwOrganizerEditorSetAssetFeedback(assetType, error?.message || "Não foi possível salvar o enquadramento.", "error");
+  }
+}
+
+function sbwOrganizerEditorApplyAssetFramePreview(assetType) {
+  const frame = sbwOrganizerEditorGetAssetFrameForm(assetType);
+  sbwOrganizerEditorUpdateAssetFrameOutputs(assetType, frame);
+
+  if (assetType === "banner") {
+    document.querySelectorAll(`[data-organizer-asset-preview="banner"], .organizer-admin-preview-cover`).forEach((element) => {
+      element.style.setProperty("--org-editor-banner-x", `${frame.positionX}%`);
+      element.style.setProperty("--org-editor-banner-y", `${frame.positionY}%`);
+      element.style.setProperty("--org-editor-banner-scale", Math.max(1, frame.zoom / 100).toFixed(2));
+    });
+    return;
+  }
+
+  document.querySelectorAll(`[data-organizer-asset-preview="logo"], .organizer-admin-preview-logo`).forEach((element) => {
+    element.style.setProperty("--org-editor-logo-x", `${frame.positionX}%`);
+    element.style.setProperty("--org-editor-logo-y", `${frame.positionY}%`);
+    element.style.setProperty("--org-editor-logo-scale", Math.max(1, frame.zoom / 100).toFixed(2));
+  });
+}
+
+function sbwOrganizerEditorRenderProfileMediaPreview() {
+  const bannerUrl = sbwOrganizerEditorGetAssetUrl("banner");
+  const logoUrl = sbwOrganizerEditorGetAssetUrl("logo");
+  const name = sbwOrganizerEditorGetField("organizerName")?.value.trim() || "Organizador";
+  const initials = sbwOrganizerEditorGetInitials({
+    name,
+    tag: sbwOrganizerEditorGetField("organizerTag")?.value.trim()
+  });
+
+  document.querySelectorAll(`[data-organizer-asset-preview="banner"]`).forEach((element) => {
+    element.classList.toggle("has-image", Boolean(bannerUrl));
+    element.innerHTML = bannerUrl
+      ? `<img src="${sbwOrganizerEditorEscape(bannerUrl)}" alt="Prévia do banner">`
+      : `<span>Prévia do banner</span>`;
+    element.setAttribute("style", sbwOrganizerEditorGetAssetFrameStyle(sbwOrganizerEditorCurrent, "banner"));
+  });
+
+  document.querySelectorAll(`[data-organizer-asset-preview="logo"]`).forEach((element) => {
+    element.classList.toggle("has-image", Boolean(logoUrl));
+    element.innerHTML = logoUrl
+      ? `<img src="${sbwOrganizerEditorEscape(logoUrl)}" alt="Logo ${sbwOrganizerEditorEscape(name)}">`
+      : `<span>${sbwOrganizerEditorEscape(initials)}</span>`;
+    element.setAttribute("style", sbwOrganizerEditorGetAssetFrameStyle(sbwOrganizerEditorCurrent, "logo"));
+  });
+
+  sbwOrganizerEditorApplyAssetFramePreview("banner");
+  sbwOrganizerEditorApplyAssetFramePreview("logo");
+}
+
+function sbwOrganizerEditorPreviewSelectedAsset(file, assetType) {
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+  sbwOrganizerEditorSetAssetUrl(assetType, url);
+
+  if (assetType === "banner") {
+    document.querySelectorAll(`[data-organizer-asset-preview="banner"]`).forEach((element) => {
+      element.classList.add("has-image");
+      element.innerHTML = `<img src="${url}" alt="Prévia do banner">`;
+    });
+  } else {
+    document.querySelectorAll(`[data-organizer-asset-preview="logo"]`).forEach((element) => {
+      element.classList.add("has-image");
+      element.innerHTML = `<img src="${url}" alt="Prévia da logo">`;
+    });
+  }
+
+  sbwOrganizerEditorApplyAssetFramePreview(assetType);
+}
+
+function sbwOrganizerEditorIsAssetFrameEditActive(assetType) {
+  const controls = document.querySelector(`[data-organizer-asset-frame-group="${assetType}"]`);
+  return controls?.dataset.organizerAssetFrameEditing === "true";
+}
+
+function sbwOrganizerEditorSetAssetFrameEditMode(assetType, isActive) {
+  const active = Boolean(isActive);
+  const label = assetType === "banner" ? "banner" : "logo";
+  const controls = document.querySelector(`[data-organizer-asset-frame-group="${assetType}"]`);
+
+  if (controls) {
+    controls.dataset.organizerAssetFrameEditing = active ? "true" : "false";
+    controls.classList.toggle("is-frame-editing", active);
+
+    controls.querySelectorAll("[data-organizer-asset-zoom], [data-organizer-asset-frame-save]").forEach((control) => {
+      control.disabled = !active;
+      control.setAttribute("aria-disabled", active ? "false" : "true");
+    });
+  }
+
+  document.querySelectorAll(`[data-organizer-asset-frame-toggle="${assetType}"]`).forEach((button) => {
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+    button.textContent = active ? `Bloquear enquadramento do ${label}` : `Editar enquadramento do ${label}`;
+    button.classList.toggle("is-active", active);
+  });
+
+  document.querySelectorAll(`[data-organizer-asset-drag-target="${assetType}"]`).forEach((element) => {
+    element.classList.toggle("is-frame-editing", active);
+  });
+}
+
+function sbwOrganizerEditorNudgeAssetZoom(assetType, direction) {
+  if (!sbwOrganizerEditorIsAssetFrameEditActive(assetType)) {
+    sbwOrganizerEditorSetAssetFeedback(assetType, "Ative a edição de enquadramento antes de alterar o zoom.", "loading");
+    return;
+  }
+
+  const frame = sbwOrganizerEditorGetAssetFrameForm(assetType);
+  const step = assetType === "banner" ? 5 : 4;
+  const next = {
+    ...frame,
+    zoom: sbwOrganizerEditorClampNumber(frame.zoom + direction * step, 100, assetType === "banner" ? 180 : 160, 100)
+  };
+
+  sbwOrganizerEditorSetAssetFrameForm(assetType, next);
+  sbwOrganizerEditorApplyAssetFramePreview(assetType);
+  sbwOrganizerEditorSetAssetFeedback(assetType, "Ajuste alterado. Clique em Salvar enquadramento para aplicar.", "loading");
+}
+
+function sbwOrganizerEditorBindAssetDragTarget(element) {
+  if (!element || element.dataset.organizerAssetDragReady === "true") return;
+
+  const assetType = element.dataset.organizerAssetDragTarget;
+  if (!assetType) return;
+
+  element.dataset.organizerAssetDragReady = "true";
+  element.setAttribute("role", "button");
+  element.setAttribute("tabindex", "0");
+
+  let drag = null;
+
+  const finishDrag = (event) => {
+    if (!drag) return;
+    const pointerId = drag.pointerId;
+    drag = null;
+    element.classList.remove("is-dragging");
+    try {
+      element.releasePointerCapture?.(event?.pointerId || pointerId);
+    } catch (error) {}
+  };
+
+  element.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (!sbwOrganizerEditorIsAssetFrameEditActive(assetType)) return;
+
+    const rect = element.getBoundingClientRect();
+    const frame = sbwOrganizerEditorGetAssetFrameForm(assetType);
+
+    drag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      frame,
+      sensitivity: {
+        x: assetType === "banner" ? 72 / Math.max(1, rect.width) : 90 / Math.max(1, rect.width),
+        y: assetType === "banner" ? 175 / Math.max(1, rect.height) : 90 / Math.max(1, rect.height)
+      }
+    };
+
+    element.classList.add("is-dragging");
+    element.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  });
+
+  element.addEventListener("pointermove", (event) => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const next = {
+      ...drag.frame,
+      positionX: sbwOrganizerEditorClampNumber(drag.frame.positionX - (event.clientX - drag.startX) * drag.sensitivity.x, 0, 100, 50),
+      positionY: sbwOrganizerEditorClampNumber(drag.frame.positionY - (event.clientY - drag.startY) * drag.sensitivity.y, 0, 100, 50)
+    };
+
+    sbwOrganizerEditorSetAssetFrameForm(assetType, next);
+    sbwOrganizerEditorApplyAssetFramePreview(assetType);
+    sbwOrganizerEditorSetAssetFeedback(assetType, "Ajuste alterado. Clique em Salvar enquadramento para aplicar.", "loading");
+    event.preventDefault();
+  });
+
+  element.addEventListener("pointerup", finishDrag);
+  element.addEventListener("pointercancel", finishDrag);
+  element.addEventListener("lostpointercapture", finishDrag);
+}
+
+function sbwOrganizerEditorBindAssetControls() {
+  document.querySelectorAll("[data-organizer-asset-input]").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const assetType = input.dataset.organizerAssetInput;
+      const file = input.files?.[0] || null;
+      const validationError = sbwOrganizerEditorValidateAssetFile(file, assetType);
+
+      if (validationError) {
+        sbwOrganizerEditorSetAssetFeedback(assetType, validationError, "error");
+        input.value = "";
+        return;
+      }
+
+      if (sbwOrganizerEditorIsNew || !sbwOrganizerEditorSlug) {
+        sbwOrganizerEditorSetAssetFeedback(assetType, "Salve a organização antes de enviar imagens.", "error");
+        input.value = "";
+        return;
+      }
+
+      sbwOrganizerEditorSetAssetUploading(assetType, true);
+      sbwOrganizerEditorSetAssetFeedback(assetType, `Enviando ${sbwOrganizerEditorGetAssetLabel(assetType)}...`, "loading");
+      sbwOrganizerEditorPreviewSelectedAsset(file, assetType);
+
+      try {
+        const publicUrl = await sbwOrganizerEditorUploadAssetToSupabase(file, assetType);
+        sbwOrganizerEditorSetAssetUrl(assetType, publicUrl);
+        sbwOrganizerEditorSetAssetFeedback(assetType, "Upload concluído. Salvando no organizador...", "loading");
+        await sbwOrganizerEditorSaveAssetUrl(assetType, publicUrl);
+        sbwOrganizerEditorSetAssetFrameForm(assetType, sbwOrganizerEditorGetAssetFrame(sbwOrganizerEditorCurrent, assetType));
+        sbwOrganizerEditorRenderProfileMediaPreview();
+        sbwOrganizerEditorRenderPreview();
+        sbwOrganizerEditorSetAssetFeedback(assetType, `${sbwOrganizerEditorGetAssetLabel(assetType).replace(/^./, (letter) => letter.toUpperCase())} atualizado.`, "success");
+      } catch (error) {
+        console.error(`[SBW Organizadores] Falha ao enviar ${assetType}:`, error);
+        sbwOrganizerEditorSetAssetFeedback(assetType, error?.message || "Não foi possível enviar a imagem.", "error");
+      } finally {
+        sbwOrganizerEditorSetAssetUploading(assetType, false);
+        input.value = "";
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-organizer-asset-url-input]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const assetType = input.dataset.organizerAssetUrlInput;
+      sbwOrganizerEditorSetAssetUrl(assetType, input.value);
+      sbwOrganizerEditorRenderProfileMediaPreview();
+      sbwOrganizerEditorRenderPreview();
+    });
+
+    input.addEventListener("change", () => {
+      const assetType = input.dataset.organizerAssetUrlInput;
+      sbwOrganizerEditorSetAssetUrl(assetType, input.value);
+      sbwOrganizerEditorRenderProfileMediaPreview();
+      sbwOrganizerEditorRenderPreview();
+    });
+  });
+
+  document.querySelectorAll("[data-organizer-asset-zoom]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const direction = button.dataset.organizerAssetZoom === "in" ? 1 : -1;
+      sbwOrganizerEditorNudgeAssetZoom(button.dataset.organizerAssetType, direction);
+    });
+  });
+
+  document.querySelectorAll("[data-organizer-asset-frame-save]").forEach((button) => {
+    button.addEventListener("click", () => {
+      sbwOrganizerEditorSaveAssetFrame(button.dataset.organizerAssetFrameSave);
+    });
+  });
+
+  document.querySelectorAll("[data-organizer-asset-frame-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const assetType = button.dataset.organizerAssetFrameToggle;
+      sbwOrganizerEditorSetAssetFrameEditMode(assetType, !sbwOrganizerEditorIsAssetFrameEditActive(assetType));
+    });
+  });
+
+  document.querySelectorAll("[data-organizer-asset-drag-target]").forEach((element) => {
+    sbwOrganizerEditorBindAssetDragTarget(element);
+  });
+
+  ["banner", "logo"].forEach((assetType) => {
+    sbwOrganizerEditorSetAssetFrameEditMode(assetType, false);
+  });
+}
+
+
 function sbwOrganizerEditorGetField(id) {
   return document.getElementById(id);
 }
@@ -269,6 +911,17 @@ function sbwOrganizerEditorReadForm() {
       youtube: sbwOrganizerEditorGetField("organizerYoutube")?.value.trim() || "",
       twitch: sbwOrganizerEditorGetField("organizerTwitch")?.value.trim() || "",
       x: sbwOrganizerEditorGetField("organizerX")?.value.trim() || ""
+    },
+    organizerAssets: {
+      ...sbwOrganizerEditorGetOrganizerAssets(sbwOrganizerEditorCurrent),
+      banner: {
+        ...sbwOrganizerEditorGetAssetFrameForm("banner"),
+        url: sbwOrganizerEditorGetAssetUrl("banner")
+      },
+      logo: {
+        ...sbwOrganizerEditorGetAssetFrameForm("logo"),
+        url: sbwOrganizerEditorGetAssetUrl("logo")
+      }
     }
   };
 }
@@ -284,8 +937,11 @@ function sbwOrganizerEditorHydrateForm(organizer) {
   sbwOrganizerEditorGetField("organizerDescription").value = organizer?.description || "";
   sbwOrganizerEditorGetField("organizerGames").value = sbwOrganizerEditorJoinList(organizer?.games);
   sbwOrganizerEditorGetField("organizerAliases").value = sbwOrganizerEditorJoinList(organizer?.aliases);
-  sbwOrganizerEditorGetField("organizerBannerUrl").value = organizer?.bannerUrl || "";
-  sbwOrganizerEditorGetField("organizerLogoUrl").value = organizer?.logoUrl || "";
+  sbwOrganizerEditorSetAssetUrl("banner", organizer?.bannerUrl || "");
+  sbwOrganizerEditorSetAssetUrl("logo", organizer?.logoUrl || "");
+  sbwOrganizerEditorSetAssetFrameForm("banner", sbwOrganizerEditorGetAssetFrame(organizer, "banner"));
+  sbwOrganizerEditorSetAssetFrameForm("logo", sbwOrganizerEditorGetAssetFrame(organizer, "logo"));
+  sbwOrganizerEditorRenderProfileMediaPreview();
   sbwOrganizerEditorGetField("organizerThemePrimary").value = theme.primary || "#38bdf8";
   sbwOrganizerEditorGetField("organizerThemeSecondary").value = theme.secondary || "#7c3cff";
   sbwOrganizerEditorGetField("organizerThemeAccent").value = theme.accent || "#facc15";
@@ -317,19 +973,21 @@ function sbwOrganizerEditorRenderPreview() {
     ? `<img src="${sbwEscapeHTML(formData.logoUrl)}" alt="Logo ${sbwEscapeHTML(name)}">`
     : `<span>${sbwEscapeHTML(initials)}</span>`;
   const bannerHTML = formData.bannerUrl
-    ? `<img src="${sbwEscapeHTML(formData.bannerUrl)}" alt="" aria-hidden="true">`
+    ? `<img src="${sbwOrganizerEditorEscape(formData.bannerUrl)}" alt="" aria-hidden="true">`
     : "";
+  const bannerFrameStyle = sbwOrganizerEditorGetAssetFrameStyle(previewOrganizer, "banner");
+  const logoFrameStyle = sbwOrganizerEditorGetAssetFrameStyle(previewOrganizer, "logo");
   const activeLinks = Object.entries(formData.links || {}).filter(([, value]) => Boolean(value));
 
   sbwOrganizerPreview.setAttribute("style", themeStyle);
   sbwOrganizerPreview.innerHTML = `
-    <div class="organizer-admin-preview-cover">
+    <div class="organizer-admin-preview-cover" ${sbwOrganizerEditorStyleAttribute(bannerFrameStyle)}>
       ${bannerHTML}
     </div>
 
     <div class="organizer-admin-preview-body">
       <div class="organizer-admin-preview-head">
-        <div class="organizer-admin-preview-logo">
+        <div class="organizer-admin-preview-logo" ${sbwOrganizerEditorStyleAttribute(logoFrameStyle)}>
           ${logoHTML}
         </div>
 
@@ -542,6 +1200,7 @@ async function sbwOrganizerEditorLoad() {
 
     sbwOrganizerEditorHydrateForm(sbwOrganizerEditorCurrent);
     sbwOrganizerEditorBindPreviewEvents();
+    sbwOrganizerEditorBindAssetControls();
     sbwOrganizerEditorBindSave();
     sbwOrganizerEditorBindReset();
     sbwOrganizerEditorRenderPreview();
@@ -606,6 +1265,7 @@ async function sbwOrganizerEditorLoad() {
 
   sbwOrganizerEditorHydrateForm(organizer);
   sbwOrganizerEditorBindPreviewEvents();
+  sbwOrganizerEditorBindAssetControls();
   sbwOrganizerEditorBindSave();
   sbwOrganizerEditorBindReset();
   sbwOrganizerEditorRenderPreview();

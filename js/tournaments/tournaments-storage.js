@@ -544,6 +544,13 @@ function sbwNormalizeSupabaseTournamentOrganizer(row) {
       metadata.type ||
       "Organizador de torneios",
     theme,
+    metadata,
+    organizerAssets: (
+      metadata.organizerAssets ||
+      metadata.organizer_assets ||
+      metadata.assetFrames ||
+      {}
+    ),
     source: "supabase",
     raw: row
   };
@@ -690,7 +697,16 @@ function sbwBuildTournamentOrganizerPayload(organizer = {}) {
     logoUrl: String(organizer.logoUrl || organizer.logo_url || "").trim(),
     bannerUrl: String(organizer.bannerUrl || organizer.banner_url || "").trim(),
     links: sbwNormalizeOrganizerLinks(links),
-    theme: sbwNormalizeTournamentOrganizerTheme(theme)
+    theme: sbwNormalizeTournamentOrganizerTheme(theme),
+    organizerAssets: organizer.organizerAssets && typeof organizer.organizerAssets === "object"
+      ? organizer.organizerAssets
+      : {},
+    metadata: {
+      ...(organizer.metadata && typeof organizer.metadata === "object" ? organizer.metadata : {}),
+      organizerAssets: organizer.organizerAssets && typeof organizer.organizerAssets === "object"
+        ? organizer.organizerAssets
+        : ((organizer.metadata && typeof organizer.metadata === "object" && organizer.metadata.organizerAssets) || {})
+    }
   };
 }
 

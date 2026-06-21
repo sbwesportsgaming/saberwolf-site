@@ -252,18 +252,133 @@
               </div>
             </fieldset>
 
-            <fieldset class="organizer-admin-fieldset">
-              <legend>Imagens</legend>
-              <small>Use URLs de imagem para banner e logo nesta etapa. Upload direto via Supabase Storage fica para uma próxima fase.</small>
+            <fieldset class="organizer-admin-fieldset organizer-admin-fieldset--profile-media">
+              <legend>Configuração de perfil</legend>
+              <small>Configure o banner e a logo do organizador com upload, prévia e enquadramento, no mesmo padrão usado em perfis e equipes.</small>
 
-              <div class="organizer-admin-field">
-                <label for="organizerBannerUrl">URL do banner</label>
-                <input id="organizerBannerUrl" name="bannerUrl" type="url" placeholder="https://.../banner.png">
-              </div>
+              <input id="organizerBannerUrl" name="bannerUrl" type="hidden">
+              <input id="organizerLogoUrl" name="logoUrl" type="hidden">
 
-              <div class="organizer-admin-field">
-                <label for="organizerLogoUrl">URL da logo/avatar</label>
-                <input id="organizerLogoUrl" name="logoUrl" type="url" placeholder="https://.../logo.png">
+              <div id="organizerProfileMediaEditor" class="organizer-media-editor" aria-label="Configuração visual do perfil do organizador">
+                <div class="organizer-media-item organizer-media-item--banner">
+                  <div class="organizer-media-preview organizer-media-preview--banner" data-organizer-asset-preview="banner" data-organizer-asset-drag-target="banner">
+                    <span>Prévia do banner</span>
+                  </div>
+
+                  <div class="organizer-media-body">
+                    <span>Imagem de capa</span>
+                    <strong>Banner do organizador</strong>
+                    <p>O banner aparece no perfil público, painel interno e cards da organização.</p>
+                    <small>Recomendado: imagem horizontal · PNG, JPG ou WebP · até 4 MB.</small>
+
+                    <label class="organizer-admin-btn primary organizer-media-upload-trigger" data-organizer-asset-trigger="banner">
+                      <input type="file" accept="image/png,image/jpeg,image/webp" data-organizer-asset-input="banner">
+                      <span>Alterar banner</span>
+                    </label>
+
+                    <small class="organizer-media-feedback" data-organizer-asset-feedback="banner"></small>
+
+                    <div class="organizer-frame-controls" data-organizer-asset-frame-group="banner">
+                      <div class="organizer-frame-controls__head">
+                        <strong>Enquadramento do banner</strong>
+                        <span>Ative a edição para reposicionar a imagem.</span>
+                      </div>
+
+                      <input type="hidden" value="100" data-organizer-asset-frame="zoom" data-organizer-asset-type="banner">
+                      <input type="hidden" value="50" data-organizer-asset-frame="positionX" data-organizer-asset-type="banner">
+                      <input type="hidden" value="50" data-organizer-asset-frame="positionY" data-organizer-asset-type="banner">
+
+                      <button class="organizer-admin-btn ghost organizer-frame-edit-toggle" type="button" data-organizer-asset-frame-toggle="banner" aria-pressed="false">
+                        Editar enquadramento do banner
+                      </button>
+
+                      <div class="organizer-frame-zoom-row">
+                        <button class="organizer-frame-zoom" type="button" data-organizer-asset-zoom="out" data-organizer-asset-type="banner" aria-label="Diminuir zoom">−</button>
+                        <span>Zoom <output data-organizer-asset-frame-output="zoom">100%</output></span>
+                        <button class="organizer-frame-zoom" type="button" data-organizer-asset-zoom="in" data-organizer-asset-type="banner" aria-label="Aumentar zoom">+</button>
+                      </div>
+
+                      <div class="organizer-frame-position-readout">
+                        <span>Horizontal <output data-organizer-asset-frame-output="positionX">50%</output></span>
+                        <span>Vertical <output data-organizer-asset-frame-output="positionY">50%</output></span>
+                      </div>
+
+                      <button class="organizer-admin-btn ghost organizer-frame-save" type="button" data-organizer-asset-frame-save="banner">
+                        Salvar enquadramento
+                      </button>
+
+                      <small class="organizer-media-feedback" data-organizer-asset-frame-feedback="banner"></small>
+                    </div>
+
+                    <details class="organizer-media-url-fallback">
+                      <summary>Usar URL manual</summary>
+                      <div class="organizer-admin-field">
+                        <label for="organizerBannerUrlManual">URL pública do banner</label>
+                        <input id="organizerBannerUrlManual" type="url" placeholder="https://.../banner.png" data-organizer-asset-url-input="banner">
+                      </div>
+                    </details>
+                  </div>
+                </div>
+
+                <div class="organizer-media-item organizer-media-item--logo">
+                  <div class="organizer-media-logo" data-organizer-asset-preview="logo" data-organizer-asset-drag-target="logo">
+                    <span>ORG</span>
+                  </div>
+
+                  <div class="organizer-media-body">
+                    <span>Imagem principal</span>
+                    <strong>Logo do organizador</strong>
+                    <p>A logo aparece no banner do organizador, no perfil público, painel interno e cards.</p>
+                    <small>Recomendado: imagem quadrada · PNG, JPG ou WebP · até 2 MB.</small>
+
+                    <label class="organizer-admin-btn primary organizer-media-upload-trigger" data-organizer-asset-trigger="logo">
+                      <input type="file" accept="image/png,image/jpeg,image/webp" data-organizer-asset-input="logo">
+                      <span>Alterar logo</span>
+                    </label>
+
+                    <small class="organizer-media-feedback" data-organizer-asset-feedback="logo"></small>
+
+                    <div class="organizer-frame-controls" data-organizer-asset-frame-group="logo">
+                      <div class="organizer-frame-controls__head">
+                        <strong>Enquadramento da logo</strong>
+                        <span>Ative a edição para reposicionar a imagem.</span>
+                      </div>
+
+                      <input type="hidden" value="100" data-organizer-asset-frame="zoom" data-organizer-asset-type="logo">
+                      <input type="hidden" value="50" data-organizer-asset-frame="positionX" data-organizer-asset-type="logo">
+                      <input type="hidden" value="50" data-organizer-asset-frame="positionY" data-organizer-asset-type="logo">
+
+                      <button class="organizer-admin-btn ghost organizer-frame-edit-toggle" type="button" data-organizer-asset-frame-toggle="logo" aria-pressed="false">
+                        Editar enquadramento da logo
+                      </button>
+
+                      <div class="organizer-frame-zoom-row">
+                        <button class="organizer-frame-zoom" type="button" data-organizer-asset-zoom="out" data-organizer-asset-type="logo" aria-label="Diminuir zoom">−</button>
+                        <span>Zoom <output data-organizer-asset-frame-output="zoom">100%</output></span>
+                        <button class="organizer-frame-zoom" type="button" data-organizer-asset-zoom="in" data-organizer-asset-type="logo" aria-label="Aumentar zoom">+</button>
+                      </div>
+
+                      <div class="organizer-frame-position-readout">
+                        <span>Horizontal <output data-organizer-asset-frame-output="positionX">50%</output></span>
+                        <span>Vertical <output data-organizer-asset-frame-output="positionY">50%</output></span>
+                      </div>
+
+                      <button class="organizer-admin-btn ghost organizer-frame-save" type="button" data-organizer-asset-frame-save="logo">
+                        Salvar enquadramento
+                      </button>
+
+                      <small class="organizer-media-feedback" data-organizer-asset-frame-feedback="logo"></small>
+                    </div>
+
+                    <details class="organizer-media-url-fallback">
+                      <summary>Usar URL manual</summary>
+                      <div class="organizer-admin-field">
+                        <label for="organizerLogoUrlManual">URL pública da logo</label>
+                        <input id="organizerLogoUrlManual" type="url" placeholder="https://.../logo.png" data-organizer-asset-url-input="logo">
+                      </div>
+                    </details>
+                  </div>
+                </div>
               </div>
             </fieldset>
 
@@ -370,7 +485,7 @@
   <script src="../js/tournaments/tournaments-utils.js"></script>
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournaments-storage.js"></script>
-  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.58"></script>
+  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.59"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
