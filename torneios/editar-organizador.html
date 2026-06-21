@@ -60,20 +60,20 @@
       </section>
 
       <nav class="organizer-admin-tabbar" aria-label="Áreas internas do organizador">
-        <button class="is-active" type="button"><i class="fa-regular fa-shield"></i> Visão Geral</button>
-        <a href="#organizerEditorTournaments"><i class="fa-solid fa-trophy"></i> Torneios</a>
-        <a href="#organizerEditorSeasons"><i class="fa-solid fa-medal"></i> Temporadas</a>
-        <a href="#organizerEditorRankings"><i class="fa-solid fa-chart-simple"></i> Rankings</a>
-        <a href="#organizerEditorStaff"><i class="fa-solid fa-users-gear"></i> Staff</a>
+        <button class="is-active" type="button" data-organizer-admin-view="overview"><i class="fa-regular fa-shield"></i> Visão Geral</button>
+        <a href="#organizerEditorTournaments" data-organizer-admin-view="tournaments"><i class="fa-solid fa-trophy"></i> Torneios</a>
+        <a href="#organizerEditorSeasons" data-organizer-admin-view="seasons"><i class="fa-solid fa-medal"></i> Temporadas</a>
+        <a href="#organizerEditorRankings" data-organizer-admin-view="rankings"><i class="fa-solid fa-chart-simple"></i> Rankings</a>
+        <a href="#organizerEditorStaff" data-organizer-admin-view="staff"><i class="fa-solid fa-users-gear"></i> Staff</a>
         <a id="organizerCreateTournament" class="organizer-admin-tab-action organizer-admin-tab-action--create" href="create-tournament/criar-torneio.html" hidden>
           <i class="fa-regular fa-square-plus"></i>
           Criar Torneio
         </a>
-        <a class="organizer-admin-tab-action" href="#organizerEditorSettings"><i class="fa-solid fa-gear"></i> Configurações</a>
+        <a class="organizer-admin-tab-action" href="#organizerEditorSettings" data-organizer-admin-view="settings"><i class="fa-solid fa-gear"></i> Configurações</a>
       </nav>
 
-      <section class="organizer-admin-dashboard-grid" aria-label="Resumo interno do organizador">
-        <article class="organizer-admin-card">
+      <section id="organizerEditorDashboardGrid" class="organizer-admin-dashboard-grid" aria-label="Resumo interno do organizador">
+        <article id="organizerEditorOverview" class="organizer-admin-card" data-organizer-admin-panel="overview">
           <div class="organizer-admin-card-head">
             <div>
               <span class="organizer-admin-eyebrow">Visão Geral</span>
@@ -86,67 +86,83 @@
             <div class="organizer-admin-metric"><span>Jogadores únicos</span><strong>—</strong></div>
             <div class="organizer-admin-metric"><span>Staff</span><strong>Owner</strong></div>
           </div>
-          <p class="organizer-admin-soft-note">Apenas staff com permissão pode criar e gerenciar torneios.</p>
+          <p class="organizer-admin-soft-note">Visão rápida da organização. Edições ficam nas abas específicas abaixo do banner.</p>
         </article>
 
-        <article id="organizerEditorTournaments" class="organizer-admin-card">
+        <article id="organizerEditorTournaments" class="organizer-admin-card organizer-admin-card--full" data-organizer-admin-panel="tournaments" hidden>
           <div class="organizer-admin-card-head">
             <div>
               <span class="organizer-admin-eyebrow">Torneios</span>
-              <h2>Meus torneios</h2>
+              <h2>Torneios da organização</h2>
             </div>
+            <a id="organizerEditorTournamentCreateInline" class="organizer-admin-small-link" href="create-tournament/criar-torneio.html">
+              <i class="fa-regular fa-square-plus"></i>
+              Criar torneio
+            </a>
           </div>
-          <div class="organizer-admin-config-list">
-            <div class="organizer-admin-config-item">
-              <i class="fa-solid fa-trophy"></i>
-              <div>
-                <strong>Criação vinculada</strong>
-                <span>Use a aba Criar Torneio para gerar eventos já ligados a este organizador.</span>
-              </div>
-            </div>
-            <div class="organizer-admin-config-item">
-              <i class="fa-solid fa-link"></i>
-              <div>
-                <strong>Organização real</strong>
-                <span>Os torneios criados neste painel herdam o contexto do organizador.</span>
-              </div>
-            </div>
+          <div id="organizerEditorTournamentsList" class="organizer-admin-tournament-list">
+            <div class="organizer-admin-empty-row">Carregando torneios vinculados...</div>
           </div>
         </article>
 
-        <article id="organizerEditorRankings" class="organizer-admin-card">
+        <article id="organizerEditorRankings" class="organizer-admin-card organizer-admin-card--full" data-organizer-admin-panel="rankings" hidden>
           <div class="organizer-admin-card-head">
             <div>
               <span class="organizer-admin-eyebrow">Rankings</span>
-              <h2>Rankings do organizador</h2>
+              <h2>Rankings da organização</h2>
             </div>
           </div>
-          <div class="organizer-admin-config-item">
-            <i class="fa-solid fa-chart-simple"></i>
-            <div>
-              <strong>Próxima fase</strong>
-              <span>Rankings por organizador serão conectados após temporadas e regras de pontuação.</span>
-            </div>
+          <div class="organizer-admin-ranking-split">
+            <section class="organizer-admin-ranking-box">
+              <div class="organizer-admin-ranking-head">
+                <span>Ranking</span>
+                <strong>Jogadores</strong>
+              </div>
+              <div id="organizerEditorRankingPlayers" class="organizer-admin-ranking-list">
+                <div class="organizer-admin-empty-row">Jogadores aparecerão quando houver pontuação.</div>
+              </div>
+            </section>
+            <section class="organizer-admin-ranking-box">
+              <div class="organizer-admin-ranking-head">
+                <span>Ranking</span>
+                <strong>Equipes</strong>
+              </div>
+              <div id="organizerEditorRankingTeams" class="organizer-admin-ranking-list">
+                <div class="organizer-admin-empty-row">Equipes aparecerão quando houver pontuação.</div>
+              </div>
+            </section>
           </div>
         </article>
 
-        <article id="organizerEditorSeasons" class="organizer-admin-card">
+        <article id="organizerEditorSeasons" class="organizer-admin-card organizer-admin-card--full" data-organizer-admin-panel="seasons" hidden>
           <div class="organizer-admin-card-head">
             <div>
               <span class="organizer-admin-eyebrow">Temporadas</span>
-              <h2>Temporadas</h2>
+              <h2>Temporada atual</h2>
             </div>
           </div>
-          <div class="organizer-admin-config-item">
-            <i class="fa-solid fa-calendar-days"></i>
-            <div>
-              <strong>Modelo preparado</strong>
-              <span>Temporadas do organizador entram na próxima etapa do módulo competitivo.</span>
+          <form id="organizerSeasonForm" class="organizer-admin-season-form">
+            <div class="organizer-admin-field">
+              <label for="organizerSeasonName">Nome da temporada</label>
+              <input id="organizerSeasonName" type="text" placeholder="Ex: Temporada 2026" autocomplete="off">
             </div>
-          </div>
+            <div class="organizer-admin-field">
+              <label for="organizerSeasonStart">Data de início</label>
+              <input id="organizerSeasonStart" type="date">
+            </div>
+            <div class="organizer-admin-field">
+              <label for="organizerSeasonEnd">Data de fim</label>
+              <input id="organizerSeasonEnd" type="date">
+            </div>
+            <button class="organizer-admin-action-btn organizer-admin-action-btn--cyan" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i>
+              Salvar temporada
+            </button>
+          </form>
+          <div id="organizerSeasonMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
         </article>
 
-        <article class="organizer-admin-quick-card">
+        <article class="organizer-admin-quick-card" data-organizer-admin-panel="overview">
           <div class="organizer-admin-card-head">
             <div>
               <span class="organizer-admin-eyebrow">Ações rápidas</span>
@@ -163,33 +179,50 @@
           </div>
         </article>
 
-        <article id="organizerEditorStaff" class="organizer-admin-staff-card">
+        <article id="organizerEditorStaff" class="organizer-admin-staff-card organizer-admin-staff-card--real" data-organizer-admin-panel="staff" hidden>
           <div class="organizer-admin-card-head">
             <div>
               <span class="organizer-admin-eyebrow">Staff</span>
               <h2>Staff do organizador</h2>
             </div>
+            <span id="organizerStaffCount" class="organizer-admin-pill">0 membros</span>
           </div>
-          <div class="organizer-admin-staff-list">
-            <div class="organizer-admin-staff-item">
-              <div>
-                <strong>Sua conta</strong>
-                <span>Owner/Admin da organização criada</span>
-              </div>
-              <span class="organizer-admin-pill">Dono</span>
+
+          <form id="organizerStaffInviteForm" class="organizer-admin-staff-form">
+            <div class="organizer-admin-field organizer-admin-field--compact">
+              <label for="organizerStaffProfileKey">Perfil do usuário</label>
+              <input id="organizerStaffProfileKey" type="text" placeholder="slug, @usuário ou ID do perfil" autocomplete="off">
             </div>
+
+            <div class="organizer-admin-field organizer-admin-field--compact">
+              <label for="organizerStaffRole">Cargo</label>
+              <select id="organizerStaffRole">
+                <option value="staff">Staff</option>
+                <option value="manager">Gestor</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+
+            <button id="organizerStaffInviteButton" class="organizer-admin-action-btn organizer-admin-action-btn--cyan" type="submit">
+              <i class="fa-solid fa-user-plus"></i>
+              Adicionar staff
+            </button>
+          </form>
+
+          <div id="organizerStaffMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+
+          <div id="organizerStaffList" class="organizer-admin-staff-list organizer-admin-staff-list--real">
             <div class="organizer-admin-staff-item">
               <div>
-                <strong>Convites de staff</strong>
-                <span>Será conectado em fase própria.</span>
+                <strong>Carregando staff...</strong>
+                <span>Buscando membros vinculados a esta organização.</span>
               </div>
-              <i class="fa-solid fa-ellipsis-vertical"></i>
             </div>
           </div>
         </article>
       </section>
 
-      <article id="organizerEditorSettings" class="organizer-admin-panel">
+      <article id="organizerEditorSettings" class="organizer-admin-panel" data-organizer-admin-panel="settings" hidden>
         <div class="organizer-admin-section-head">
           <div>
             <span class="organizer-admin-eyebrow">Configurações</span>

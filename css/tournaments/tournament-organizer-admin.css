@@ -1476,3 +1476,552 @@
     min-height: 150px;
   }
 }
+
+/* v1.6.60 — Staff real do Organizador */
+.organizer-admin-staff-card--real {
+  display: grid;
+  gap: 14px;
+}
+
+.organizer-admin-staff-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(140px, 0.65fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  background: rgba(2, 6, 23, 0.28);
+}
+
+.organizer-admin-field--compact {
+  min-width: 0;
+}
+
+.organizer-admin-field--compact label {
+  display: block;
+  margin-bottom: 6px;
+  color: rgba(148, 163, 184, 0.94);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.organizer-admin-field--compact input,
+.organizer-admin-field--compact select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.66);
+  color: #f8fafc;
+  padding: 0 11px;
+  outline: none;
+}
+
+.organizer-admin-field--compact input:focus,
+.organizer-admin-field--compact select:focus {
+  border-color: rgba(34, 211, 238, 0.54);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.08);
+}
+
+.organizer-admin-action-btn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.62);
+  color: #e0faff;
+  padding: 0 13px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.organizer-admin-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(34, 211, 238, 0.62);
+  background: rgba(34, 211, 238, 0.10);
+}
+
+.organizer-admin-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.organizer-admin-action-btn--cyan {
+  border-color: rgba(34, 211, 238, 0.58);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.18), transparent 35%),
+    linear-gradient(135deg, rgba(6, 182, 212, 0.28), rgba(37, 99, 235, 0.14)),
+    rgba(2, 6, 23, 0.68);
+}
+
+.organizer-admin-inline-message {
+  min-height: 18px;
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.organizer-admin-inline-message.is-success {
+  color: #22c55e;
+}
+
+.organizer-admin-inline-message.is-error {
+  color: #f87171;
+}
+
+.organizer-admin-staff-list--real {
+  gap: 9px;
+}
+
+.organizer-admin-staff-item--real {
+  gap: 12px;
+}
+
+.organizer-admin-staff-avatar {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.36);
+  background: rgba(14, 165, 233, 0.12);
+  color: #e0faff;
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.organizer-admin-staff-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.organizer-admin-staff-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.organizer-admin-staff-main strong,
+.organizer-admin-staff-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organizer-admin-staff-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.organizer-admin-staff-role-select {
+  min-height: 32px;
+  max-width: 130px;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 9px;
+  background: rgba(2, 6, 23, 0.64);
+  color: #f8fafc;
+  padding: 0 9px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.organizer-admin-staff-remove {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-color: rgba(248, 113, 113, 0.28);
+  color: #fecaca;
+}
+
+.organizer-admin-staff-remove:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.58);
+  background: rgba(248, 113, 113, 0.10);
+}
+
+.organizer-admin-staff-empty {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.16);
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 980px) {
+  .organizer-admin-staff-form {
+    grid-template-columns: 1fr;
+  }
+
+  .organizer-admin-staff-item--real {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .organizer-admin-staff-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .organizer-admin-staff-role-select {
+    max-width: none;
+    flex: 1 1 auto;
+  }
+}
+
+
+/*
+  v1.6.60.1 — Hotfix do formulário de Staff.
+  O painel lateral do Staff é estreito; o grid em 3 colunas deixava o campo de usuário espremido,
+  dificultando clique e digitação. O formulário passa a usar o campo de perfil em linha inteira.
+*/
+.organizer-admin-staff-card--real {
+  min-width: 0;
+}
+
+.organizer-admin-staff-form {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.organizer-admin-staff-form .organizer-admin-field--compact {
+  width: 100%;
+}
+
+.organizer-admin-staff-form .organizer-admin-field--compact input,
+.organizer-admin-staff-form .organizer-admin-field--compact select {
+  width: 100%;
+  min-width: 0;
+}
+
+.organizer-admin-staff-form #organizerStaffProfileKey {
+  min-height: 42px;
+  font-size: 0.82rem;
+}
+
+.organizer-admin-staff-form #organizerStaffRole {
+  min-height: 40px;
+}
+
+.organizer-admin-staff-form #organizerStaffInviteButton {
+  width: 100%;
+  min-height: 40px;
+}
+
+@media (min-width: 1180px) {
+  .organizer-admin-staff-card--real .organizer-admin-staff-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/*
+  v1.6.60.3 — Navegação interna por área.
+  A Visão Geral mostra somente resumo e ações rápidas; edição/configuração ficam nas abas específicas.
+*/
+[data-organizer-admin-panel][hidden] {
+  display: none !important;
+}
+
+.organizer-admin-dashboard-grid.is-overview {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.75fr);
+  align-items: start;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode > [data-organizer-admin-panel] {
+  width: min(100%, 980px);
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode > .organizer-admin-staff-card--real,
+.organizer-admin-dashboard-grid.is-panel-mode > #organizerEditorTournaments,
+.organizer-admin-dashboard-grid.is-panel-mode > #organizerEditorSeasons,
+.organizer-admin-dashboard-grid.is-panel-mode > #organizerEditorRankings {
+  width: min(100%, 1040px);
+}
+
+#organizerEditorSettings[data-organizer-admin-panel] {
+  width: 100%;
+}
+
+#organizerEditorSettings[data-organizer-admin-panel][hidden] {
+  display: none !important;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-card,
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-card {
+  min-height: 360px;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-card--real {
+  max-width: 860px;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-form {
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.65fr) minmax(190px, auto);
+  align-items: end;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-form #organizerStaffInviteButton {
+  width: auto;
+  min-width: 180px;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-list--real {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-item--real {
+  min-width: 0;
+}
+
+.organizer-admin-tabbar [data-organizer-admin-view].is-active {
+  border-bottom-color: transparent;
+  background: rgba(56, 189, 248, 0.14);
+  color: #e0faff;
+}
+
+.organizer-admin-quick-card[data-organizer-admin-panel="overview"] {
+  align-self: start;
+}
+
+@media (max-width: 1180px) {
+  .organizer-admin-dashboard-grid.is-overview,
+  .organizer-admin-dashboard-grid.is-panel-mode {
+    grid-template-columns: 1fr;
+  }
+
+  .organizer-admin-dashboard-grid.is-panel-mode > [data-organizer-admin-panel] {
+    width: 100%;
+  }
+
+  .organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-form {
+    grid-template-columns: 1fr;
+  }
+
+  .organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-form #organizerStaffInviteButton {
+    width: 100%;
+  }
+}
+
+/* v1.6.60.4 — áreas internas realmente separadas no painel do Organizador */
+.organizer-admin-shell:not(.is-nav-ready) [data-organizer-admin-panel][hidden],
+[data-organizer-admin-panel][hidden] {
+  display: none !important;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode {
+  grid-template-columns: 1fr;
+}
+
+.organizer-admin-card--full,
+.organizer-admin-panel[data-organizer-admin-panel="settings"],
+.organizer-admin-staff-card[data-organizer-admin-panel="staff"] {
+  width: 100%;
+  max-width: none;
+}
+
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-card--full,
+.organizer-admin-dashboard-grid.is-panel-mode .organizer-admin-staff-card--real {
+  grid-column: 1 / -1;
+}
+
+.organizer-admin-tournament-list,
+.organizer-admin-ranking-list {
+  display: grid;
+  gap: 10px;
+}
+
+.organizer-admin-tournament-row {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.38);
+}
+
+.organizer-admin-tournament-row strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 0.98rem;
+  line-height: 1.18;
+}
+
+.organizer-admin-tournament-row small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(203, 213, 225, 0.7);
+  font-size: 0.74rem;
+}
+
+.organizer-admin-empty-row {
+  min-height: 56px;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  border: 1px dashed rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  color: rgba(203, 213, 225, 0.7);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.organizer-admin-season-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(160px, 0.5fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.organizer-admin-ranking-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.organizer-admin-ranking-box {
+  min-height: 240px;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.30);
+}
+
+.organizer-admin-ranking-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.organizer-admin-ranking-head span {
+  color: rgba(148, 163, 184, 0.9);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.organizer-admin-ranking-head strong {
+  display: block;
+  margin-top: 2px;
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.organizer-admin-ranking-list {
+  padding: 10px;
+}
+
+.organizer-admin-ranking-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 70px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.organizer-admin-ranking-row span,
+.organizer-admin-ranking-row em {
+  color: #22c55e;
+  font-style: normal;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+}
+
+.organizer-admin-ranking-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(248, 250, 252, 0.9);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1180px) {
+  .organizer-admin-season-form,
+  .organizer-admin-ranking-split {
+    grid-template-columns: 1fr;
+  }
+
+  .organizer-admin-tournament-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+/* v1.6.60.5 — ajustes de torneios editáveis e ações no painel interno */
+.organizer-admin-tournament-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.organizer-admin-small-link {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 11px;
+  border-radius: 9px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgba(2, 6, 23, 0.36);
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.organizer-admin-small-link:hover {
+  border-color: rgba(56, 189, 248, 0.52);
+  background: rgba(56, 189, 248, 0.10);
+  color: #ffffff;
+}
+
+.organizer-admin-small-link--primary {
+  border-color: rgba(34, 211, 238, 0.48);
+  background: rgba(34, 211, 238, 0.12);
+  color: #dffaff;
+}
+
+@media (max-width: 720px) {
+  .organizer-admin-tournament-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .organizer-admin-tournament-actions {
+    justify-content: flex-start;
+  }
+}

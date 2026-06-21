@@ -2421,3 +2421,143 @@ function sbwIsOpenForRegistration(tournament) {
 
   return true;
 }
+// =========================================================
+// v1.6.60 — Staff real do Organizador
+// =========================================================
+function sbwNormalizeOrganizerStaffListResponse(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (data && typeof data === "object") {
+    if (Array.isArray(data.staff)) return data.staff;
+    if (Array.isArray(data.members)) return data.members;
+    if (Array.isArray(data.data)) return data.data;
+  }
+
+  return [];
+}
+
+function sbwNormalizeTournamentOrganizerStaffMember(row) {
+  const raw = row && typeof row === "object" ? row : {};
+  const metadata = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+  const role = String(raw.role || raw.memberRole || metadata.role || "staff").toLowerCase();
+  const status = String(raw.status || metadata.status || "active").toLowerCase();
+  const roleLabels = {
+    owner: "Dono",
+    admin: "Administrador",
+    manager: "Gestor",
+    organizer_admin: "Administrador",
+    tournament_admin: "Admin. torneios",
+    staff: "Staff",
+    member: "Membro"
+  };
+
+  return {
+    id: String(raw.id || raw.memberId || raw.profile_id || raw.profileId || raw.auth_user_id || raw.authUserId || raw.profile_slug || raw.profileSlug || ""),
+    organizerId: raw.organizer_id || raw.organizerId || raw.tournament_organizer_id || raw.tournamentOrganizerId || "",
+    organizerSlug: raw.organizer_slug || raw.organizerSlug || "",
+    authUserId: raw.auth_user_id || raw.authUserId || "",
+    profileId: raw.profile_id || raw.profileId || "",
+    profileSlug: raw.profile_slug || raw.profileSlug || "",
+    displayName: raw.display_name || raw.displayName || raw.name || raw.nickname || metadata.displayName || metadata.name || raw.profile_slug || "Membro autorizado",
+    avatarUrl: raw.avatar_url || raw.avatarUrl || metadata.avatarUrl || "",
+    role,
+    roleLabel: roleLabels[role] || role,
+    status,
+    statusLabel: status === "active" ? "Ativo" : status === "pending" ? "Pendente" : status,
+    canEdit: !["owner"].includes(role),
+    source: raw.source || "supabase",
+    raw
+  };
+}
+
+async function sbwGetTournamentOrganizerStaffAsync(organizer) {
+  if (!sbwIsSupabaseEnabled()) {
+    return sbwGetDemoTournamentOrganizerMembers(organizer).map(sbwNormalizeTournamentOrganizerStaffMember);
+  }
+
+  const organizerKey = typeof organizer === "string"
+    ? organizer
+    : organizer?.slug || organizer?.id || organizer?.raw?.id || organizer?.raw?.slug || "";
+
+  if (!organizerKey) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await window.SBWSupabase.client.rpc("sbw_get_tournament_organizer_staff", {
+      p_organizer: organizerKey
+    });
+
+    if (error) {
+      console.error("[SaberWolf Supabase] Erro ao buscar staff do organizador:", error);
+      return sbwGetTournamentOrganizerMembersAsync(organizer);
+    }
+
+    return sbwNormalizeOrganizerStaffListResponse(data).map(sbwNormalizeTournamentOrganizerStaffMember);
+  } catch (error) {
+    console.error("[SaberWolf Supabase] Falha inesperada ao buscar staff do organizador:", error);
+    return sbwGetTournamentOrganizerMembersAsync(organizer);
+  }
+}
+
+async function sbwAddTournamentOrganizerStaffAsync(payload) {
+  if (!sbwIsSupabaseEnabled()) {
+    throw new Error("Supabase não está habilitado para adicionar staff.");
+  }
+
+  const organizerKey = payload?.organizer || payload?.organizerSlug || payload?.organizerId || "";
+  const profileKey = payload?.profileKey || payload?.profile || payload?.profileSlug || "";
+  const role = payload?.role || "staff";
+
+  const { data, error } = await window.SBWSupabase.client.rpc("sbw_add_tournament_organizer_staff", {
+    p_organizer: organizerKey,
+    p_profile_key: profileKey,
+    p_role: role
+  });
+
+  if (error) {
+    console.error("[SaberWolf Supabase] Erro ao adicionar staff do organizador:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function sbwUpdateTournamentOrganizerStaffRoleAsync(payload) {
+  if (!sbwIsSupabaseEnabled()) {
+    throw new Error("Supabase não está habilitado para atualizar staff.");
+  }
+
+  const { data, error } = await window.SBWSupabase.client.rpc("sbw_update_tournament_organizer_staff_role", {
+    p_organizer: payload?.organizer || payload?.organizerSlug || payload?.organizerId || "",
+    p_member_id: payload?.memberId || payload?.id || "",
+    p_role: payload?.role || "staff"
+  });
+
+  if (error) {
+    console.error("[SaberWolf Supabase] Erro ao atualizar cargo do staff:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function sbwRemoveTournamentOrganizerStaffAsync(payload) {
+  if (!sbwIsSupabaseEnabled()) {
+    throw new Error("Supabase não está habilitado para remover staff.");
+  }
+
+  const { data, error } = await window.SBWSupabase.client.rpc("sbw_remove_tournament_organizer_staff", {
+    p_organizer: payload?.organizer || payload?.organizerSlug || payload?.organizerId || "",
+    p_member_id: payload?.memberId || payload?.id || ""
+  });
+
+  if (error) {
+    console.error("[SaberWolf Supabase] Erro ao remover staff do organizador:", error);
+    throw error;
+  }
+
+  return data;
+}
