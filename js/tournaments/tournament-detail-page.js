@@ -727,20 +727,165 @@ function getTournamentFormat(tournament) {
     });
   }
 
-  function isOpenForRegistration(tournament) {
-    const status = getStatusInfo(tournament.status).className;
-    const participantsCount = getParticipantsCount(tournament);
+  function sbwGetTournamentStatusKey(tournament) {
+    return String(tournament?.status || "draft").trim().toLowerCase();
+  }
+
+  function sbwGetMaxParticipantsNumber(tournament) {
     const maxParticipants = Number(getMaxParticipants(tournament));
+    return Number.isFinite(maxParticipants) && maxParticipants > 0 ? maxParticipants : null;
+  }
 
-    if (status !== "open") {
-      return false;
+  function sbwIsRegistrationStatusOpen(tournament) {
+    const status = sbwGetTournamentStatusKey(tournament);
+
+    return [
+      "open",
+      "published",
+      "registration-open",
+      "registrations-open",
+      "inscricoes-abertas",
+      "inscrições-abertas"
+    ].includes(status);
+  }
+
+  function sbwGetRegistrationAvailability(tournament) {
+    const participantsCount = getParticipantsCount(tournament);
+    const maxParticipants = sbwGetMaxParticipantsNumber(tournament);
+    const rawStatus = sbwGetTournamentStatusKey(tournament);
+    const statusInfo = getStatusInfo(rawStatus);
+    const isFull = Boolean(maxParticipants && participantsCount >= maxParticipants);
+    const isOpenStatus = sbwIsRegistrationStatusOpen(tournament);
+    const percent = maxParticipants
+      ? Math.max(0, Math.min(100, Math.round((participantsCount / maxParticipants) * 100)))
+      : 0;
+
+    if (isFull) {
+      return {
+        open: false,
+        className: "full",
+        label: "Vagas esgotadas",
+        shortLabel: "Lotado",
+        reason: "O limite de participantes foi atingido.",
+        participantsCount,
+        maxParticipants,
+        percent
+      };
     }
 
-    if (Number.isFinite(maxParticipants)) {
-      return participantsCount < maxParticipants;
+    if (isOpenStatus) {
+      return {
+        open: true,
+        className: "open",
+        label: "Inscrições abertas",
+        shortLabel: "Aberta",
+        reason: "Jogadores logados podem confirmar participação.",
+        participantsCount,
+        maxParticipants,
+        percent
+      };
     }
 
-    return true;
+    if (["draft", "rascunho"].includes(rawStatus)) {
+      return {
+        open: false,
+        className: "draft",
+        label: "Inscrição em preparação",
+        shortLabel: "Em breve",
+        reason: "O organizador ainda está preparando a publicação do torneio.",
+        participantsCount,
+        maxParticipants,
+        percent
+      };
+    }
+
+    if (["completed", "finished", "finalizado", "encerrado", "cancelled", "canceled", "archived"].includes(rawStatus)) {
+      return {
+        open: false,
+        className: "closed",
+        label: "Inscrições encerradas",
+        shortLabel: "Encerrada",
+        reason: "Este torneio não recebe novas inscrições neste momento.",
+        participantsCount,
+        maxParticipants,
+        percent
+      };
+    }
+
+    return {
+      open: false,
+      className: statusInfo.className || "closed",
+      label: "Inscrições indisponíveis",
+      shortLabel: "Fechada",
+      reason: "A inscrição será liberada pelo organizador quando o torneio estiver pronto.",
+      participantsCount,
+      maxParticipants,
+      percent
+    };
+  }
+
+  function isOpenForRegistration(tournament) {
+    return sbwGetRegistrationAvailability(tournament).open;
+  }
+
+  function sbwGetParticipantStatusInfo(participant) {
+    const status = String(participant?.status || "registered").trim().toLowerCase().replaceAll("-", "_");
+
+    if (status === "waitlist" || status === "lista_espera") {
+      return {
+        className: "waitlist",
+        label: "Lista de espera"
+      };
+    }
+
+    if (status === "confirmed" || status === "approved") {
+      return {
+        className: "confirmed",
+        label: "Confirmado"
+      };
+    }
+
+    return {
+      className: "registered",
+      label: "Inscrito"
+    };
+  }
+
+  function sbwGetCheckInStatusInfo(participant) {
+    const raw = String(participant?.checkInStatus || participant?.check_in_status || "pending")
+      .trim()
+      .toLowerCase()
+      .replaceAll("-", "_");
+
+    if (participant?.checkedIn || raw === "checked_in" || raw === "confirmed") {
+      return {
+        className: "checked-in",
+        label: "Check-in confirmado",
+        icon: "fa-circle-check"
+      };
+    }
+
+    if (raw === "missed" || raw === "no_show") {
+      return {
+        className: "missed",
+        label: "Check-in perdido",
+        icon: "fa-circle-xmark"
+      };
+    }
+
+    if (raw === "waived") {
+      return {
+        className: "waived",
+        label: "Check-in dispensado",
+        icon: "fa-circle-minus"
+      };
+    }
+
+    return {
+      className: "pending",
+      label: "Check-in pendente",
+      icon: "fa-clock"
+    };
   }
 
   function renderNotFound() {
@@ -759,6 +904,63 @@ function getTournamentFormat(tournament) {
           </a>
         </div>
       </section>
+    `;
+  }
+
+  function sbwGetParticipantMetaItems(participant) {
+    const items = [];
+    const raw = participant?.raw && typeof participant.raw === "object" ? participant.raw : {};
+    const metadata = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+
+    const playerSlug = participant?.playerSlug || participant?.player_slug || raw.player_slug || "";
+    const character = participant?.character || participant?.mainCharacter || metadata.character || metadata.mainCharacter || "";
+    const source = participant?.source === "supabase" ? "Inscrição real" : "Registro local";
+
+    if (playerSlug) {
+      items.push(`@${playerSlug}`);
+    }
+
+    if (character) {
+      items.push(character);
+    }
+
+    items.push(source);
+
+    return items;
+  }
+
+  function renderParticipantsOverview(tournament, availability) {
+    const participants = getParticipants(tournament)
+      .filter((participant) => {
+        const status = String(participant.status || "registered").toLowerCase();
+        return !["removed", "cancelled", "canceled", "disqualified"].includes(status);
+      });
+    const checkedInCount = participants.filter((participant) => sbwGetCheckInStatusInfo(participant).className === "checked-in").length;
+    const waitlistCount = participants.filter((participant) => sbwGetParticipantStatusInfo(participant).className === "waitlist").length;
+    const maxLabel = availability.maxParticipants ? availability.maxParticipants : "∞";
+
+    return `
+      <div class="participants-overview-grid">
+        <div class="participants-overview-card">
+          <span>Inscritos</span>
+          <strong>${escapeHTML(availability.participantsCount)} / ${escapeHTML(maxLabel)}</strong>
+        </div>
+
+        <div class="participants-overview-card">
+          <span>Check-in</span>
+          <strong>${escapeHTML(checkedInCount)} confirmado${checkedInCount === 1 ? "" : "s"}</strong>
+        </div>
+
+        <div class="participants-overview-card">
+          <span>Lista de espera</span>
+          <strong>${escapeHTML(waitlistCount)}</strong>
+        </div>
+
+        <div class="participants-overview-card ${escapeHTML(availability.className)}">
+          <span>Status da inscrição</span>
+          <strong>${escapeHTML(availability.shortLabel)}</strong>
+        </div>
+      </div>
     `;
   }
 
@@ -781,35 +983,50 @@ function getTournamentFormat(tournament) {
 
     if (participants.length === 0) {
       return `
-        <div class="detail-card">
-          <p>
-            Nenhum participante publicado ainda.
-          </p>
+        <div class="participant-empty-state">
+          <div class="participant-empty-icon">
+            <i class="fa-solid fa-user-plus"></i>
+          </div>
+          <div>
+            <strong>Nenhum participante publicado ainda</strong>
+            <p>Quando jogadores confirmarem inscrição, eles aparecerão aqui com status, equipe e check-in.</p>
+          </div>
         </div>
       `;
     }
 
     return `
-      <div class="participants-grid">
+      <div class="participants-grid participants-grid--premium">
         ${participants.map((participant, index) => {
-          const checkedIn = Boolean(participant.checkedIn) ||
-            ["checked_in", "checked-in", "confirmed"].includes(String(participant.checkInStatus || participant.check_in_status || "").toLowerCase());
+          const checkIn = sbwGetCheckInStatusInfo(participant);
+          const participantStatus = sbwGetParticipantStatusInfo(participant);
           const seedLabel = Number(participant.seed) > 0 ? `Seed ${participant.seed}` : `#${index + 1}`;
-          const statusLabel = checkedIn ? "Check-in confirmado" : "Inscrito";
+          const metaItems = sbwGetParticipantMetaItems(participant);
 
           return `
-            <div class="participant-card ${checkedIn ? "checked-in" : ""}">
+            <article class="participant-card participant-card--premium ${escapeHTML(checkIn.className)}">
+              <div class="participant-rank-badge">${escapeHTML(seedLabel)}</div>
+
               <div class="participant-card-top">
-                <strong>${escapeHTML(getPlayerName(participant))}</strong>
-                <span class="participant-seed">${escapeHTML(seedLabel)}</span>
+                <div>
+                  <strong>${escapeHTML(getPlayerName(participant))}</strong>
+                  <span>${escapeHTML(getPlayerTeam(participant))}</span>
+                </div>
+
+                <span class="participant-status-pill ${escapeHTML(participantStatus.className)}">
+                  ${escapeHTML(participantStatus.label)}
+                </span>
               </div>
 
-              <span>${escapeHTML(getPlayerTeam(participant))}</span>
+              <div class="participant-meta-row">
+                ${metaItems.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}
+              </div>
 
-              <span class="participant-status">
-                ${escapeHTML(statusLabel)}
-              </span>
-            </div>
+              <div class="participant-checkin-row ${escapeHTML(checkIn.className)}">
+                <i class="fa-solid ${escapeHTML(checkIn.icon)}"></i>
+                ${escapeHTML(checkIn.label)}
+              </div>
+            </article>
           `;
         }).join("")}
       </div>
@@ -1816,6 +2033,7 @@ async function hydrateDetailRegistrationState(tournament) {
 }
 
 function sbwBuildRegistrationViewState(tournament, registrationOpen) {
+  const availability = sbwGetRegistrationAvailability(tournament);
   const supabaseMode = isSupabaseRegistrationReady();
   const localAlreadyRegistered = hasDemoRegistration(tournament.id);
   const alreadyRegistered = supabaseMode
@@ -1824,23 +2042,27 @@ function sbwBuildRegistrationViewState(tournament, registrationOpen) {
 
   if (!registrationOpen) {
     return {
+      availability,
       supabaseMode,
       alreadyRegistered,
-      title: "Inscrições indisponíveis no momento",
-      description: "Este torneio não está com inscrições abertas agora. Acompanhe o cronograma publicado pelo organizador.",
-      notice: "Quando o organizador abrir inscrições, jogadores logados poderão se registrar com a conta -SBW-.",
-      buttonLabel: "Inscrição fechada",
+      title: availability.label,
+      description: availability.reason,
+      notice: availability.maxParticipants && availability.className === "full"
+        ? "O torneio atingiu o limite de vagas configurado pelo organizador."
+        : "Quando o organizador abrir inscrições, jogadores logados poderão se registrar com a conta -SBW-.",
+      buttonLabel: availability.className === "full" ? "Torneio lotado" : "Inscrição fechada",
       disabled: true
     };
   }
 
   if (alreadyRegistered) {
     return {
+      availability,
       supabaseMode,
       alreadyRegistered: true,
       title: supabaseMode ? "Você já está inscrito" : "Inscrição simulada neste navegador",
       description: supabaseMode
-        ? "Sua inscrição foi encontrada no Supabase. O próximo passo futuro será check-in e confirmação de presença quando o torneio exigir."
+        ? "Sua inscrição oficial foi encontrada. A próxima etapa será acompanhar check-in, cronograma e orientações do organizador."
         : "Esta inscrição foi registrada apenas no modo local-demo deste navegador.",
       notice: supabaseMode
         ? "Inscrição real vinculada à sua conta -SBW-."
@@ -1852,11 +2074,12 @@ function sbwBuildRegistrationViewState(tournament, registrationOpen) {
 
   if (supabaseMode && !sbwCurrentDetailAuthUser) {
     return {
+      availability,
       supabaseMode,
       alreadyRegistered: false,
       requiresLogin: true,
       title: "Entre para se inscrever",
-      description: "Para participar oficialmente, você precisa entrar com sua conta -SBW-. O sistema vai usar seu perfil público como dados de jogador.",
+      description: "Para participar oficialmente, você precisa entrar com sua conta -SBW-. O sistema usará seu perfil público como dados de jogador.",
       notice: "Conta obrigatória: login por e-mail/senha ou provedor configurado no Supabase Auth.",
       buttonLabel: "Entrar para se inscrever",
       disabled: false
@@ -1865,10 +2088,11 @@ function sbwBuildRegistrationViewState(tournament, registrationOpen) {
 
   if (supabaseMode) {
     return {
+      availability,
       supabaseMode,
       alreadyRegistered: false,
       title: "Inscrições abertas",
-      description: "Você está logado. Ao confirmar, sua inscrição será salva na tabela tournament_participants do Supabase.",
+      description: "Você está logado. Ao confirmar, sua inscrição será salva como inscrição real do torneio.",
       notice: "A inscrição fica vinculada à sua conta -SBW- e ao seu perfil público de jogador.",
       buttonLabel: "Confirmar inscrição",
       disabled: false
@@ -1876,6 +2100,7 @@ function sbwBuildRegistrationViewState(tournament, registrationOpen) {
   }
 
   return {
+    availability,
     supabaseMode,
     alreadyRegistered: false,
     title: "Inscrições abertas em modo demonstração",
@@ -1892,11 +2117,78 @@ function renderRegistrationNotice(registrationState) {
   }
 
   return `
-    <div class="detail-card registration-notice-card">
-      <p style="margin: 0;">
-        <strong>${registrationState.supabaseMode ? "Sistema de inscrição:" : "Aviso:"}</strong>
+    <div class="registration-notice-card ${registrationState.supabaseMode ? "real" : "demo"}">
+      <i class="fa-solid ${registrationState.supabaseMode ? "fa-shield-halved" : "fa-triangle-exclamation"}"></i>
+      <p>
+        <strong>${registrationState.supabaseMode ? "Sistema de inscrição" : "Aviso"}</strong>
         ${escapeHTML(registrationState.notice)}
       </p>
+    </div>
+  `;
+}
+
+function renderRegistrationPanel(tournament, registrationState, availability) {
+  const maxLabel = availability.maxParticipants ? availability.maxParticipants : "∞";
+  const checkInLabel = tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir";
+  const accountLabel = registrationState.supabaseMode
+    ? (registrationState.requiresLogin ? "Login obrigatório" : "Conta conectada")
+    : "Modo demonstração";
+  const progressStyle = availability.maxParticipants ? ` style="--registration-progress: ${availability.percent}%;"` : "";
+
+  return `
+    <div class="registration-panel">
+      <div class="registration-status-card ${escapeHTML(availability.className)}">
+        <div>
+          <span>Status da inscrição</span>
+          <strong>${escapeHTML(registrationState.title)}</strong>
+          <p>${escapeHTML(registrationState.description)}</p>
+        </div>
+
+        <span class="registration-status-badge ${escapeHTML(availability.className)}">
+          ${escapeHTML(availability.shortLabel)}
+        </span>
+      </div>
+
+      <div class="registration-progress-card"${progressStyle}>
+        <div class="registration-progress-head">
+          <span>Vagas preenchidas</span>
+          <strong>${escapeHTML(availability.participantsCount)} / ${escapeHTML(maxLabel)}</strong>
+        </div>
+        <div class="registration-progress-track"><span></span></div>
+      </div>
+
+      <div class="registration-flow-grid">
+        <div class="registration-flow-card ${registrationState.requiresLogin ? "attention" : ""}">
+          <i class="fa-solid fa-user-shield"></i>
+          <span>Conta</span>
+          <strong>${escapeHTML(accountLabel)}</strong>
+        </div>
+
+        <div class="registration-flow-card">
+          <i class="fa-solid fa-clipboard-check"></i>
+          <span>Check-in</span>
+          <strong>${escapeHTML(checkInLabel)}</strong>
+        </div>
+
+        <div class="registration-flow-card">
+          <i class="fa-solid fa-people-group"></i>
+          <span>Participantes</span>
+          <strong>${escapeHTML(availability.participantsCount)} inscritos</strong>
+        </div>
+      </div>
+
+      ${renderRegistrationNotice(registrationState)}
+
+      <button
+        type="button"
+        class="detail-btn registration-main-button"
+        data-action="tournament-registration"
+        data-tournament-id="${escapeHTML(tournament.id)}"
+        ${registrationState.disabled ? "disabled" : ""}
+      >
+        <i class="fa-solid ${registrationState.requiresLogin ? "fa-right-to-bracket" : registrationState.alreadyRegistered ? "fa-circle-check" : "fa-ticket"}"></i>
+        ${escapeHTML(registrationState.buttonLabel)}
+      </button>
     </div>
   `;
 }
@@ -2046,14 +2338,12 @@ async function handleTournamentRegistration(tournamentId) {
        const status = getStatusInfo(tournament.status);
        const participantsCount = getParticipantsCount(tournament);
        const maxParticipants = getMaxParticipants(tournament);
-       const registrationOpen = isOpenForRegistration(tournament);
+       const registrationAvailability = sbwGetRegistrationAvailability(tournament);
+       const registrationOpen = registrationAvailability.open;
        const registrationState = sbwBuildRegistrationViewState(tournament, registrationOpen);
        const alreadyRegistered = registrationState.alreadyRegistered;
-       const registrationCardTitle = registrationState.title;
-       const registrationCardText = registrationState.description;
        const registrationButtonLabel = registrationState.buttonLabel;
        const registrationButtonDisabled = registrationState.disabled ? "disabled" : "";
-       const registrationNoticeHtml = renderRegistrationNotice(registrationState);
 
     document.title = `${tournament.name || "Torneio"} | -SBW-`;
 
@@ -2092,6 +2382,7 @@ async function handleTournamentRegistration(tournamentId) {
                   <span><i class="fa-solid fa-sitemap"></i> ${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</span>
                   <span><i class="fa-solid fa-tv"></i> ${escapeHTML(tournament.platform || "Plataforma a definir")}</span>
                   <span><i class="fa-solid fa-shield-halved"></i> ${escapeHTML(getOrganizer(tournament))}</span>
+                  <span class="detail-registration-tag ${escapeHTML(registrationAvailability.className)}"><i class="fa-solid fa-ticket"></i> ${escapeHTML(registrationAvailability.label)}</span>
                 </div>
 
               </div>
@@ -2107,6 +2398,11 @@ async function handleTournamentRegistration(tournamentId) {
                   <div class="detail-summary-item">
                     <span>Participantes</span>
                     <strong>${participantsCount} / ${escapeHTML(maxParticipants)}</strong>
+                  </div>
+
+                  <div class="detail-summary-item">
+                    <span>Inscrição</span>
+                    <strong>${escapeHTML(registrationAvailability.shortLabel)}</strong>
                   </div>
 
                   <div class="detail-summary-item">
@@ -2144,6 +2440,7 @@ async function handleTournamentRegistration(tournamentId) {
                     data-tournament-id="${escapeHTML(tournament.id)}"
                     ${registrationButtonDisabled}
                   >
+                    <i class="fa-solid ${alreadyRegistered ? "fa-circle-check" : registrationState.requiresLogin ? "fa-right-to-bracket" : "fa-ticket"}"></i>
                     ${escapeHTML(registrationButtonLabel)}
                   </button>
 
@@ -2252,6 +2549,7 @@ async function handleTournamentRegistration(tournamentId) {
               <h3>Inscritos e confirmados</h3>
             </div>
 
+            ${renderParticipantsOverview(tournament, registrationAvailability)}
             ${renderParticipants(tournament)}
 
           </section>
@@ -2287,27 +2585,7 @@ async function handleTournamentRegistration(tournamentId) {
               <h3>Participar do torneio</h3>
             </div>
 
-            <div class="registration-card">
-              <strong>
-                ${escapeHTML(registrationCardTitle)}
-              </strong>
-
-              <p>
-                ${escapeHTML(registrationCardText)}
-              </p>
-
-              ${registrationNoticeHtml}
-
-              <button
-                type="button"
-                class="detail-btn"
-                data-action="tournament-registration"
-                data-tournament-id="${escapeHTML(tournament.id)}"
-                ${registrationButtonDisabled}
-              >
-                ${escapeHTML(registrationButtonLabel)}
-              </button>
-            </div>
+            ${renderRegistrationPanel(tournament, registrationState, registrationAvailability)}
 
           </section>
 
