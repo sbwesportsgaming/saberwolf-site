@@ -1,7 +1,7 @@
 const sbwOrganizerPageRoot = document.getElementById("organizerPageRoot");
 const sbwOrganizerHero = document.getElementById("organizerHero");
 const sbwOrganizerStats = document.getElementById("organizerStats");
-const sbwOrganizerRecentTournaments = document.getElementById("organizerRecentTournaments");
+const sbwOrganizerOverviewTournaments = document.getElementById("organizerOverviewTournaments");
 const sbwOrganizerTournamentsGrid = document.getElementById("organizerTournamentsGrid");
 const sbwOrganizerStatusText = document.getElementById("organizerStatusText");
 const sbwOrganizerTournamentSearch = document.getElementById("organizerTournamentSearch");
@@ -9,6 +9,8 @@ const sbwOrganizerTournamentStatusFilter = document.getElementById("organizerTou
 const sbwOrganizerHistoryList = document.getElementById("organizerHistoryList");
 const sbwOrganizerSeasonsGrid = document.getElementById("organizerSeasonsGrid");
 const sbwOrganizerRankingsGrid = document.getElementById("organizerRankingsGrid");
+const sbwOrganizerOverviewRankingGrid = document.getElementById("organizerOverviewRankingGrid");
+const sbwOrganizerNavActions = document.getElementById("organizerNavActions");
 
 const sbwOrganizerPageState = {
   organizer: null,
@@ -16,6 +18,25 @@ const sbwOrganizerPageState = {
   members: [],
   access: null
 };
+
+function sbwOrganizerEscape(value) {
+  if (typeof sbwEscapeHTML === "function") {
+    return sbwEscapeHTML(value);
+  }
+
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function sbwOrganizerNormalizeKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
 
 function sbwGetOrganizerInitials(organizer) {
   return String(organizer?.tag || organizer?.name || organizer?.displayName || "ORG")
@@ -26,6 +47,54 @@ function sbwGetOrganizerInitials(organizer) {
 
 function sbwGetOrganizerDisplayName(organizer) {
   return organizer?.name || organizer?.displayName || organizer?.display_name || "Organizador";
+}
+
+function sbwGetOrganizerHeroPhrase(organizer) {
+  const metadata = organizer?.metadata || {};
+  const settings = organizer?.settings || {};
+
+  return String(
+    organizer?.tagline ||
+    organizer?.slogan ||
+    organizer?.headline ||
+    organizer?.heroPhrase ||
+    organizer?.hero_phrase ||
+    organizer?.shortDescription ||
+    organizer?.short_description ||
+    metadata?.tagline ||
+    metadata?.slogan ||
+    metadata?.headline ||
+    metadata?.heroPhrase ||
+    metadata?.hero_phrase ||
+    settings?.tagline ||
+    settings?.slogan ||
+    settings?.headline ||
+    organizer?.description ||
+    ""
+  ).trim();
+}
+
+function sbwGetOrganizerTournamentCaption(tournament) {
+  const metadata = tournament?.metadata || {};
+  const settings = tournament?.settings || {};
+
+  return String(
+    tournament?.tagline ||
+    tournament?.slogan ||
+    tournament?.subtitle ||
+    tournament?.shortDescription ||
+    tournament?.short_description ||
+    tournament?.summary ||
+    metadata?.tagline ||
+    metadata?.slogan ||
+    metadata?.subtitle ||
+    metadata?.shortDescription ||
+    metadata?.short_description ||
+    settings?.tagline ||
+    settings?.subtitle ||
+    tournament?.description ||
+    ""
+  ).trim();
 }
 
 function sbwGetOrganizerPublicStatusLabel(organizer) {
@@ -67,27 +136,45 @@ function sbwGetOrganizerTournamentCover(tournament) {
     tournament?.coverUrl ||
     tournament?.cover_url ||
     tournament?.settings?.bannerUrl ||
+    tournament?.settings?.coverUrl ||
     ""
   );
 }
 
-function sbwOrganizerEscape(value) {
-  if (typeof sbwEscapeHTML === "function") {
-    return sbwEscapeHTML(value);
+function sbwGetOrganizerSocialLinks(organizer) {
+  const links = {
+    website: organizer?.websiteUrl || organizer?.website_url || organizer?.site || "",
+    discord: organizer?.discordUrl || organizer?.discord_url || "",
+    instagram: organizer?.instagramUrl || organizer?.instagram_url || "",
+    youtube: organizer?.youtubeUrl || organizer?.youtube_url || "",
+    twitch: organizer?.twitchUrl || organizer?.twitch_url || "",
+    x: organizer?.xUrl || organizer?.twitterUrl || organizer?.x_url || organizer?.twitter_url || ""
+  };
+
+  const source = organizer?.links || organizer?.socialLinks || organizer?.social_links || organizer?.metadata?.links || organizer?.metadata?.socialLinks || {};
+
+  if (source && typeof source === "object") {
+    Object.entries(source).forEach(([key, value]) => {
+      const normalizedKey = String(key || "").toLowerCase();
+      if (normalizedKey.includes("site") || normalizedKey.includes("web")) links.website = value;
+      if (normalizedKey.includes("discord")) links.discord = value;
+      if (normalizedKey.includes("instagram") || normalizedKey === "ig") links.instagram = value;
+      if (normalizedKey.includes("youtube")) links.youtube = value;
+      if (normalizedKey.includes("twitch")) links.twitch = value;
+      if (normalizedKey === "x" || normalizedKey.includes("twitter")) links.x = value;
+    });
   }
 
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return Object.fromEntries(
+    Object.entries(links).filter(([, url]) => Boolean(String(url || "").trim()))
+  );
 }
 
-function sbwOrganizerNormalizeKey(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
+function sbwNormalizeOrganizerUrl(url) {
+  const cleanUrl = String(url || "").trim();
+  if (!cleanUrl) return "";
+  if (/^(https?:)?\/\//i.test(cleanUrl) || /^mailto:/i.test(cleanUrl)) return cleanUrl;
+  return `https://${cleanUrl}`;
 }
 
 async function sbwGetOrganizerPublicAccess(organizer) {
@@ -102,7 +189,7 @@ async function sbwGetOrganizerPublicAccess(organizer) {
       .map(sbwOrganizerNormalizeKey);
 
     const match = (Array.isArray(accessList) ? accessList : []).find((item) => {
-      const itemKeys = [item.id, item.slug, item.name, item.displayName]
+      const itemKeys = [item.id, item.slug, item.name, item.displayName, item.display_name]
         .filter(Boolean)
         .map(sbwOrganizerNormalizeKey);
 
@@ -117,31 +204,20 @@ async function sbwGetOrganizerPublicAccess(organizer) {
 }
 
 function sbwOrganizerCanManage(access) {
-  if (!access) {
-    return false;
-  }
+  if (!access) return false;
 
-  const role = String(access.memberRole || access.role || access.currentUserRole || "").toLowerCase();
+  const role = String(access.memberRole || access.member_role || access.role || access.currentUserRole || "").toLowerCase();
 
   return Boolean(
     access.canCreateTournament === true ||
+    access.canCreateTournaments === true ||
     access.can_create_tournaments === true ||
-    ["owner", "admin", "manager", "organizer_admin", "tournament_admin"].includes(role)
+    ["owner", "admin", "manager", "organizer_admin", "tournament_admin", "admin_sbw"].includes(role)
   );
 }
 
 function sbwOrganizerCanCreateTournament(access) {
-  if (!access) {
-    return false;
-  }
-
-  const role = String(access.memberRole || access.role || access.currentUserRole || "").toLowerCase();
-
-  return Boolean(
-    access.canCreateTournament === true ||
-    access.can_create_tournaments === true ||
-    ["owner", "admin", "manager", "organizer_admin", "tournament_admin"].includes(role)
-  );
+  return sbwOrganizerCanManage(access);
 }
 
 function sbwGetOrganizerCreateTournamentUrl(organizer) {
@@ -189,137 +265,308 @@ function sbwRenderOrganizerNotFound() {
   }
 }
 
-function sbwRenderOrganizerHero(organizer, tournaments, access) {
-  const name = sbwGetOrganizerDisplayName(organizer);
-  const initials = sbwGetOrganizerInitials(organizer);
-  const status = sbwGetOrganizerPublicStatusLabel(organizer);
-  const games = Array.isArray(organizer?.games) ? organizer.games : [];
-  const description = organizer?.description || "Organizador autorizado para publicar torneios na plataforma -SBW-.";
-  const links = organizer?.links && typeof organizer.links === "object" ? organizer.links : {};
-  const organizerSlug = organizer?.slug || organizer?.id || name;
+function sbwRenderOrganizerNavActions(organizer, access) {
+  if (!sbwOrganizerNavActions) return;
+
+  const organizerSlug = organizer?.slug || organizer?.id || sbwGetOrganizerDisplayName(organizer);
   const canManage = sbwOrganizerCanManage(access);
   const canCreateTournament = sbwOrganizerCanCreateTournament(access);
   const createTournamentUrl = sbwGetOrganizerCreateTournamentUrl(organizer);
-  const logoHTML = organizer?.logoUrl
-    ? `<img src="${sbwOrganizerEscape(organizer.logoUrl)}" alt="Logo ${sbwOrganizerEscape(name)}">`
-    : `<span>${sbwOrganizerEscape(initials)}</span>`;
-  const bannerHTML = organizer?.bannerUrl
-    ? `<img src="${sbwOrganizerEscape(organizer.bannerUrl)}" alt="" aria-hidden="true">`
+
+  const createTournamentHTML = canCreateTournament
+    ? `<a class="sbw-organizer-action-btn sbw-organizer-action-btn--create" href="${sbwOrganizerEscape(createTournamentUrl)}">Criar Torneio</a>`
     : "";
-  const runningCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "running").length;
-  const openCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "open").length;
-  const finishedCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "finished").length;
-  const uniqueGames = new Set(tournaments.map((tournament) => tournament?.game || tournament?.gameName).filter(Boolean));
-  const linkLabels = {
-    website: "Site",
+  const manageHTML = canManage
+    ? `<a class="sbw-organizer-action-btn" href="editar-organizador.html?slug=${encodeURIComponent(organizerSlug)}">Gerenciar organização</a>`
+    : "";
+
+  sbwOrganizerNavActions.innerHTML = `
+    ${createTournamentHTML}
+    ${manageHTML}
+  `;
+}
+
+function sbwRenderOrganizerSocialLinks(organizer) {
+  const links = sbwGetOrganizerSocialLinks(organizer);
+  const iconLabels = {
+    website: "WEB",
+    discord: "DC",
+    instagram: "IG",
+    youtube: "YT",
+    twitch: "TW",
+    x: "X"
+  };
+  const ariaLabels = {
+    website: "Site oficial",
     discord: "Discord",
     instagram: "Instagram",
     youtube: "YouTube",
     twitch: "Twitch",
     x: "X/Twitter"
   };
-  const linksHTML = Object.entries(links)
-    .filter(([, url]) => Boolean(String(url || "").trim()))
-    .map(([key, url]) => `<a href="${sbwOrganizerEscape(url)}" target="_blank" rel="noopener noreferrer">${sbwOrganizerEscape(linkLabels[key] || key)}</a>`)
+
+  const html = Object.entries(links)
+    .map(([key, url]) => {
+      const safeUrl = sbwNormalizeOrganizerUrl(url);
+      if (!safeUrl) return "";
+      return `
+        <a class="sbw-organizer-social-icon" href="${sbwOrganizerEscape(safeUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${sbwOrganizerEscape(ariaLabels[key] || key)}">
+          ${sbwOrganizerEscape(iconLabels[key] || key.slice(0, 2).toUpperCase())}
+        </a>
+      `;
+    })
     .join("");
-  const manageHTML = canManage
-    ? `<a class="sbw-organizer-action-btn" href="editar-organizador.html?slug=${encodeURIComponent(organizerSlug)}">Gerenciar organizador</a>`
-    : "";
-  const createTournamentHTML = canCreateTournament
-    ? `<a class="sbw-organizer-action-btn sbw-organizer-action-btn--create" href="${sbwOrganizerEscape(createTournamentUrl)}">Criar Torneio</a>`
+
+  return html ? `<div class="sbw-organizer-hero-links" aria-label="Redes sociais do organizador">${html}</div>` : "";
+}
+
+function sbwRenderOrganizerHero(organizer, tournaments, access) {
+  if (!sbwOrganizerHero) return;
+
+  const name = sbwGetOrganizerDisplayName(organizer);
+  const initials = sbwGetOrganizerInitials(organizer);
+  const status = sbwGetOrganizerPublicStatusLabel(organizer);
+  const games = Array.isArray(organizer?.games) ? organizer.games : [];
+  const description = sbwGetOrganizerHeroPhrase(organizer);
+  const logoHTML = organizer?.logoUrl
+    ? `<img src="${sbwOrganizerEscape(organizer.logoUrl)}" alt="Logo ${sbwOrganizerEscape(name)}">`
+    : `<span>${sbwOrganizerEscape(initials)}</span>`;
+  const bannerHTML = organizer?.bannerUrl
+    ? `<img src="${sbwOrganizerEscape(organizer.bannerUrl)}" alt="" aria-hidden="true">`
     : "";
 
   sbwSetOrganizerTheme(organizer);
 
   sbwOrganizerHero.innerHTML = `
     <div class="sbw-organizer-hero-cover">${bannerHTML}</div>
-    <div class="sbw-organizer-hero-grid">
+    <div class="sbw-organizer-hero-grid sbw-organizer-hero-grid--compact">
       <div class="sbw-organizer-identity">
         <div class="sbw-organizer-brand-row">
           <div class="sbw-organizer-logo">${logoHTML}</div>
-          <div>
+          <div class="sbw-organizer-title-stack">
             <div class="sbw-organizer-badges">
-              <span class="sbw-organizer-badge sbw-organizer-badge--primary">Organizador Verificado</span>
+              <span class="sbw-organizer-badge sbw-organizer-badge--primary">Organizador</span>
               <span class="sbw-organizer-badge">${sbwOrganizerEscape(status)}</span>
               ${organizer?.verified ? `<span class="sbw-organizer-badge">Selo -SBW-</span>` : ""}
-              ${canManage ? `<span class="sbw-organizer-badge">Sua conta pode gerenciar</span>` : ""}
             </div>
             <h1>${sbwOrganizerEscape(name)}</h1>
+            ${description ? `<p class="sbw-organizer-hero-phrase">${sbwOrganizerEscape(description)}</p>` : ""}
           </div>
         </div>
 
-        <p>${sbwOrganizerEscape(description)}</p>
-
-        <div class="sbw-organizer-tags">
-          <span class="sbw-organizer-tag">${sbwOrganizerEscape(organizer?.country || "Brasil")}</span>
-          <span class="sbw-organizer-tag">${sbwOrganizerEscape(organizer?.type || "Organizador de torneios")}</span>
-          ${games.slice(0, 5).map((game) => `<span class="sbw-organizer-tag">${sbwOrganizerEscape(game)}</span>`).join("")}
-        </div>
-
-        ${linksHTML ? `<div class="sbw-organizer-hero-links">${linksHTML}</div>` : ""}
-
-        <div class="sbw-organizer-actions">
-          <button class="sbw-organizer-action-btn" type="button" data-organizer-tab-shortcut="tournaments">Ver torneios</button>
-          ${createTournamentHTML}
-          ${manageHTML}
+        <div class="sbw-organizer-hero-bottomline">
+          <div class="sbw-organizer-tags">
+            ${organizer?.country ? `<span class="sbw-organizer-tag">${sbwOrganizerEscape(organizer.country)}</span>` : ""}
+            ${organizer?.region ? `<span class="sbw-organizer-tag">${sbwOrganizerEscape(organizer.region)}</span>` : ""}
+            ${games.slice(0, 4).map((game) => `<span class="sbw-organizer-tag">${sbwOrganizerEscape(game)}</span>`).join("")}
+          </div>
+          ${sbwRenderOrganizerSocialLinks(organizer)}
         </div>
       </div>
-
-      <aside class="sbw-organizer-hero-side" aria-label="Resumo do organizador">
-        <article class="sbw-organizer-hero-metric"><span>Torneios ativos</span><strong>${openCount + runningCount}</strong></article>
-        <article class="sbw-organizer-hero-metric"><span>Finalizados</span><strong>${finishedCount}</strong></article>
-        <article class="sbw-organizer-hero-metric"><span>Jogos/modalidades</span><strong>${uniqueGames.size || games.length || 0}</strong></article>
-        <article class="sbw-organizer-hero-metric"><span>Staff público</span><strong>${Array.isArray(sbwOrganizerPageState.members) ? sbwOrganizerPageState.members.length : 0}</strong></article>
-        <article class="sbw-organizer-hero-metric"><span>Temporada atual</span><strong>Beta</strong></article>
-        <article class="sbw-organizer-hero-metric"><span>Total publicado</span><strong>${tournaments.length}</strong></article>
-      </aside>
     </div>
   `;
 }
 
-function sbwRenderOrganizerStats(tournaments, members) {
-  if (!sbwOrganizerStats) {
-    return;
-  }
+function sbwGetTournamentParticipantCount(tournament) {
+  const value = tournament?.currentParticipants ?? tournament?.current_participants ?? tournament?.participantsCount ?? tournament?.participants_count ?? 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sbwGetTournamentTeamCount(tournament) {
+  const value = tournament?.teamsCount ?? tournament?.teams_count ?? tournament?.teamParticipants ?? tournament?.team_participants ?? 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sbwGetOrganizerCurrentSeasonLabel(organizer) {
+  return organizer?.currentSeasonName ||
+    organizer?.current_season_name ||
+    organizer?.metadata?.currentSeasonName ||
+    organizer?.metadata?.current_season_name ||
+    organizer?.metadata?.currentSeason?.name ||
+    "A definir";
+}
+
+function sbwRenderOrganizerStats(tournaments, members, organizer) {
+  if (!sbwOrganizerStats) return;
 
   const runningCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "running").length;
   const openCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "open").length;
   const finishedCount = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "finished").length;
-  const uniqueGames = new Set(tournaments.map((tournament) => tournament?.game || tournament?.gameName).filter(Boolean));
+  const participantCount = tournaments.reduce((total, tournament) => total + sbwGetTournamentParticipantCount(tournament), 0);
+  const teamCount = tournaments.reduce((total, tournament) => total + sbwGetTournamentTeamCount(tournament), 0);
 
   sbwOrganizerStats.innerHTML = `
+    <article><span>Participantes</span><strong>${participantCount}</strong></article>
+    <article><span>Equipes participantes</span><strong>${teamCount}</strong></article>
     <article><span>Torneios ativos</span><strong>${openCount + runningCount}</strong></article>
     <article><span>Torneios finalizados</span><strong>${finishedCount}</strong></article>
-    <article><span>Jogos/modalidades</span><strong>${uniqueGames.size || 0}</strong></article>
-    <article><span>Staff público</span><strong>${members.length}</strong></article>
-    <article><span>Temporadas</span><strong>0</strong></article>
-    <article><span>Rankings ativos</span><strong>0</strong></article>
+    <article><span>Total de torneios</span><strong>${Array.isArray(tournaments) ? tournaments.length : 0}</strong></article>
   `;
+}
+
+function sbwGetOrganizerRankingRows(organizer, type) {
+  const possibleSources = [
+    organizer?.rankings,
+    organizer?.ranking,
+    organizer?.settings?.rankings,
+    organizer?.settings?.ranking,
+    organizer?.metadata?.rankings,
+    organizer?.metadata?.ranking
+  ].filter(Boolean);
+
+  const keys = type === "teams"
+    ? ["teams", "equipes", "teamRanking", "rankingEquipes"]
+    : ["players", "jogadores", "playerRanking", "rankingJogadores"];
+
+  for (const source of possibleSources) {
+    for (const key of keys) {
+      if (Array.isArray(source?.[key])) {
+        return source[key];
+      }
+    }
+  }
+
+  return [];
+}
+
+function sbwGetOrganizerRankingPositionDelta(row, currentPosition) {
+  const explicitDelta = row?.positionDelta ?? row?.position_delta ?? row?.rankDelta ?? row?.rank_delta ?? row?.movement ?? row?.movementValue;
+  const parsedExplicit = Number(explicitDelta);
+  if (Number.isFinite(parsedExplicit) && parsedExplicit !== 0) {
+    return parsedExplicit;
+  }
+
+  const previousPosition = Number(row?.previousPosition ?? row?.previous_position ?? row?.lastPosition ?? row?.last_position ?? row?.oldPosition ?? row?.old_position);
+  if (Number.isFinite(previousPosition) && previousPosition > 0) {
+    return previousPosition - currentPosition;
+  }
+
+  const direction = String(row?.movementDirection ?? row?.movement_direction ?? row?.trend ?? "").toLowerCase();
+  if (["up", "subiu", "alta", "rise", "gain"].includes(direction)) return 1;
+  if (["down", "desceu", "baixa", "fall", "loss"].includes(direction)) return -1;
+
+  return 0;
+}
+
+function sbwRenderOrganizerRankingPosition(row, currentPosition) {
+  const delta = sbwGetOrganizerRankingPositionDelta(row, currentPosition);
+  const trendClass = delta > 0 ? "is-up" : delta < 0 ? "is-down" : "is-neutral";
+  const trendIcon = delta > 0 ? "▲" : delta < 0 ? "▼" : "—";
+  const label = delta > 0
+    ? `Subiu ${Math.abs(delta)} posição${Math.abs(delta) === 1 ? "" : "ões"}`
+    : delta < 0
+      ? `Caiu ${Math.abs(delta)} posição${Math.abs(delta) === 1 ? "" : "ões"}`
+      : "Sem variação";
+
+  return `
+    <span class="sbw-organizer-rank-position ${trendClass}" title="${sbwOrganizerEscape(label)}">
+      <strong>${currentPosition}</strong>
+      <span aria-hidden="true">${trendIcon}</span>
+    </span>
+  `;
+}
+
+function sbwGetOrganizerRankingPoints(row) {
+  const raw = row?.pointsDelta ?? row?.points_delta ?? row?.gainedPoints ?? row?.gained_points ?? row?.earnedPoints ?? row?.earned_points ?? row?.points ?? row?.score ?? row?.totalPoints ?? row?.total_points ?? 0;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sbwRenderOrganizerRankingPoints(row) {
+  const points = sbwGetOrganizerRankingPoints(row);
+  const prefix = points > 0 ? "+" : "";
+  return `<span class="sbw-organizer-rank-points">${prefix}${sbwOrganizerEscape(points)}</span>`;
+}
+
+function sbwRenderOrganizerRankingTable(organizer, type) {
+  const rows = sbwGetOrganizerRankingRows(organizer, type);
+  const topRows = [...rows]
+    .sort((first, second) => sbwGetOrganizerRankingPoints(second) - sbwGetOrganizerRankingPoints(first))
+    .slice(0, 5);
+  const isTeams = type === "teams";
+  const title = isTeams ? "Equipes" : "Jogadores";
+  const label = isTeams ? "Equipe" : "Jogador";
+  const emptyText = isTeams
+    ? "Equipes aparecerão quando houver pontuação."
+    : "Jogadores aparecerão quando houver pontuação.";
+
+  const rowsHTML = topRows.length
+    ? topRows.map((row, index) => {
+        const currentPosition = Number(row.position ?? row.rank ?? row.currentPosition ?? row.current_position ?? index + 1);
+        const safePosition = Number.isFinite(currentPosition) && currentPosition > 0 ? currentPosition : index + 1;
+        const name = row.name || row.displayName || row.display_name || row.teamName || row.playerName || row.username || row.slug || "Participante";
+        return `
+          <tr>
+            <td>${sbwRenderOrganizerRankingPosition(row, safePosition)}</td>
+            <td class="sbw-organizer-ranking-name">${sbwOrganizerEscape(name)}</td>
+            <td>${sbwRenderOrganizerRankingPoints(row)}</td>
+          </tr>
+        `;
+      }).join("")
+    : `<tr><td colspan="3" class="sbw-organizer-ranking-empty">${emptyText}</td></tr>`;
+
+  return `
+    <article class="sbw-organizer-ranking-card sbw-organizer-ranking-card--compact">
+      <div class="sbw-organizer-ranking-head">
+        <div>
+          <span class="sbw-organizer-eyebrow">Ranking</span>
+          <h3>${title}</h3>
+        </div>
+      </div>
+      <div class="sbw-organizer-ranking-table-wrap">
+        <table class="sbw-organizer-ranking-table sbw-organizer-ranking-table--compact">
+          <thead>
+            <tr>
+              <th>Pos.</th>
+              <th>${label}</th>
+              <th>Pontos</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHTML}</tbody>
+        </table>
+      </div>
+    </article>
+  `;
+}
+
+function sbwRenderOrganizerRankings(organizer) {
+  const html = `
+    ${sbwRenderOrganizerRankingTable(organizer, "players")}
+    ${sbwRenderOrganizerRankingTable(organizer, "teams")}
+  `;
+
+  if (sbwOrganizerOverviewRankingGrid) {
+    sbwOrganizerOverviewRankingGrid.innerHTML = html;
+  }
+
+  if (sbwOrganizerRankingsGrid) {
+    sbwOrganizerRankingsGrid.innerHTML = html;
+  }
 }
 
 function sbwRenderOrganizerTournamentCard(tournament) {
   const status = sbwGetStatusInfo(tournament?.status);
-  const format = sbwGetTournamentFormat(tournament);
   const detailUrl = `detalhe-torneio.html?id=${encodeURIComponent(tournament.id || tournament.slug || tournament.supabaseId)}`;
   const cover = sbwGetOrganizerTournamentCover(tournament);
+  const title = tournament?.name || tournament?.title || "Torneio sem nome";
+  const game = tournament?.game || tournament?.gameName || "Jogo a definir";
+  const caption = sbwGetOrganizerTournamentCaption(tournament);
 
   return `
-    <article class="sbw-organizer-tournament-card" data-status="${sbwOrganizerEscape(status.className)}" data-name="${sbwOrganizerEscape(String(tournament?.name || tournament?.title || "").toLowerCase())}">
+    <article class="sbw-organizer-tournament-card sbw-organizer-tournament-card--mini" data-status="${sbwOrganizerEscape(status.className)}" data-name="${sbwOrganizerEscape(String(title).toLowerCase())}">
       <div class="sbw-organizer-tournament-cover">
-        ${cover ? `<img src="${sbwOrganizerEscape(cover)}" alt="" aria-hidden="true">` : ""}
+        ${cover ? `<img src="${sbwOrganizerEscape(cover)}" alt="" aria-hidden="true">` : `<span class="sbw-organizer-tournament-cover-fallback">${sbwOrganizerEscape(game)}</span>`}
+        <span class="status-pill ${sbwOrganizerEscape(status.className)}">${sbwOrganizerEscape(status.label)}</span>
       </div>
       <div class="sbw-organizer-tournament-body">
-        <div class="sbw-organizer-badges">
-          <span class="status-pill ${sbwOrganizerEscape(status.className)}">${sbwOrganizerEscape(status.label)}</span>
-          <span class="sbw-organizer-badge">${sbwOrganizerEscape(tournament?.game || tournament?.gameName || "Jogo a definir")}</span>
-        </div>
-        <h3>${sbwOrganizerEscape(tournament?.name || tournament?.title || "Torneio sem nome")}</h3>
-        <p>${sbwOrganizerEscape(sbwGetDescription(tournament))}</p>
-        <div class="sbw-organizer-meta-grid">
-          <div><span>Formato</span><strong>${sbwOrganizerEscape(sbwGetFormatLabel(format))}</strong></div>
-          <div><span>Participantes</span><strong>${sbwOrganizerEscape(sbwGetParticipantsLabel(tournament))}</strong></div>
-          <div><span>Início</span><strong>${sbwOrganizerEscape(sbwGetOrganizerTournamentDateLabel(tournament))}</strong></div>
-          <div><span>Origem</span><strong>${sbwOrganizerEscape(tournament?.source === "supabase" ? "Supabase" : "Local")}</strong></div>
+        <div class="sbw-organizer-tournament-kicker">${sbwOrganizerEscape(game)}</div>
+        <h3>${sbwOrganizerEscape(title)}</h3>
+        ${caption ? `<p class="sbw-organizer-tournament-caption">${sbwOrganizerEscape(caption)}</p>` : ""}
+        <div class="sbw-organizer-tournament-mini-meta">
+          <span>${sbwOrganizerEscape(sbwGetParticipantsLabel(tournament))}</span>
+          <span>${sbwOrganizerEscape(sbwGetOrganizerTournamentDateLabel(tournament))}</span>
         </div>
         <a class="sbw-organizer-action-btn" href="${sbwOrganizerEscape(detailUrl)}">Ver torneio</a>
       </div>
@@ -328,9 +575,7 @@ function sbwRenderOrganizerTournamentCard(tournament) {
 }
 
 function sbwRenderOrganizerTournaments(tournaments) {
-  if (!sbwOrganizerTournamentsGrid) {
-    return;
-  }
+  if (!sbwOrganizerTournamentsGrid) return;
 
   if (!Array.isArray(tournaments) || tournaments.length === 0) {
     sbwOrganizerTournamentsGrid.innerHTML = `<div class="sbw-organizer-empty-state">Este organizador ainda não publicou torneios.</div>`;
@@ -340,33 +585,29 @@ function sbwRenderOrganizerTournaments(tournaments) {
   sbwOrganizerTournamentsGrid.innerHTML = tournaments.map(sbwRenderOrganizerTournamentCard).join("");
 }
 
-function sbwRenderOrganizerRecentTournaments(tournaments) {
-  if (!sbwOrganizerRecentTournaments) {
+function sbwRenderOrganizerOverviewTournaments(tournaments) {
+  if (!sbwOrganizerOverviewTournaments) return;
+
+  const items = Array.isArray(tournaments) ? tournaments : [];
+
+  if (items.length === 0) {
+    sbwOrganizerOverviewTournaments.innerHTML = `<div class="sbw-organizer-empty-state">Nenhum torneio publicado ainda.</div>`;
     return;
   }
 
-  const recent = [...tournaments].slice(0, 4);
+  sbwOrganizerOverviewTournaments.innerHTML = items.map(sbwRenderOrganizerTournamentCard).join("");
+}
 
-  if (recent.length === 0) {
-    sbwOrganizerRecentTournaments.innerHTML = `<div class="sbw-organizer-empty-state">Nenhum torneio publicado ainda.</div>`;
-    return;
-  }
+function sbwRenderOrganizerSeasons(organizer, tournaments) {
+  if (!sbwOrganizerSeasonsGrid) return;
 
-  sbwOrganizerRecentTournaments.innerHTML = recent.map((tournament) => {
-    const status = sbwGetStatusInfo(tournament?.status);
-    return `
-      <a class="sbw-organizer-compact-item" href="detalhe-torneio.html?id=${encodeURIComponent(tournament.id || tournament.slug || tournament.supabaseId)}">
-        <strong>${sbwOrganizerEscape(tournament?.name || tournament?.title || "Torneio sem nome")}</strong>
-        <span>${sbwOrganizerEscape(status.label)} · ${sbwOrganizerEscape(tournament?.game || tournament?.gameName || "Jogo a definir")}</span>
-      </a>
-    `;
-  }).join("");
+  sbwOrganizerSeasonsGrid.innerHTML = `
+    <div class="sbw-organizer-empty-state">As temporadas deste organizador aparecerão aqui quando forem cadastradas.</div>
+  `;
 }
 
 function sbwRenderOrganizerHistory(tournaments) {
-  if (!sbwOrganizerHistoryList) {
-    return;
-  }
+  if (!sbwOrganizerHistoryList) return;
 
   const finished = tournaments.filter((tournament) => sbwGetStatusInfo(tournament?.status).className === "finished");
 
@@ -418,9 +659,7 @@ function sbwBindOrganizerTabs() {
   document.addEventListener("click", (event) => {
     const shortcut = event.target.closest("[data-organizer-tab-shortcut]");
 
-    if (!shortcut) {
-      return;
-    }
+    if (!shortcut) return;
 
     const tab = shortcut.dataset.organizerTabShortcut;
     const button = document.querySelector(`[data-organizer-tab="${tab}"]`);
@@ -488,9 +727,12 @@ async function sbwLoadTournamentOrganizerPage() {
   }
 
   sbwRenderOrganizerHero(organizer, tournaments, access);
-  sbwRenderOrganizerStats(tournaments, members);
-  sbwRenderOrganizerRecentTournaments(tournaments);
+  sbwRenderOrganizerNavActions(organizer, access);
+  sbwRenderOrganizerRankings(organizer);
+  sbwRenderOrganizerStats(tournaments, members, organizer);
+  sbwRenderOrganizerOverviewTournaments(tournaments);
   sbwRenderOrganizerTournaments(tournaments);
+  sbwRenderOrganizerSeasons(organizer, tournaments);
   sbwRenderOrganizerHistory(tournaments);
   sbwBindOrganizerTabs();
 }

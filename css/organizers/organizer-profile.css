@@ -636,3 +636,1547 @@
     width: 100%;
   }
 }
+
+/*
+  -SBW- v1.6.57.1 — Ajuste de hierarquia do Organizador
+  Topo mais compacto, ações na navegação, rankings na visão geral e cards de torneios mais fortes.
+*/
+
+.sbw-organizer-public-hero {
+  min-height: 204px;
+}
+
+.sbw-organizer-hero-grid--compact {
+  min-height: 204px;
+  grid-template-columns: 1fr;
+  align-items: end;
+  padding: 22px 24px;
+}
+
+.sbw-organizer-brand-row {
+  gap: 18px;
+}
+
+.sbw-organizer-logo {
+  width: clamp(92px, 9vw, 128px);
+  height: clamp(92px, 9vw, 128px);
+  border-width: 3px;
+  font-size: clamp(1.8rem, 3vw, 3rem);
+}
+
+.sbw-organizer-title-stack {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.sbw-organizer-identity h1 {
+  font-size: clamp(2rem, 3.9vw, 3.65rem);
+  line-height: 0.98;
+}
+
+.sbw-organizer-title-stack p {
+  max-width: 860px;
+  font-size: 0.92rem;
+  line-height: 1.46;
+}
+
+.sbw-organizer-hero-bottomline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sbw-organizer-hero-links {
+  margin-left: auto;
+}
+
+.sbw-organizer-social-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.24);
+  background: rgba(2, 6, 23, 0.38);
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 0.66rem;
+  font-weight: 950;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  box-shadow: inset 0 0 14px rgba(var(--org-primary-rgb, 56, 189, 248), 0.04);
+}
+
+.sbw-organizer-social-icon:hover {
+  transform: translateY(-1px);
+  border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.58);
+  color: #ffffff;
+  background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.13);
+}
+
+.sbw-organizer-tabs-shell {
+  position: sticky;
+  top: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.14);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(3, 8, 18, 0.94), rgba(3, 8, 18, 0.76));
+  backdrop-filter: blur(18px);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+}
+
+.sbw-organizer-tabs-shell .sbw-organizer-tabs {
+  position: static;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.sbw-organizer-tabs-shell .sbw-organizer-tabs button {
+  min-height: 38px;
+  border-radius: 10px;
+  border-bottom: 0;
+  padding: 0 13px;
+  font-size: 0.82rem;
+}
+
+.sbw-organizer-tabs-shell .sbw-organizer-tabs button:hover,
+.sbw-organizer-tabs-shell .sbw-organizer-tabs button.is-active {
+  border-bottom-color: transparent;
+  background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.12);
+  color: #e0faff;
+}
+
+.sbw-organizer-nav-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sbw-organizer-nav-actions .sbw-organizer-action-btn {
+  min-height: 38px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  font-size: 0.76rem;
+}
+
+.sbw-organizer-overview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.sbw-organizer-section-card--ranking {
+  min-height: 100%;
+}
+
+.sbw-organizer-section-card--recent .sbw-organizer-compact-list {
+  gap: 11px;
+}
+
+.sbw-organizer-lower-metrics {
+  margin-top: 14px;
+}
+
+.sbw-organizer-stats-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.sbw-organizer-stats-grid article {
+  min-height: 74px;
+}
+
+.sbw-organizer-ranking-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sbw-organizer-ranking-card {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.14);
+  background:
+    radial-gradient(circle at top left, rgba(var(--org-primary-rgb, 56, 189, 248), 0.10), transparent 44%),
+    rgba(2, 6, 23, 0.32);
+}
+
+.sbw-organizer-ranking-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 11px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.10);
+}
+
+.sbw-organizer-ranking-head h3 {
+  margin: 2px 0 0;
+  color: #f8fafc;
+  font-size: 1rem;
+  letter-spacing: -0.035em;
+}
+
+.sbw-organizer-ranking-season {
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.18);
+  background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.08);
+  color: rgba(226, 232, 240, 0.76);
+  font-size: 0.68rem;
+  font-weight: 850;
+  padding: 6px 8px;
+}
+
+.sbw-organizer-ranking-table-wrap {
+  overflow-x: auto;
+}
+
+.sbw-organizer-ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 420px;
+}
+
+.sbw-organizer-ranking-table th,
+.sbw-organizer-ranking-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  text-align: left;
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 0.82rem;
+}
+
+.sbw-organizer-ranking-table th {
+  color: rgba(148, 163, 184, 0.94);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 950;
+}
+
+.sbw-organizer-ranking-table td:first-child {
+  width: 42px;
+  color: #e0faff;
+  font-weight: 950;
+}
+
+.sbw-organizer-ranking-empty {
+  color: rgba(203, 213, 225, 0.62) !important;
+  text-align: center !important;
+}
+
+.sbw-organizer-tournament-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.sbw-organizer-tournament-card {
+  border-radius: 16px;
+  grid-template-rows: 154px 1fr;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sbw-organizer-tournament-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.34);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+}
+
+.sbw-organizer-tournament-cover .status-pill {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+}
+
+.sbw-organizer-tournament-cover-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 0.9rem;
+  font-weight: 950;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.sbw-organizer-tournament-body {
+  gap: 12px;
+  padding: 15px;
+}
+
+.sbw-organizer-tournament-kicker {
+  color: #bff4ff;
+  font-size: 0.7rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sbw-organizer-tournament-body h3 {
+  font-size: 1.08rem;
+}
+
+.sbw-organizer-tournament-body .sbw-organizer-action-btn {
+  justify-self: start;
+}
+
+.sbw-organizer-season-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sbw-organizer-season-summary article {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.13);
+  background: rgba(2, 6, 23, 0.34);
+}
+
+.sbw-organizer-season-summary span {
+  color: rgba(148, 163, 184, 0.92);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sbw-organizer-season-summary strong {
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-tabs-shell {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sbw-organizer-nav-actions {
+    justify-content: flex-start;
+  }
+
+  .sbw-organizer-overview-layout,
+  .sbw-organizer-ranking-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-organizer-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 0;
+  }
+
+  .sbw-organizer-hero-grid--compact {
+    padding: 18px;
+  }
+
+  .sbw-organizer-brand-row {
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
+  .sbw-organizer-logo {
+    width: 82px;
+    height: 82px;
+  }
+
+  .sbw-organizer-hero-bottomline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sbw-organizer-hero-links {
+    margin-left: 0;
+  }
+
+  .sbw-organizer-tabs-shell {
+    top: 0;
+    margin-inline: -16px;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .sbw-organizer-tabs-shell .sbw-organizer-tabs {
+    margin-inline: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-brand-row {
+    flex-direction: column;
+  }
+
+  .sbw-organizer-stats-grid,
+  .sbw-organizer-season-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-organizer-nav-actions .sbw-organizer-action-btn {
+    flex: 1 1 auto;
+  }
+}
+
+
+/*
+  -SBW- v1.6.57.2 — limpeza do topo e remoção de mensagens redundantes.
+  Mantém Visão Geral focada em ranking geral e remove chamadas de temporada sem dados reais.
+*/
+
+.sbw-organizer-profile-topbar {
+  min-height: 36px;
+  margin-bottom: 8px;
+}
+
+.sbw-organizer-profile-topbar p {
+  display: none;
+}
+
+.sbw-organizer-public-hero {
+  min-height: 172px;
+}
+
+.sbw-organizer-hero-grid--compact {
+  min-height: 172px;
+  padding: 18px 22px;
+}
+
+.sbw-organizer-title-stack {
+  gap: 6px;
+}
+
+.sbw-organizer-title-stack p {
+  max-width: 760px;
+  margin-top: 0;
+  font-size: 0.86rem;
+  line-height: 1.38;
+  color: rgba(203, 213, 225, 0.76);
+}
+
+.sbw-organizer-hero-bottomline {
+  margin-top: 4px;
+}
+
+.sbw-organizer-tags:empty {
+  display: none;
+}
+
+.sbw-organizer-section-head {
+  padding-bottom: 2px;
+}
+
+.sbw-organizer-section-head p {
+  display: none;
+}
+
+.sbw-organizer-overview-layout {
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+}
+
+.sbw-organizer-ranking-head {
+  align-items: center;
+  padding: 12px 14px 10px;
+}
+
+.sbw-organizer-ranking-season {
+  display: none;
+}
+
+.sbw-organizer-stats-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.sbw-organizer-stats-grid article {
+  min-height: 68px;
+  padding: 12px;
+}
+
+.sbw-organizer-season-summary {
+  display: none;
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+  -SBW- v1.6.57.3 — reorganização visual do perfil do Organizador.
+  Banner ocupa melhor o topo, torneios entram na área principal e rankings ficam como bloco lateral.
+*/
+
+.sbw-organizer-profile-page {
+  padding-top: 18px;
+  gap: 14px;
+}
+
+.sbw-organizer-profile-topbar {
+  position: absolute;
+  top: 18px;
+  left: 28px;
+  right: 28px;
+  z-index: 12;
+  min-height: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.sbw-organizer-profile-topbar .sbw-organizer-back-link {
+  pointer-events: auto;
+  min-height: 34px;
+  padding-inline: 12px;
+  border-color: rgba(226, 232, 240, 0.16);
+  background: rgba(2, 6, 23, 0.54);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
+}
+
+.sbw-organizer-public-hero {
+  min-height: clamp(260px, 28vw, 380px);
+}
+
+.sbw-organizer-hero-cover::after {
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.30) 0%, rgba(2, 6, 23, 0.22) 38%, rgba(2, 6, 23, 0.88) 100%),
+    radial-gradient(circle at 16% 100%, rgba(var(--org-primary-rgb, 56, 189, 248), 0.28), transparent 42%);
+}
+
+.sbw-organizer-hero-grid--compact {
+  min-height: clamp(260px, 28vw, 380px);
+  padding: 52px 28px 24px;
+}
+
+.sbw-organizer-title-stack .sbw-organizer-badges {
+  margin-bottom: 2px;
+}
+
+.sbw-organizer-title-stack .sbw-organizer-badge--primary {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sbw-organizer-overview-layout--tournaments-first {
+  grid-template-columns: minmax(0, 1.52fr) minmax(340px, 0.72fr);
+  align-items: start;
+}
+
+.sbw-organizer-section-card--overview-tournaments,
+.sbw-organizer-section-card--overview-rankings {
+  min-height: 100%;
+}
+
+.sbw-organizer-overview-tournament-grid {
+  max-height: 720px;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--org-primary-rgb, 56, 189, 248), 0.42) rgba(2, 6, 23, 0.38);
+}
+
+.sbw-organizer-overview-tournament-grid::-webkit-scrollbar,
+.sbw-organizer-ranking-layout--overview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sbw-organizer-overview-tournament-grid::-webkit-scrollbar-thumb,
+.sbw-organizer-ranking-layout--overview::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(var(--org-primary-rgb, 56, 189, 248), 0.42);
+}
+
+.sbw-organizer-overview-tournament-grid .sbw-organizer-tournament-card {
+  grid-template-rows: 138px 1fr;
+}
+
+.sbw-organizer-overview-tournament-grid .sbw-organizer-tournament-body p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sbw-organizer-ranking-layout--overview {
+  max-height: 720px;
+  overflow-y: auto;
+  padding-right: 2px;
+  grid-template-columns: 1fr;
+}
+
+.sbw-organizer-ranking-layout--overview .sbw-organizer-ranking-card {
+  background:
+    radial-gradient(circle at top left, rgba(var(--org-primary-rgb, 56, 189, 248), 0.08), transparent 46%),
+    rgba(2, 6, 23, 0.28);
+}
+
+.sbw-organizer-ranking-layout--overview .sbw-organizer-ranking-table {
+  min-width: 360px;
+}
+
+.sbw-organizer-section-card--overview-rankings .sbw-organizer-ranking-empty {
+  padding-block: 26px;
+}
+
+.sbw-organizer-ranking-empty {
+  font-size: 0.78rem;
+}
+
+.sbw-organizer-section-head h2 {
+  letter-spacing: -0.045em;
+}
+
+.sbw-organizer-lower-metrics {
+  margin-top: 12px;
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-overview-layout--tournaments-first {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 980px) {
+  .sbw-organizer-profile-page {
+    padding-top: 78px;
+  }
+
+  .sbw-organizer-profile-topbar {
+    top: 76px;
+    left: 16px;
+    right: 16px;
+  }
+
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 300px;
+  }
+
+  .sbw-organizer-hero-grid--compact {
+    padding-top: 56px;
+  }
+
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: 1fr;
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 360px;
+  }
+
+  .sbw-organizer-hero-grid--compact {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/*
+  v1.6.57.4 — cards de torneio menores e ranking enxuto.
+  Reduz a presença visual dos torneios em cerca de 60% e deixa rankings focados em posição/nome/pontos.
+*/
+.sbw-organizer-overview-tournament-grid,
+.sbw-organizer-tournament-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+  min-height: 0;
+  border-radius: 11px;
+  grid-template-rows: 62px auto;
+  box-shadow: none;
+}
+
+.sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+  min-height: 62px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover::after {
+  background: linear-gradient(180deg, transparent, rgba(2, 6, 23, 0.46));
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover .status-pill {
+  left: 7px;
+  bottom: 7px;
+  padding: 4px 7px;
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover-fallback {
+  padding: 8px;
+  font-size: 0.64rem;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body {
+  gap: 6px;
+  padding: 8px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-kicker {
+  font-size: 0.57rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body h3 {
+  display: -webkit-box;
+  min-height: 2.4em;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body p,
+.sbw-organizer-tournament-card--mini .sbw-organizer-meta-grid {
+  display: none;
+}
+
+.sbw-organizer-tournament-mini-meta {
+  display: grid;
+  gap: 3px;
+  color: rgba(203, 213, 225, 0.66);
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.sbw-organizer-tournament-mini-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-action-btn {
+  min-height: 28px;
+  justify-self: stretch;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.64rem;
+  text-align: center;
+}
+
+.sbw-organizer-ranking-card--compact {
+  max-height: 310px;
+}
+
+.sbw-organizer-ranking-table--compact {
+  min-width: 0;
+}
+
+.sbw-organizer-ranking-table--compact th,
+.sbw-organizer-ranking-table--compact td {
+  padding: 8px 9px;
+  font-size: 0.74rem;
+}
+
+.sbw-organizer-ranking-table--compact th:first-child,
+.sbw-organizer-ranking-table--compact td:first-child {
+  width: 58px;
+}
+
+.sbw-organizer-ranking-table--compact th:last-child,
+.sbw-organizer-ranking-table--compact td:last-child {
+  width: 72px;
+  text-align: right;
+}
+
+.sbw-organizer-ranking-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sbw-organizer-rank-position {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 950;
+}
+
+.sbw-organizer-rank-position strong {
+  color: inherit;
+  font-size: 0.82rem;
+}
+
+.sbw-organizer-rank-position span {
+  font-size: 0.66rem;
+  line-height: 1;
+}
+
+.sbw-organizer-rank-position.is-up,
+.sbw-organizer-rank-points {
+  color: #22c55e;
+}
+
+.sbw-organizer-rank-position.is-down {
+  color: #ef4444;
+}
+
+.sbw-organizer-rank-position.is-neutral {
+  color: rgba(148, 163, 184, 0.70);
+}
+
+.sbw-organizer-rank-points {
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 40px;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+    grid-template-rows: 58px auto;
+  }
+
+  .sbw-organizer-ranking-table--compact th,
+  .sbw-organizer-ranking-table--compact td {
+    padding: 7px 8px;
+  }
+}
+
+
+/*
+  v1.6.57.5 — ajuste fino de cards, top 5 de rankings e frase editável.
+  Estica levemente os cards, aumenta o volume da logo e usa frases editáveis do organizador/torneio.
+*/
+.sbw-organizer-logo {
+  width: clamp(101px, 9.9vw, 141px);
+  height: clamp(101px, 9.9vw, 141px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 44px rgba(var(--org-primary-rgb, 56, 189, 248), 0.42),
+    0 18px 44px rgba(0, 0, 0, 0.34),
+    inset 0 0 26px rgba(var(--org-primary-rgb, 56, 189, 248), 0.10);
+}
+
+.sbw-organizer-hero-phrase {
+  max-width: 780px;
+}
+
+.sbw-organizer-overview-tournament-grid,
+.sbw-organizer-tournament-grid {
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 12px;
+}
+
+.sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+  grid-template-rows: 70px auto;
+  border-radius: 12px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+  min-height: 70px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body h3 {
+  min-height: auto;
+  -webkit-line-clamp: 2;
+  font-size: 0.82rem;
+}
+
+.sbw-organizer-tournament-caption {
+  display: -webkit-box;
+  min-height: 1.25em;
+  margin: -2px 0 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  color: rgba(203, 213, 225, 0.70);
+  font-size: 0.66rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.sbw-organizer-tournament-mini-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sbw-organizer-tournament-mini-meta span:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sbw-organizer-tournament-mini-meta span:last-child {
+  flex: 0 0 auto;
+  max-width: 45%;
+  text-align: right;
+}
+
+.sbw-organizer-ranking-head::after {
+  content: "Top 5";
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 4px 8px;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.08);
+  color: #22c55e;
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-logo {
+    width: 104px;
+    height: 104px;
+  }
+
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+    grid-template-rows: 64px auto;
+  }
+}
+
+
+/*
+  v1.6.57.6 — ajuste fino solicitado:
+  mantém a largura compacta do patch anterior, aumenta apenas a altura dos cards,
+  reduz a sobra inferior do banner e remove o botão redundante “Ver torneios” da faixa de ações.
+*/
+.sbw-organizer-overview-tournament-grid,
+.sbw-organizer-tournament-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+  grid-template-rows: 68px auto;
+  border-radius: 11px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+  min-height: 68px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body {
+  gap: 7px;
+  padding: 9px 8px 10px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-kicker {
+  font-size: 0.58rem;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body h3 {
+  font-size: 0.79rem;
+  line-height: 1.22;
+}
+
+.sbw-organizer-tournament-caption {
+  margin-top: -1px;
+}
+
+.sbw-organizer-tournament-mini-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  align-items: start;
+}
+
+.sbw-organizer-tournament-mini-meta span:first-child,
+.sbw-organizer-tournament-mini-meta span:last-child {
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-action-btn {
+  margin-top: 1px;
+}
+
+.sbw-organizer-public-hero {
+  min-height: clamp(220px, 24vw, 316px);
+}
+
+.sbw-organizer-hero-grid--compact {
+  min-height: clamp(220px, 24vw, 316px);
+  padding-bottom: 19px;
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 230px;
+  }
+
+  .sbw-organizer-overview-tournament-grid,
+  .sbw-organizer-tournament-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+    grid-template-rows: 64px auto;
+  }
+
+  .sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+    min-height: 64px;
+  }
+}
+
+/*
+  v1.6.57.7 — ajuste fino: ranking 15% mais estreito, rankings lado a lado e card de torneio +20% vertical.
+*/
+.sbw-organizer-overview-layout--tournaments-first {
+  grid-template-columns: minmax(0, 1.76fr) minmax(290px, 0.61fr);
+  gap: 14px;
+}
+
+.sbw-organizer-section-card--overview-rankings {
+  min-width: 0;
+}
+
+.sbw-organizer-ranking-layout--overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 720px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-items: stretch;
+}
+
+.sbw-organizer-ranking-layout--overview .sbw-organizer-ranking-card {
+  min-width: 0;
+  width: 100%;
+}
+
+.sbw-organizer-ranking-layout--overview .sbw-organizer-ranking-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.sbw-organizer-ranking-card--compact {
+  max-height: 318px;
+}
+
+.sbw-organizer-ranking-head {
+  gap: 6px;
+  padding-bottom: 10px;
+}
+
+.sbw-organizer-ranking-head h3 {
+  font-size: clamp(0.92rem, 1.05vw, 1.05rem);
+}
+
+.sbw-organizer-ranking-head::after {
+  padding: 3px 7px;
+  font-size: 0.58rem;
+}
+
+.sbw-organizer-ranking-table--compact th,
+.sbw-organizer-ranking-table--compact td {
+  padding: 7px 6px;
+  font-size: 0.68rem;
+}
+
+.sbw-organizer-ranking-table--compact th:first-child,
+.sbw-organizer-ranking-table--compact td:first-child {
+  width: 42px;
+}
+
+.sbw-organizer-ranking-table--compact th:last-child,
+.sbw-organizer-ranking-table--compact td:last-child {
+  width: 56px;
+}
+
+.sbw-organizer-ranking-name {
+  max-width: 74px;
+}
+
+.sbw-organizer-rank-points {
+  min-width: 34px;
+}
+
+.sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+  grid-template-rows: 82px auto;
+  min-height: 236px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+  min-height: 82px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body {
+  min-height: 154px;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 8px;
+  padding: 10px 9px 11px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body h3 {
+  min-height: 2.45em;
+  line-height: 1.22;
+}
+
+.sbw-organizer-tournament-caption {
+  min-height: 1.3em;
+}
+
+.sbw-organizer-tournament-mini-meta {
+  gap: 4px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-action-btn {
+  align-self: end;
+  margin-top: 3px;
+}
+
+@media (max-width: 1460px) {
+  .sbw-organizer-overview-layout--tournaments-first {
+    grid-template-columns: minmax(0, 1.64fr) minmax(300px, 0.68fr);
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: repeat(2, minmax(148px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-overview-layout--tournaments-first {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+    grid-template-rows: 76px auto;
+    min-height: 220px;
+  }
+
+  .sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+    min-height: 76px;
+  }
+
+  .sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body {
+    min-height: 144px;
+  }
+}
+
+/*
+  v1.6.57.8 — ajuste fino: rankings mais largos e banner 15% mais baixo.
+  Mantém logo/nome/informações na mesma região visual do hero e amplia os cards de ranking.
+*/
+.sbw-organizer-public-hero {
+  min-height: clamp(187px, 20.5vw, 269px);
+}
+
+.sbw-organizer-hero-grid--compact {
+  min-height: clamp(187px, 20.5vw, 269px);
+  padding: 46px 28px 16px;
+  align-items: end;
+}
+
+.sbw-organizer-overview-layout--tournaments-first {
+  grid-template-columns: minmax(0, 1.56fr) minmax(420px, 0.82fr);
+  gap: 14px;
+}
+
+.sbw-organizer-ranking-layout--overview {
+  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  gap: 12px;
+  overflow-x: hidden;
+}
+
+.sbw-organizer-ranking-card--compact {
+  max-height: 330px;
+}
+
+.sbw-organizer-ranking-head {
+  gap: 9px;
+  padding: 12px 12px 10px;
+}
+
+.sbw-organizer-ranking-head h3 {
+  font-size: clamp(0.98rem, 1.12vw, 1.12rem);
+}
+
+.sbw-organizer-ranking-head::after {
+  padding: 4px 8px;
+  font-size: 0.62rem;
+}
+
+.sbw-organizer-ranking-table--compact th,
+.sbw-organizer-ranking-table--compact td {
+  padding: 8px 8px;
+  font-size: 0.72rem;
+}
+
+.sbw-organizer-ranking-table--compact th:first-child,
+.sbw-organizer-ranking-table--compact td:first-child {
+  width: 48px;
+}
+
+.sbw-organizer-ranking-table--compact th:last-child,
+.sbw-organizer-ranking-table--compact td:last-child {
+  width: 68px;
+}
+
+.sbw-organizer-ranking-name {
+  max-width: 118px;
+}
+
+.sbw-organizer-rank-points {
+  min-width: 44px;
+}
+
+@media (max-width: 1460px) {
+  .sbw-organizer-overview-layout--tournaments-first {
+    grid-template-columns: minmax(0, 1.42fr) minmax(400px, 0.86fr);
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-overview-layout--tournaments-first {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 255px;
+  }
+
+  .sbw-organizer-hero-grid--compact {
+    padding: 50px 18px 18px;
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 220px;
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+  v1.6.57.9 — limpeza visual da Visão Geral.
+  Remove as caixas de fundo dos blocos Torneios/Rankings, mantém apenas os cards,
+  adiciona uma única linha divisória entre as colunas e desce levemente a identidade no banner.
+*/
+.sbw-organizer-public-hero {
+  min-height: clamp(175px, 19.1vw, 248px);
+}
+
+.sbw-organizer-hero-grid--compact {
+  min-height: clamp(175px, 19.1vw, 248px);
+  padding: 50px 28px 10px;
+  align-items: end;
+}
+
+.sbw-organizer-brand-row {
+  align-items: flex-end;
+}
+
+.sbw-organizer-overview-layout--tournaments-first {
+  position: relative;
+  grid-template-columns: minmax(0, 1.62fr) minmax(430px, 0.86fr);
+  gap: 0;
+  align-items: start;
+}
+
+.sbw-organizer-section-card--overview-tournaments,
+.sbw-organizer-section-card--overview-rankings {
+  min-height: 100%;
+  padding-top: 0;
+  padding-bottom: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.sbw-organizer-section-card--overview-tournaments {
+  padding-left: 0;
+  padding-right: 24px;
+  border-right: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.18);
+}
+
+.sbw-organizer-section-card--overview-rankings {
+  padding-left: 24px;
+  padding-right: 0;
+}
+
+.sbw-organizer-section-card--overview-tournaments .sbw-organizer-section-head,
+.sbw-organizer-section-card--overview-rankings .sbw-organizer-section-head {
+  margin-bottom: 12px;
+}
+
+.sbw-organizer-overview-tournament-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 180px));
+  gap: 12px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+  align-content: start;
+}
+
+.sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini,
+.sbw-organizer-ranking-card--compact {
+  width: 100%;
+}
+
+.sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+  grid-template-rows: 96px auto;
+  min-height: 262px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+  min-height: 96px;
+}
+
+.sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body {
+  min-height: 166px;
+  grid-template-rows: auto auto auto 1fr auto;
+}
+
+.sbw-organizer-ranking-layout--overview {
+  grid-template-columns: repeat(2, minmax(210px, 1fr));
+  gap: 14px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.sbw-organizer-ranking-card--compact {
+  min-height: 262px;
+  max-height: none;
+}
+
+.sbw-organizer-ranking-head {
+  padding-inline: 14px;
+}
+
+.sbw-organizer-ranking-table--compact th,
+.sbw-organizer-ranking-table--compact td {
+  padding: 8px 9px;
+}
+
+@media (max-width: 1460px) {
+  .sbw-organizer-overview-layout--tournaments-first {
+    grid-template-columns: minmax(0, 1.5fr) minmax(390px, 0.9fr);
+  }
+
+  .sbw-organizer-overview-tournament-grid {
+    grid-template-columns: repeat(auto-fill, minmax(172px, 172px));
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: repeat(2, minmax(190px, 1fr));
+  }
+}
+
+@media (max-width: 1320px) {
+  .sbw-organizer-overview-layout--tournaments-first {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .sbw-organizer-section-card--overview-tournaments {
+    padding-right: 0;
+    border-right: 0;
+    border-bottom: 1px solid rgba(var(--org-primary-rgb, 56, 189, 248), 0.16);
+    padding-bottom: 18px;
+  }
+
+  .sbw-organizer-section-card--overview-rankings {
+    padding-left: 0;
+    padding-top: 2px;
+  }
+}
+
+@media (max-width: 980px) {
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 236px;
+  }
+
+  .sbw-organizer-hero-grid--compact {
+    padding: 52px 18px 12px;
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .sbw-organizer-public-hero,
+  .sbw-organizer-hero-grid--compact {
+    min-height: 214px;
+  }
+
+  .sbw-organizer-overview-tournament-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sbw-organizer-tournament-card.sbw-organizer-tournament-card--mini {
+    grid-template-rows: 88px auto;
+    min-height: 244px;
+  }
+
+  .sbw-organizer-tournament-card--mini .sbw-organizer-tournament-cover {
+    min-height: 88px;
+  }
+
+  .sbw-organizer-tournament-card--mini .sbw-organizer-tournament-body {
+    min-height: 156px;
+  }
+
+  .sbw-organizer-ranking-layout--overview {
+    grid-template-columns: 1fr;
+  }
+}

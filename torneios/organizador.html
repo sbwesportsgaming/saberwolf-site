@@ -37,51 +37,44 @@
       <div class="sbw-organizer-loading-card">Carregando organizador...</div>
     </section>
 
-    <nav class="sbw-organizer-tabs" aria-label="Áreas públicas do organizador">
-      <button class="is-active" type="button" data-organizer-tab="overview">Visão Geral</button>
-      <button type="button" data-organizer-tab="tournaments">Torneios</button>
-      <button type="button" data-organizer-tab="seasons">Temporadas</button>
-      <button type="button" data-organizer-tab="rankings">Rankings</button>
-      <button type="button" data-organizer-tab="history">Histórico</button>
+    <nav class="sbw-organizer-tabs-shell" aria-label="Áreas públicas do organizador">
+      <div class="sbw-organizer-tabs" role="tablist">
+        <button class="is-active" type="button" data-organizer-tab="overview">Visão Geral</button>
+        <button type="button" data-organizer-tab="tournaments">Torneios</button>
+        <button type="button" data-organizer-tab="seasons">Temporadas</button>
+        <button type="button" data-organizer-tab="rankings">Rankings</button>
+        <button type="button" data-organizer-tab="history">Histórico</button>
+      </div>
+      <div class="sbw-organizer-nav-actions" id="organizerNavActions" aria-label="Ações do organizador"></div>
     </nav>
 
     <section class="sbw-organizer-tab-panel is-active" id="organizerTabOverview" data-organizer-panel="overview">
-      <div class="sbw-organizer-dashboard-grid">
-        <article class="sbw-organizer-section-card sbw-organizer-section-card--wide">
+      <div class="sbw-organizer-overview-layout sbw-organizer-overview-layout--tournaments-first">
+        <article class="sbw-organizer-section-card sbw-organizer-section-card--overview-tournaments">
           <div class="sbw-organizer-section-head">
             <div>
               <span class="sbw-organizer-eyebrow">Visão Geral</span>
-              <h2>Resumo do organizador</h2>
-            </div>
-          </div>
-          <div class="sbw-organizer-stats-grid" id="organizerStats"></div>
-          <p class="sbw-organizer-card-note">Esta página pública mostra apenas dados do organizador selecionado.</p>
-        </article>
-
-        <article class="sbw-organizer-section-card">
-          <div class="sbw-organizer-section-head">
-            <div>
-              <span class="sbw-organizer-eyebrow">Torneios recentes</span>
-              <h2>Últimos eventos</h2>
+              <h2>Torneios</h2>
             </div>
             <button class="sbw-organizer-small-action" type="button" data-organizer-tab-shortcut="tournaments">Ver todos</button>
           </div>
-          <div class="sbw-organizer-compact-list" id="organizerRecentTournaments"></div>
+          <div class="sbw-organizer-overview-tournament-grid" id="organizerOverviewTournaments"></div>
         </article>
 
-        <article class="sbw-organizer-section-card">
+        <article class="sbw-organizer-section-card sbw-organizer-section-card--overview-rankings">
           <div class="sbw-organizer-section-head">
             <div>
-              <span class="sbw-organizer-eyebrow">Ranking</span>
-              <h2>Ranking do organizador</h2>
+              <span class="sbw-organizer-eyebrow">Classificação</span>
+              <h2>Rankings</h2>
             </div>
-            <button class="sbw-organizer-small-action" type="button" data-organizer-tab-shortcut="rankings">Ver ranking</button>
           </div>
-          <div class="sbw-organizer-empty-state" id="organizerOverviewRanking">
-            O ranking aparecerá quando houver torneios pontuáveis e temporada ativa.
-          </div>
+          <div class="sbw-organizer-ranking-layout sbw-organizer-ranking-layout--overview" id="organizerOverviewRankingGrid"></div>
         </article>
       </div>
+
+      <section class="sbw-organizer-lower-metrics" aria-label="Resumo inferior do organizador">
+        <div class="sbw-organizer-stats-grid" id="organizerStats"></div>
+      </section>
     </section>
 
     <section class="sbw-organizer-tab-panel" id="organizerTabTournaments" data-organizer-panel="tournaments" hidden>
@@ -89,8 +82,7 @@
         <div class="sbw-organizer-section-head sbw-organizer-section-head--stacked">
           <div>
             <span class="sbw-organizer-eyebrow">Torneios</span>
-            <h2>Torneios deste organizador</h2>
-            <p>Somente torneios vinculados a este organizador aparecem aqui.</p>
+            <h2>Torneios</h2>
           </div>
           <div class="sbw-organizer-filter-row">
             <input id="organizerTournamentSearch" type="search" placeholder="Buscar torneio..." />
@@ -112,7 +104,7 @@
         <div class="sbw-organizer-section-head">
           <div>
             <span class="sbw-organizer-eyebrow">Temporadas</span>
-            <h2>Temporadas do organizador</h2>
+            <h2>Temporadas</h2>
           </div>
         </div>
         <div class="sbw-organizer-empty-state" id="organizerSeasonsGrid">
@@ -126,13 +118,10 @@
         <div class="sbw-organizer-section-head">
           <div>
             <span class="sbw-organizer-eyebrow">Rankings</span>
-            <h2>Rankings do organizador</h2>
-            <p>Este ranking é próprio do organizador, separado do ranking global -SBW-.</p>
+            <h2>Ranking geral</h2>
           </div>
         </div>
-        <div class="sbw-organizer-ranking-layout" id="organizerRankingsGrid">
-          <div class="sbw-organizer-empty-state">O ranking aparecerá quando houver torneios pontuáveis.</div>
-        </div>
+        <div class="sbw-organizer-ranking-layout" id="organizerRankingsGrid"></div>
       </article>
     </section>
 
@@ -161,7 +150,7 @@
   <script src="../js/tournaments/tournaments-utils.js"></script>
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournaments-storage.js"></script>
-  <script src="../js/tournaments/tournament-organizer-page.js?v=1.6.57"></script>
+  <script src="../js/tournaments/tournament-organizer-page.js?v=1.6.57.5"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
