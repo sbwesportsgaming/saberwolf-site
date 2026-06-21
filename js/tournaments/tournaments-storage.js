@@ -1412,6 +1412,8 @@ function sbwNormalizeSupabaseTournamentParticipant(row = {}) {
     checkedIn: ["checked_in", "checked-in", "confirmed"].includes(String(row.check_in_status || row.checked_in || "").toLowerCase()),
     checkInStatus: row.check_in_status || "pending",
     seed: row.seed || null,
+    createdAt: row.created_at || "",
+    updatedAt: row.updated_at || "",
     source: "supabase",
     raw: row
   };
@@ -1831,6 +1833,109 @@ async function sbwRemoveSupabaseTournamentParticipantAsync(participant) {
     status: "removed",
     checkInStatus: "missed"
   });
+}
+
+
+async function sbwGetTournamentParticipantsForOrganizerAsync(options = {}) {
+  if (!sbwIsSupabaseEnabled()) {
+    return {
+      success: false,
+      participants: [],
+      message: "Supabase não está ativo para gestão de inscritos."
+    };
+  }
+
+  const organizerKey = String(options?.organizer || options?.organizerSlug || options?.organizerId || "").trim();
+  const tournamentKey = String(options?.tournament || options?.tournamentId || options?.id || "").trim();
+
+  if (!organizerKey) {
+    throw new Error("Organizador não informado para carregar inscritos.");
+  }
+
+  if (!tournamentKey) {
+    throw new Error("Torneio não informado para carregar inscritos.");
+  }
+
+  try {
+    const { data, error } = await window.SBWSupabase.client.rpc("sbw_get_tournament_participants_for_organizer", {
+      p_organizer: organizerKey,
+      p_tournament: tournamentKey
+    });
+
+    if (error) {
+      console.error("[SaberWolf Supabase] Erro ao buscar inscritos do torneio para o organizador:", error);
+      throw error;
+    }
+
+    const result = data && typeof data === "object" ? data : {};
+    const rows = Array.isArray(result.participants) ? result.participants : [];
+
+    return {
+      success: result.ok !== false,
+      message: result.message || "Inscritos carregados.",
+      participants: rows.map(sbwNormalizeSupabaseTournamentParticipant),
+      stats: result.stats || {},
+      tournament: result.tournament || null,
+      raw: data
+    };
+  } catch (error) {
+    console.error("[SaberWolf Supabase] Falha ao carregar inscritos do organizador:", error);
+    throw error;
+  }
+}
+
+async function sbwUpdateTournamentParticipantForOrganizerAsync(options = {}) {
+  if (!sbwIsSupabaseEnabled()) {
+    return {
+      success: false,
+      message: "Supabase não está ativo para atualizar inscritos."
+    };
+  }
+
+  const organizerKey = String(options?.organizer || options?.organizerSlug || options?.organizerId || "").trim();
+  const tournamentKey = String(options?.tournament || options?.tournamentId || options?.id || "").trim();
+  const participantId = String(options?.participantId || options?.participant || "").trim();
+  const payload = options?.payload && typeof options.payload === "object" ? options.payload : {};
+
+  if (!organizerKey) {
+    throw new Error("Organizador não informado para atualizar inscrição.");
+  }
+
+  if (!tournamentKey) {
+    throw new Error("Torneio não informado para atualizar inscrição.");
+  }
+
+  if (!participantId) {
+    throw new Error("Inscrição não informada para atualização.");
+  }
+
+  try {
+    const { data, error } = await window.SBWSupabase.client.rpc("sbw_update_tournament_participant_for_organizer", {
+      p_organizer: organizerKey,
+      p_tournament: tournamentKey,
+      p_participant: participantId,
+      p_payload: payload
+    });
+
+    if (error) {
+      console.error("[SaberWolf Supabase] Erro ao atualizar inscrito pelo organizador:", error);
+      throw error;
+    }
+
+    const result = data && typeof data === "object" ? data : {};
+    const row = result.participant || result.row || result.data || null;
+
+    return {
+      success: result.ok !== false,
+      message: result.message || "Inscrição atualizada.",
+      participant: row ? sbwNormalizeSupabaseTournamentParticipant(row) : null,
+      stats: result.stats || {},
+      raw: data
+    };
+  } catch (error) {
+    console.error("[SaberWolf Supabase] Falha ao atualizar inscrito pelo organizador:", error);
+    throw error;
+  }
 }
 
 async function sbwSaveSupabaseTournamentStructureAsync(tournament) {

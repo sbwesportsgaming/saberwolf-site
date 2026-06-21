@@ -236,6 +236,47 @@
 
             <div id="organizerTournamentEditMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
           </form>
+
+          <section id="organizerTournamentParticipantsPanel" class="organizer-admin-participants-panel" hidden>
+            <div class="organizer-admin-edit-form-head organizer-admin-participants-head">
+              <div>
+                <span class="organizer-admin-eyebrow">Inscritos</span>
+                <h3 id="organizerTournamentParticipantsTitle">Participantes do torneio</h3>
+                <p id="organizerTournamentParticipantsMeta">Gerencie inscritos reais da plataforma -SBW-.</p>
+              </div>
+              <button id="organizerTournamentParticipantsClose" class="organizer-admin-small-link" type="button">Fechar</button>
+            </div>
+
+            <div class="organizer-admin-participants-summary" aria-label="Resumo de inscritos">
+              <div class="organizer-admin-participants-stat">
+                <span>Inscritos</span>
+                <strong id="organizerTournamentParticipantsRegistered">0</strong>
+              </div>
+              <div class="organizer-admin-participants-stat">
+                <span>Check-in</span>
+                <strong id="organizerTournamentParticipantsCheckedIn">0</strong>
+              </div>
+              <div class="organizer-admin-participants-stat">
+                <span>Lista de espera</span>
+                <strong id="organizerTournamentParticipantsWaitlist">0</strong>
+              </div>
+              <div class="organizer-admin-participants-stat">
+                <span>Removidos</span>
+                <strong id="organizerTournamentParticipantsRemoved">0</strong>
+              </div>
+            </div>
+
+            <div class="organizer-admin-participants-toolbar">
+              <p>Use esta área para validar inscritos reais, fazer check-in manual e remover inscrições quando necessário.</p>
+              <a id="organizerTournamentParticipantsPublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
+            </div>
+
+            <div id="organizerTournamentParticipantsList" class="organizer-admin-participants-list">
+              <div class="organizer-admin-empty-row">Selecione um torneio para carregar inscritos.</div>
+            </div>
+
+            <div id="organizerTournamentParticipantsMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+          </section>
         </article>
 
         <article id="organizerEditorRankings" class="organizer-admin-card organizer-admin-card--full" data-organizer-admin-panel="rankings" hidden>
@@ -651,7 +692,7 @@
   <script src="../js/tournaments/tournaments-utils.js"></script>
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournaments-storage.js"></script>
-  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.59"></script>
+  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.64"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
