@@ -891,10 +891,80 @@ function getTournamentFormat(tournament) {
       return "Sem equipe";
     }
 
-    return player.team ||
+    const raw = player?.raw && typeof player.raw === "object" ? player.raw : {};
+    const metadata = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+    const teamObject = player?.team && typeof player.team === "object" ? player.team : null;
+    const rawTeamObject = raw.team && typeof raw.team === "object" ? raw.team : null;
+
+    return teamObject?.name ||
+      teamObject?.displayName ||
+      rawTeamObject?.name ||
+      rawTeamObject?.displayName ||
+      player.teamName ||
+      player.team_name ||
+      metadata.teamName ||
+      metadata.team_name ||
+      (typeof player.team === "string" ? player.team : "") ||
       player.organization ||
       player.club ||
       "Sem equipe";
+  }
+
+  function sbwGetParticipantTeamTag(player) {
+    if (!player) {
+      return "";
+    }
+
+    const raw = player.raw && typeof player.raw === "object" ? player.raw : {};
+    const metadata = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+    const teamObject = player.team && typeof player.team === "object" ? player.team : null;
+    const rawTeamObject = raw.team && typeof raw.team === "object" ? raw.team : null;
+
+    const tag =
+      player.teamTag ||
+      player.team_tag ||
+      player.teamAcronym ||
+      player.team_acronym ||
+      player.teamPrefix ||
+      player.team_prefix ||
+      teamObject?.tag ||
+      teamObject?.teamTag ||
+      teamObject?.shortName ||
+      teamObject?.abbr ||
+      teamObject?.code ||
+      rawTeamObject?.tag ||
+      rawTeamObject?.teamTag ||
+      rawTeamObject?.shortName ||
+      rawTeamObject?.abbr ||
+      rawTeamObject?.code ||
+      raw.teamTag ||
+      raw.team_tag ||
+      raw.team_acronym ||
+      metadata.teamTag ||
+      metadata.team_tag ||
+      metadata.teamAcronym ||
+      metadata.team_acronym ||
+      "";
+
+    return String(tag || "").trim();
+  }
+
+  function sbwFormatPlayerDisplayName(player) {
+    const name = getPlayerName(player);
+    const tag = sbwGetParticipantTeamTag(player);
+
+    if (!tag) {
+      return name;
+    }
+
+    const normalizedName = String(name || "").trim();
+    const normalizedTag = String(tag).trim();
+
+    if (!normalizedName || normalizedName.toLowerCase().startsWith(normalizedTag.toLowerCase())) {
+      return normalizedName || normalizedTag;
+    }
+
+    return `${normalizedTag} ${normalizedName}`;
   }
 
   function getMatchScore(match, field) {
@@ -1373,7 +1443,6 @@ function getTournamentFormat(tournament) {
 
     const playerSlug = participant?.playerSlug || participant?.player_slug || raw.player_slug || "";
     const character = participant?.character || participant?.mainCharacter || metadata.character || metadata.mainCharacter || "";
-    const source = participant?.source === "supabase" ? "Inscrição real" : "Registro local";
 
     if (playerSlug) {
       items.push(`@${playerSlug}`);
@@ -1382,8 +1451,6 @@ function getTournamentFormat(tournament) {
     if (character) {
       items.push(character);
     }
-
-    items.push(source);
 
     return items;
   }
@@ -1525,37 +1592,41 @@ function getTournamentFormat(tournament) {
     }
 
     return `
-      <div class="participants-grid participants-grid--premium ${escapeHTML(listClass)}">
+      <div class="participants-list participants-list--public ${escapeHTML(listClass)}">
         ${participants.map((participant, index) => {
           const checkIn = sbwGetCheckInStatusInfo(participant);
           const participantStatus = sbwGetParticipantStatusInfo(participant);
-          const seedLabel = Number(participant.seed) > 0 ? `Seed ${participant.seed}` : `#${index + 1}`;
+          const seedLabel = Number(participant.seed) > 0 ? `#${participant.seed}` : `#${index + 1}`;
           const metaItems = sbwGetParticipantMetaItems(participant);
+          const teamName = getPlayerTeam(participant);
+          const hasTeamName = teamName && teamName !== "Sem equipe";
+          const displayName = sbwFormatPlayerDisplayName(participant);
 
           return `
-            <article class="participant-card participant-card--premium ${escapeHTML(checkIn.className)} ${escapeHTML(participantStatus.className)}">
-              <div class="participant-card-headline">
-                <span class="participant-rank-badge">${escapeHTML(seedLabel)}</span>
-                <span class="participant-status-pill ${escapeHTML(participantStatus.className)}">
-                  ${escapeHTML(participantStatus.label)}
-                </span>
+            <article class="participant-list-row ${escapeHTML(checkIn.className)} ${escapeHTML(participantStatus.className)}">
+              <span class="participant-list-seed">${escapeHTML(seedLabel)}</span>
+
+              <div class="participant-list-identity">
+                <strong>${escapeHTML(displayName)}</strong>
+                ${hasTeamName || metaItems.length > 0 ? `
+                  <span>
+                    ${hasTeamName ? escapeHTML(teamName) : ""}
+                    ${hasTeamName && metaItems.length > 0 ? " · " : ""}
+                    ${metaItems.map((item) => escapeHTML(item)).join(" · ")}
+                  </span>
+                ` : ""}
               </div>
 
-              <div class="participant-card-main">
-                <strong>${escapeHTML(getPlayerName(participant))}</strong>
-                <span>${escapeHTML(getPlayerTeam(participant))}</span>
-              </div>
-
-              ${metaItems.length > 0 ? `
-                <div class="participant-meta-row">
-                  ${metaItems.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}
-                </div>
-              ` : ""}
-
-              <div class="participant-checkin-row ${escapeHTML(checkIn.className)}">
+              <span class="participant-list-status ${escapeHTML(checkIn.className)}">
                 <i class="fa-solid ${escapeHTML(checkIn.icon)}"></i>
                 ${escapeHTML(checkIn.label)}
-              </div>
+              </span>
+
+              ${participantStatus.className !== "registered" ? `
+                <span class="participant-list-registration ${escapeHTML(participantStatus.className)}">
+                  ${escapeHTML(participantStatus.label)}
+                </span>
+              ` : ""}
             </article>
           `;
         }).join("")}
@@ -1588,7 +1659,7 @@ function getTournamentFormat(tournament) {
     const count = Array.isArray(participants) ? participants.length : 0;
 
     return `
-      <section class="participants-public-section ${escapeHTML(options.className || "")}">
+      <section class="participants-public-section participants-public-section--list ${escapeHTML(options.className || "")}">
         <div class="participants-public-section-header">
           <div>
             <span>${escapeHTML(options.eyebrow || "Participantes")}</span>

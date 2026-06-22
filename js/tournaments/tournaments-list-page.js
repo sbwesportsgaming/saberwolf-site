@@ -19,6 +19,8 @@ const sbwTournamentPlayersCount = document.getElementById("tournamentPlayersCoun
 
 let sbwTournamentListRenderRequest = 0;
 let sbwTournamentListCache = [];
+let sbwTournamentListRegistrationMap = new Map();
+let sbwTournamentListCurrentUser = null;
 
 
 function sbwTournamentPageLoading(target, title, message, rows = 4) {
@@ -438,6 +440,216 @@ function sbwGetTournamentCoverStyle(tournament) {
   return ` style="--tournament-cover: url('${sbwSafeEscape(coverUrl)}')"`;
 }
 
+
+function sbwBuildTournamentViewUrl(tournament, view = "") {
+  const detailUrl = sbwGetTournamentPublicUrl(tournament);
+  const cleanView = String(view || "").trim();
+
+  if (!cleanView) {
+    return detailUrl;
+  }
+
+  if (detailUrl.includes("view=")) {
+    return detailUrl.replace(/([?&])view=[^&#]*/i, `$1view=${encodeURIComponent(cleanView)}`);
+  }
+
+  const hashIndex = detailUrl.indexOf("#");
+  const baseUrl = hashIndex >= 0 ? detailUrl.slice(0, hashIndex) : detailUrl;
+  const hash = hashIndex >= 0 ? detailUrl.slice(hashIndex) : "";
+  const separator = baseUrl.includes("?") ? "&" : "?";
+
+  return `${baseUrl}${separator}view=${encodeURIComponent(cleanView)}${hash}`;
+}
+
+function sbwGetTournamentListLookupKeys(tournament) {
+  const keys = [];
+
+  if (typeof sbwGetTournamentRegistrationLookupKeys === "function") {
+    sbwGetTournamentRegistrationLookupKeys(tournament).forEach((key) => keys.push(key));
+  }
+
+  [
+    tournament?.raw?.id,
+    tournament?.supabaseId,
+    tournament?.tournamentId,
+    tournament?.id,
+    tournament?.slug,
+    typeof sbwGetTournamentPublicId === "function" ? sbwGetTournamentPublicId(tournament) : ""
+  ].forEach((value) => {
+    const key = String(value || "").trim();
+
+    if (key && !keys.includes(key)) {
+      keys.push(key);
+    }
+  });
+
+  return keys;
+}
+
+function sbwGetTournamentListPrimaryLookupKey(tournament) {
+  return sbwGetTournamentListLookupKeys(tournament)[0] || "";
+}
+
+function sbwNormalizeTournamentParticipantStatusValue(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("_", "-");
+}
+
+function sbwGetCachedTournamentRegistration(tournament) {
+  const keys = sbwGetTournamentListLookupKeys(tournament);
+
+  for (const key of keys) {
+    if (sbwTournamentListRegistrationMap.has(key)) {
+      return sbwTournamentListRegistrationMap.get(key);
+    }
+  }
+
+  return null;
+}
+
+function sbwGetTournamentCardRegistrationState(tournament) {
+  const registration = sbwGetCachedTournamentRegistration(tournament);
+  const lookupKeys = sbwGetTournamentListLookupKeys(tournament);
+  const hasLocalRegistration = typeof sbwHasRegistration === "function"
+    ? lookupKeys.some((key) => sbwHasRegistration(key))
+    : false;
+  const status = sbwNormalizeTournamentParticipantStatusValue(
+    registration?.status ||
+    registration?.raw?.status ||
+    (hasLocalRegistration ? "registered" : "")
+  );
+  const checkInStatus = sbwNormalizeTournamentParticipantStatusValue(
+    registration?.checkInStatus ||
+    registration?.check_in_status ||
+    registration?.raw?.check_in_status ||
+    registration?.raw?.checked_in ||
+    "pending"
+  );
+  const checkedIn = Boolean(registration?.checkedIn || registration?.checkin) ||
+    ["checked-in", "confirmed", "checkin-confirmed", "confirmado"].includes(checkInStatus);
+  const waitlist = status === "waitlist" || status === "waiting-list";
+  const registered = Boolean(registration) || hasLocalRegistration;
+
+  return {
+    registration,
+    registered,
+    checkedIn,
+    waitlist,
+    status,
+    checkInStatus
+  };
+}
+
+async function sbwGetTournamentListCurrentAuthUser() {
+  try {
+    if (window.SBWSessionContext && typeof window.SBWSessionContext.getCurrentContext === "function") {
+      const context = await window.SBWSessionContext.getCurrentContext();
+      const user = context?.user || context?.authUser || null;
+      const userId = user?.id || user?.authUserId || user?.auth_user_id || "";
+
+      if (userId) {
+        return { ...user, id: userId };
+      }
+    }
+  } catch (error) {
+    console.warn("[SBW Torneios] Não foi possível ler contexto de sessão para inscrições:", error);
+  }
+
+  try {
+    if (window.SBWAuth && typeof window.SBWAuth.getUser === "function") {
+      const result = await window.SBWAuth.getUser();
+      const user = result?.user || result || null;
+      const userId = user?.id || user?.authUserId || user?.auth_user_id || "";
+
+      if (userId) {
+        return { ...user, id: userId };
+      }
+    }
+  } catch (error) {
+    console.warn("[SBW Torneios] Não foi possível ler usuário atual para inscrições:", error);
+  }
+
+  return null;
+}
+
+async function sbwLoadTournamentListRegistrationStates(tournaments = []) {
+  const registrationMap = new Map();
+  const authUser = await sbwGetTournamentListCurrentAuthUser();
+  sbwTournamentListCurrentUser = authUser;
+
+  if (!authUser?.id || typeof sbwGetCurrentTournamentRegistrationAsync !== "function") {
+    sbwTournamentListRegistrationMap = registrationMap;
+    return registrationMap;
+  }
+
+  const uniqueTournaments = Array.from(new Map(
+    (Array.isArray(tournaments) ? tournaments : []).map((tournament) => [
+      sbwGetTournamentListPrimaryLookupKey(tournament) || Math.random().toString(36),
+      tournament
+    ])
+  ).values());
+
+  await Promise.allSettled(uniqueTournaments.map(async (tournament) => {
+    try {
+      const registration = await sbwGetCurrentTournamentRegistrationAsync(tournament, authUser);
+
+      if (!registration) {
+        return;
+      }
+
+      sbwGetTournamentListLookupKeys(tournament).forEach((key) => {
+        registrationMap.set(key, registration);
+      });
+    } catch (error) {
+      console.warn("[SBW Torneios] Não foi possível verificar inscrição no card do torneio:", error);
+    }
+  }));
+
+  sbwTournamentListRegistrationMap = registrationMap;
+  return registrationMap;
+}
+
+function sbwRenderTournamentRegistrationAction(tournament) {
+  const registrationState = sbwGetTournamentCardRegistrationState(tournament);
+  const isOpen = sbwIsTournamentOpen(tournament);
+  const detailsUrl = sbwGetTournamentPublicUrl(tournament);
+  const registrationUrl = sbwBuildTournamentViewUrl(tournament, "inscricao");
+
+  if (registrationState.checkedIn) {
+    return `
+      <a class="public-card-btn secondary is-registration-confirmed" href="${sbwSafeEscape(registrationUrl)}" aria-label="Check-in confirmado neste torneio">
+        <i class="fa-solid fa-circle-check"></i>
+        Check-in confirmado
+      </a>
+    `;
+  }
+
+  if (registrationState.registered) {
+    return `
+      <a class="public-card-btn secondary is-registration-checkin" href="${sbwSafeEscape(registrationUrl)}" aria-label="Fazer check-in neste torneio">
+        <i class="fa-solid fa-clipboard-check"></i>
+        ${registrationState.waitlist ? "Acompanhar inscrição" : "Fazer check-in"}
+      </a>
+    `;
+  }
+
+  if (isOpen) {
+    return `
+      <a class="public-card-btn secondary" href="${sbwSafeEscape(registrationUrl)}">
+        Inscrever-se
+      </a>
+    `;
+  }
+
+  return `
+    <a class="public-card-btn secondary" href="${sbwSafeEscape(detailsUrl)}">
+      Detalhes
+    </a>
+  `;
+}
+
 function sbwRenderSourceBadge(tournament) {
   const sourceLabel = sbwGetTournamentSourceLabel(tournament);
 
@@ -449,19 +661,21 @@ function sbwRenderSourceBadge(tournament) {
 }
 
 function sbwRenderRegistrationBadge(tournament) {
-  if (typeof sbwHasRegistration !== "function") {
+  const registrationState = sbwGetTournamentCardRegistrationState(tournament);
+
+  if (!registrationState.registered) {
     return "";
   }
 
-  const publicId = typeof sbwGetTournamentPublicId === "function"
-    ? sbwGetTournamentPublicId(tournament)
-    : tournament?.id;
-
-  if (!sbwHasRegistration(publicId) && !sbwHasRegistration(tournament?.id)) {
-    return "";
+  if (registrationState.checkedIn) {
+    return `<span class="status-pill registration checked">Check-in confirmado</span>`;
   }
 
-  return `<span class="status-pill registration">Inscrição registrada</span>`;
+  if (registrationState.waitlist) {
+    return `<span class="status-pill registration">Lista de espera</span>`;
+  }
+
+  return `<span class="status-pill registration">Inscrito</span>`;
 }
 
 function sbwRenderTournamentCard(tournament, options = {}) {
@@ -543,15 +757,7 @@ function sbwRenderTournamentCard(tournament, options = {}) {
             <i class="fa-solid fa-arrow-right"></i>
           </a>
 
-          ${isOpen ? `
-            <a class="public-card-btn secondary" href="${sbwSafeEscape(detailUrl)}#inscricao">
-              Inscrever-se
-            </a>
-          ` : `
-            <a class="public-card-btn secondary" href="${sbwSafeEscape(detailUrl)}">
-              Detalhes
-            </a>
-          `}
+          ${sbwRenderTournamentRegistrationAction(tournament)}
         </div>
       </div>
     </article>
@@ -979,6 +1185,7 @@ async function sbwRenderTournamentsListPage() {
   }
 
   sbwTournamentListCache = Array.isArray(tournaments) ? tournaments : [];
+  await sbwLoadTournamentListRegistrationStates(sbwTournamentListCache);
   sbwPopulateTournamentFilters(sbwTournamentListCache);
   await sbwRenderTournamentOrganizers(sbwTournamentListCache);
   sbwRenderFeaturedTournament(sbwTournamentListCache);

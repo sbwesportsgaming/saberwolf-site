@@ -514,6 +514,233 @@
       font-weight: 700;
     }
 
+    .result-format-line {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 7px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      background: rgba(56, 189, 248, 0.06);
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .result-format-line strong {
+      color: var(--cyan);
+      white-space: nowrap;
+    }
+
+
+    .results-safety-card {
+      border-color: rgba(56, 189, 248, 0.2);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(27, 32, 48, 0.94));
+    }
+
+    .results-safety-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .results-safety-source {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .results-safety-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .results-safety-metric {
+      padding: 10px;
+      border-radius: 13px;
+      background: rgba(8, 10, 16, 0.58);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .results-safety-metric strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .results-safety-metric span,
+    .results-safety-notes span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+
+    .results-safety-notes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .results-safety-notes span {
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+
+    .real-test-checklist-card {
+      border-color: rgba(168, 85, 247, 0.2);
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(27, 32, 48, 0.94));
+    }
+
+    .real-test-checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .real-test-checklist-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: flex-start;
+      min-height: 76px;
+      padding: 11px;
+      border-radius: 14px;
+      background: rgba(8, 10, 16, 0.56);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .real-test-checklist-marker {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 72px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .real-test-checklist-item strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-size: 0.84rem;
+    }
+
+    .real-test-checklist-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1.42;
+    }
+
+    .real-test-checklist-item.ok .real-test-checklist-marker {
+      color: #7dd3fc;
+      background: rgba(56, 189, 248, 0.1);
+      border-color: rgba(56, 189, 248, 0.26);
+    }
+
+    .real-test-checklist-item.warning .real-test-checklist-marker {
+      color: #fde68a;
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.24);
+    }
+
+    .real-test-checklist-item.pending .real-test-checklist-marker {
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.1);
+      border-color: rgba(248, 113, 113, 0.24);
+    }
+
+    .real-test-checklist-item.neutral .real-test-checklist-marker {
+      color: #c4b5fd;
+      background: rgba(168, 85, 247, 0.1);
+      border-color: rgba(168, 85, 247, 0.24);
+    }
+
+    .result-safety-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.74rem;
+    }
+
+    .result-safety-line strong {
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .result-safety-line span {
+      color: var(--muted);
+      text-align: right;
+      line-height: 1.3;
+    }
+
+    .result-safety-line.ready {
+      border-color: rgba(34, 197, 94, 0.22);
+      background: rgba(34, 197, 94, 0.055);
+    }
+
+    .result-safety-line.ready strong {
+      color: #86efac;
+    }
+
+    .result-safety-line.done {
+      border-color: rgba(56, 189, 248, 0.22);
+      background: rgba(56, 189, 248, 0.055);
+    }
+
+    .result-safety-line.done strong {
+      color: var(--cyan);
+    }
+
+    .result-safety-line.waiting {
+      border-color: rgba(250, 204, 21, 0.22);
+      background: rgba(250, 204, 21, 0.055);
+    }
+
+    .result-safety-line.waiting strong {
+      color: #facc15;
+    }
+
     .finalization-card {
       border-color: rgba(214, 168, 79, 0.24);
       background: linear-gradient(135deg, rgba(214, 168, 79, 0.08), rgba(27, 32, 48, 0.96));
@@ -1371,7 +1598,8 @@
       .manager-grid,
       .structure-grid,
       .match-row,
-      .result-match-top {
+      .result-match-top,
+      .real-test-checklist {
         grid-template-columns: 1fr;
       }
 
@@ -1379,6 +1607,109 @@
         text-align: left;
       }
     }
+
+    .phase-rules-panel {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      border-radius: 18px;
+      background: rgba(2, 6, 23, 0.30);
+    }
+
+    .phase-rules-panel h3 {
+      margin: 0 0 6px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .phase-rules-panel p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .phase-rules-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .phase-rules-note {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(250, 204, 21, 0.18);
+      border-radius: 12px;
+      background: rgba(250, 204, 21, 0.07);
+      color: rgba(254, 240, 138, 0.92);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .saved-organization-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 6px 0 5px;
+      color: rgba(226, 232, 240, 0.86);
+      font-size: 0.82rem;
+      font-weight: 850;
+    }
+
+    .saved-organization-line b {
+      color: #67e8f9;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.70rem;
+    }
+
+    .saved-organization-slug {
+      padding: 3px 7px;
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.08);
+      color: rgba(186, 230, 253, 0.86);
+      font-size: 0.68rem;
+      font-weight: 900;
+    }
+
+    .saved-rules-line {
+      display: inline-flex;
+      width: fit-content;
+      margin-top: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      color: rgba(203, 213, 225, 0.88);
+      background: rgba(15, 23, 42, 0.55);
+      font-size: 0.72rem;
+      font-weight: 850;
+    }
+
+    @media (max-width: 760px) {
+      .phase-rules-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+  
+    @media (max-width: 820px) {
+      .results-safety-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .results-safety-header,
+      .result-safety-line {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .result-safety-line span {
+        text-align: left;
+      }
+    }
+
   </style>
   <link rel="stylesheet" href="../../css/core/sbw-site-compliance.css" />
 </head>
@@ -1470,14 +1801,85 @@
           </div>
 
           <div class="form-group">
-            <label for="matchFormat">Formato das partidas *</label>
-          <select id="matchFormat" required>
-            <option value="MD1">MD1 / FT1</option>
-            <option value="MD3" selected>MD3 / FT2</option>
-            <option value="MD5">MD5 / FT3</option>
-            <option value="MD7">MD7 / FT4</option>
-            <option value="Personalizado">Personalizado / Manual</option>
-           </select>
+            <label for="matchFormat">Formato padrão das partidas *</label>
+            <select id="matchFormat" required>
+              <option value="MD1">MD1 / FT1</option>
+              <option value="MD3" selected>MD3 / FT2</option>
+              <option value="MD5">MD5 / FT3</option>
+              <option value="MD7">MD7 / FT4</option>
+              <option value="Personalizado">Personalizado / Manual</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="phase-rules-panel" id="phaseRulesPanel">
+          <h3>Regras por fase</h3>
+          <p>
+            O formato padrão vale para o torneio inteiro. Nas fases finais, o organizador pode aplicar um preset ou ajustar FT/MD com controle.
+          </p>
+
+          <div class="form-group">
+            <label for="phaseRulesPreset">Preset de fases finais *</label>
+            <select id="phaseRulesPreset" required>
+              <option value="standard">Tudo igual ao formato padrão</option>
+              <option value="top8-ft3" selected>Padrão FGC: Top 8 em MD5 / FT3</option>
+              <option value="finals-progressive">Finais progressivas: Top 8 FT3, Final FT5, Grand Final FT5</option>
+              <option value="custom">Personalizado por fase</option>
+            </select>
+          </div>
+
+          <div class="phase-rules-grid">
+            <div class="form-group">
+              <label for="top8MatchFormat">Top 8</label>
+              <select id="top8MatchFormat">
+                <option value="inherit">Usar padrão do torneio</option>
+                <option value="MD3">MD3 / FT2</option>
+                <option value="MD5" selected>MD5 / FT3</option>
+                <option value="MD7">MD7 / FT4</option>
+                <option value="MD9">MD9 / FT5</option>
+                <option value="MD13">MD13 / FT7</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="top4MatchFormat">Top 4 / Semifinais</label>
+              <select id="top4MatchFormat">
+                <option value="inherit">Usar regra do Top 8</option>
+                <option value="MD3">MD3 / FT2</option>
+                <option value="MD5" selected>MD5 / FT3</option>
+                <option value="MD7">MD7 / FT4</option>
+                <option value="MD9">MD9 / FT5</option>
+                <option value="MD13">MD13 / FT7</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="finalMatchFormat">Final / Winners Final</label>
+              <select id="finalMatchFormat">
+                <option value="inherit">Usar regra do Top 4</option>
+                <option value="MD3">MD3 / FT2</option>
+                <option value="MD5" selected>MD5 / FT3</option>
+                <option value="MD7">MD7 / FT4</option>
+                <option value="MD9">MD9 / FT5</option>
+                <option value="MD13">MD13 / FT7</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="grandFinalMatchFormat">Grand Final / Reset</label>
+              <select id="grandFinalMatchFormat">
+                <option value="inherit">Usar regra da Final</option>
+                <option value="MD3">MD3 / FT2</option>
+                <option value="MD5" selected>MD5 / FT3</option>
+                <option value="MD7">MD7 / FT4</option>
+                <option value="MD9">MD9 / FT5</option>
+                <option value="MD13">MD13 / FT7</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="phase-rules-note">
+            Check-in é obrigatório na plataforma -SBW-. O organizador pode confirmar, reverter ou gerenciar inscritos manualmente no painel.
           </div>
         </div>
 
@@ -1497,9 +1899,7 @@
           <div class="form-group">
             <label for="checkin">Check-in *</label>
             <select id="checkin" required>
-              <option value="required">Obrigatório</option>
-              <option value="optional">Opcional</option>
-              <option value="disabled">Desativado</option>
+              <option value="required" selected>Obrigatório</option>
             </select>
           </div>
 
@@ -1662,7 +2062,7 @@ Torneio criado.
 <script src="../../js/tournaments/tournaments-utils.js"></script>
 <script src="../../js/tournaments/tournaments-models.js"></script>
 <script src="../../js/tournaments/tournaments-storage.js?v=1.6.55"></script>
-<script src="../../js/tournaments/tournament-admin-page.js?v=1.6.55"></script>
+<script src="../../js/tournaments/tournament-admin-page.js?v=1.6.67.5"></script>
  
   <script src="../../js/core/sbw-site-compliance.js"></script>
 </body>

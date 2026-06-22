@@ -374,6 +374,310 @@ async function initAccessControl() {
       }) || availableTournamentOrganizers[0] || null;
     }
 
+
+    function getTournamentOrganizerIdentity(tournament) {
+      const rawOrganizer = tournament?.organizer && typeof tournament.organizer === "object" ? tournament.organizer : {};
+      const rawOrganizerName = typeof tournament?.organizer === "string" ? tournament.organizer : "";
+      const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+      const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+      const selected = tournament?.selectedOrganizer && typeof tournament.selectedOrganizer === "object" ? tournament.selectedOrganizer : {};
+
+      const id = tournament?.organizerId || tournament?.organizer_id || rawOrganizer.id || selected.id || metadata.organizerId || settings.organizerId || "";
+      const slug = tournament?.organizerSlug || tournament?.organizer_slug || rawOrganizer.slug || selected.slug || metadata.organizerSlug || settings.organizerSlug || "";
+      const name = tournament?.organizerName || tournament?.organizer_name || rawOrganizer.name || rawOrganizer.displayName || selected.name || selected.displayName || metadata.organizerName || settings.organizerName || rawOrganizerName || "Organização não identificada";
+      const role = rawOrganizer.role || selected.memberRole || selected.role || tournament?.organizerRole || "";
+
+      return {
+        id,
+        slug,
+        name,
+        role,
+        label: name,
+        shortKey: slug || id || name
+      };
+    }
+
+    function getPhaseRuleElementValue(id, fallback = "") {
+      const element = document.getElementById(id);
+      return element ? String(element.value || fallback) : fallback;
+    }
+
+    function getMatchFormatLabel(value) {
+      const labels = {
+        MD1: "MD1 / FT1",
+        MD3: "MD3 / FT2",
+        MD5: "MD5 / FT3",
+        MD7: "MD7 / FT4",
+        MD9: "MD9 / FT5",
+        MD13: "MD13 / FT7",
+        Personalizado: "Personalizado / Manual",
+        inherit: "Herda fase anterior"
+      };
+
+      return labels[value] || value || "A definir";
+    }
+
+    function applyPhaseRulesPreset() {
+      const preset = getPhaseRuleElementValue("phaseRulesPreset", "standard");
+      const defaultFormat = getPhaseRuleElementValue("matchFormat", "MD3");
+      const top8 = document.getElementById("top8MatchFormat");
+      const top4 = document.getElementById("top4MatchFormat");
+      const final = document.getElementById("finalMatchFormat");
+      const grandFinal = document.getElementById("grandFinalMatchFormat");
+
+      if (!top8 || !top4 || !final || !grandFinal) {
+        return;
+      }
+
+      if (preset === "standard") {
+        top8.value = "inherit";
+        top4.value = "inherit";
+        final.value = "inherit";
+        grandFinal.value = "inherit";
+        return;
+      }
+
+      if (preset === "top8-ft3") {
+        top8.value = "MD5";
+        top4.value = "MD5";
+        final.value = "MD5";
+        grandFinal.value = "MD5";
+        return;
+      }
+
+      if (preset === "finals-progressive") {
+        top8.value = "MD5";
+        top4.value = "MD5";
+        final.value = "MD9";
+        grandFinal.value = "MD9";
+        return;
+      }
+
+      if (preset === "custom") {
+        top8.value = top8.value || defaultFormat;
+        top4.value = top4.value || "inherit";
+        final.value = final.value || "inherit";
+        grandFinal.value = grandFinal.value || "inherit";
+      }
+    }
+
+    function getMatchPhaseRules() {
+      const defaultFormat = getPhaseRuleElementValue("matchFormat", "MD3");
+      const preset = getPhaseRuleElementValue("phaseRulesPreset", "standard");
+      const top8 = getPhaseRuleElementValue("top8MatchFormat", "inherit");
+      const top4 = getPhaseRuleElementValue("top4MatchFormat", "inherit");
+      const final = getPhaseRuleElementValue("finalMatchFormat", "inherit");
+      const grandFinal = getPhaseRuleElementValue("grandFinalMatchFormat", "inherit");
+
+      return {
+        preset,
+        defaultFormat,
+        checkInRequired: true,
+        phases: {
+          default: defaultFormat,
+          top8,
+          top4,
+          final,
+          winnersFinal: final,
+          lowerFinal: final,
+          grandFinal,
+          reset: grandFinal
+        },
+        labels: {
+          default: getMatchFormatLabel(defaultFormat),
+          top8: top8 === "inherit" ? "Usar padrão" : getMatchFormatLabel(top8),
+          top4: top4 === "inherit" ? "Usar Top 8" : getMatchFormatLabel(top4),
+          final: final === "inherit" ? "Usar Top 4" : getMatchFormatLabel(final),
+          grandFinal: grandFinal === "inherit" ? "Usar Final" : getMatchFormatLabel(grandFinal)
+        }
+      };
+    }
+
+    function getTournamentPhaseRulesSummary(tournament) {
+      const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+      const rules = settings.phaseRules || settings.matchPhaseRules || tournament?.phaseRules || null;
+      const defaultFormat = rules?.defaultFormat || settings.matchFormat || tournament?.matchFormat || "MD3";
+      const top8 = rules?.phases?.top8 || settings.top8MatchFormat || "inherit";
+
+      if (!rules && !settings.top8MatchFormat) {
+        return `${getMatchFormatLabel(defaultFormat)} padrão`;
+      }
+
+      if (top8 && top8 !== "inherit" && top8 !== defaultFormat) {
+        return `${getMatchFormatLabel(defaultFormat)} padrão · Top 8 ${getMatchFormatLabel(top8)}`;
+      }
+
+      return `${getMatchFormatLabel(defaultFormat)} padrão · fases finais controladas`;
+    }
+
+    function getTournamentMatchPhaseRules(tournament) {
+      const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+      const rules = settings.matchPhaseRules || settings.phaseRules || tournament?.matchPhaseRules || tournament?.phaseRules || {};
+      const defaultFormat = rules.defaultFormat || settings.matchFormat || tournament?.matchFormat || "MD3";
+      const phases = rules.phases && typeof rules.phases === "object" ? rules.phases : {};
+
+      return {
+        ...rules,
+        defaultFormat,
+        phases: {
+          default: phases.default || defaultFormat,
+          top8: phases.top8 || settings.top8MatchFormat || "inherit",
+          top4: phases.top4 || settings.top4MatchFormat || "inherit",
+          final: phases.final || settings.finalMatchFormat || "inherit",
+          winnersFinal: phases.winnersFinal || phases.final || settings.finalMatchFormat || "inherit",
+          lowerFinal: phases.lowerFinal || phases.final || settings.finalMatchFormat || "inherit",
+          grandFinal: phases.grandFinal || settings.grandFinalMatchFormat || "inherit",
+          reset: phases.reset || phases.grandFinal || settings.grandFinalMatchFormat || "inherit"
+        }
+      };
+    }
+
+    function resolvePhaseFormat(tournament, phaseKey, fallbackKey = "default") {
+      const rules = getTournamentMatchPhaseRules(tournament);
+      const phases = rules.phases || {};
+      const defaultFormat = phases.default || rules.defaultFormat || "MD3";
+      const rawValue = phases[phaseKey] || "inherit";
+
+      if (!rawValue || rawValue === "inherit") {
+        if (fallbackKey && fallbackKey !== phaseKey && phases[fallbackKey] && phases[fallbackKey] !== "inherit") {
+          return phases[fallbackKey];
+        }
+
+        return defaultFormat;
+      }
+
+      return rawValue;
+    }
+
+    function applyMatchPhaseFormat(match, tournament, phaseKey, phaseLabel, fallbackKey = "default") {
+      if (!match) return;
+
+      const format = resolvePhaseFormat(tournament, phaseKey, fallbackKey);
+      match.phaseKey = phaseKey;
+      match.phaseLabel = phaseLabel || phaseKey;
+      match.matchFormat = format;
+      match.bestOf = format;
+      match.formatLabel = getMatchFormatLabel(format);
+    }
+
+    function getWinnersPhaseKey(roundNumber, totalWinnerRounds) {
+      if (roundNumber >= totalWinnerRounds) {
+        return "winnersFinal";
+      }
+
+      if (roundNumber === totalWinnerRounds - 1) {
+        return "top4";
+      }
+
+      if (roundNumber >= Math.max(1, totalWinnerRounds - 2)) {
+        return "top8";
+      }
+
+      return "default";
+    }
+
+    function getLowerPhaseKey(roundNumber, totalLowerRounds) {
+      if (roundNumber >= totalLowerRounds) {
+        return "lowerFinal";
+      }
+
+      if (roundNumber === totalLowerRounds - 1) {
+        return "top4";
+      }
+
+      if (roundNumber >= Math.max(1, totalLowerRounds - 3)) {
+        return "top8";
+      }
+
+      return "default";
+    }
+
+    function applyDoubleEliminationPhaseFormats(tournament, structure) {
+      if (!tournament || structure?.type !== "double-elimination") {
+        return structure;
+      }
+
+      const winners = Array.isArray(structure.winnersBracket) ? structure.winnersBracket : [];
+      const lower = Array.isArray(structure.losersBracket) ? structure.losersBracket : [];
+      const winnerTotal = winners.length;
+      const lowerTotal = lower.length;
+
+      winners.forEach((round, roundIndex) => {
+        const roundNumber = roundIndex + 1;
+        const phaseKey = getWinnersPhaseKey(roundNumber, winnerTotal);
+        const phaseLabel = phaseKey === "winnersFinal"
+          ? "Winners Final"
+          : phaseKey === "top4"
+            ? "Top 4"
+            : phaseKey === "top8"
+              ? "Top 8"
+              : "Fase inicial";
+
+        round.phaseKey = phaseKey;
+        round.phaseLabel = phaseLabel;
+        round.matchFormat = resolvePhaseFormat(tournament, phaseKey, phaseKey === "winnersFinal" ? "top4" : "default");
+        round.bestOf = round.matchFormat;
+
+        (round.matches || []).forEach((match) => {
+          applyMatchPhaseFormat(
+            match,
+            tournament,
+            phaseKey,
+            phaseLabel,
+            phaseKey === "winnersFinal" ? "top4" : "default"
+          );
+        });
+      });
+
+      lower.forEach((round, roundIndex) => {
+        const roundNumber = roundIndex + 1;
+        const phaseKey = getLowerPhaseKey(roundNumber, lowerTotal);
+        const phaseLabel = phaseKey === "lowerFinal"
+          ? "Lower Final"
+          : phaseKey === "top4"
+            ? "Top 4"
+            : phaseKey === "top8"
+              ? "Top 8"
+              : "Lower inicial";
+
+        round.phaseKey = phaseKey;
+        round.phaseLabel = phaseLabel;
+        round.matchFormat = resolvePhaseFormat(tournament, phaseKey, phaseKey === "lowerFinal" ? "top4" : "default");
+        round.bestOf = round.matchFormat;
+
+        (round.matches || []).forEach((match) => {
+          applyMatchPhaseFormat(
+            match,
+            tournament,
+            phaseKey,
+            phaseLabel,
+            phaseKey === "lowerFinal" ? "top4" : "default"
+          );
+        });
+      });
+
+      (structure.grandFinal?.rounds || []).forEach((round) => {
+        const isReset = String(round.id || "").toLowerCase().includes("reset") || String(round.name || "").toLowerCase().includes("reset");
+        const phaseKey = isReset ? "reset" : "grandFinal";
+        const phaseLabel = isReset ? "Reset da Grand Final" : "Grand Final";
+
+        round.phaseKey = phaseKey;
+        round.phaseLabel = phaseLabel;
+        round.matchFormat = resolvePhaseFormat(tournament, phaseKey, "final");
+        round.bestOf = round.matchFormat;
+
+        (round.matches || []).forEach((match) => {
+          applyMatchPhaseFormat(match, tournament, phaseKey, phaseLabel, "final");
+        });
+      });
+
+      return structure;
+    }
+
+    function getEffectiveMatchFormat(tournament, match) {
+      return match?.matchFormat || match?.bestOf || match?.format || tournament?.settings?.matchFormat || tournament?.matchFormat || "MD3";
+    }
+
     async function loadTournamentOrganizerOptions() {
       if (!organizerSelect) {
         return [];
@@ -451,6 +755,7 @@ async function initAccessControl() {
       `;
 
       renderDynamicSettings(selectedFormat);
+      applyPhaseRulesPreset();
     }
 
     function getValidGroupPresets(totalQualified) {
@@ -709,6 +1014,7 @@ async function initAccessControl() {
       const format = document.getElementById("format").value;
       const selectedOrganizer = getSelectedOrganizer();
       const organizerName = selectedOrganizer?.name || selectedOrganizer?.displayName || currentUser.name;
+      const matchPhaseRules = getMatchPhaseRules();
 
       return {
         id: `sbw-${Date.now()}`,
@@ -737,12 +1043,15 @@ async function initAccessControl() {
         schedule: {
           startDate: document.getElementById("startDate").value,
           startTime: document.getElementById("startTime").value,
-          checkin: document.getElementById("checkin").value
+          checkin: "required"
         },
 
         settings: {
           maxPlayers: Number(document.getElementById("maxPlayers").value),
-          matchFormat: document.getElementById("matchFormat").value,
+          matchFormat: matchPhaseRules.defaultFormat,
+          checkInRequired: true,
+          phaseRules: matchPhaseRules,
+          matchPhaseRules,
           ...getDynamicSettings(format)
         },
 
@@ -847,6 +1156,8 @@ async function initAccessControl() {
           const sourceLabel = isSupabaseTournament(tournament) ? "Supabase" : "Local";
           const lookupValue = getTournamentLookupValue(tournament);
           const canDeleteLocally = !isSupabaseTournament(tournament);
+          const organizerIdentity = getTournamentOrganizerIdentity(tournament);
+          const phaseRulesSummary = getTournamentPhaseRulesSummary(tournament);
 
           return `
             <div class="saved-item ${isSupabaseTournament(tournament) ? "saved-item-supabase" : ""}">
@@ -864,6 +1175,11 @@ async function initAccessControl() {
               <div class="saved-item-top">
                 <div>
                   <strong>${escapeHTML(tournament.title || tournament.name || "Torneio")}</strong>
+                  <div class="saved-organization-line">
+                    <b>Organização</b>
+                    <span>${escapeHTML(organizerIdentity.label)}</span>
+                    ${organizerIdentity.shortKey ? `<span class="saved-organization-slug">${escapeHTML(organizerIdentity.shortKey)}</span>` : ""}
+                  </div>
                   <span>
                     ${escapeHTML(tournament.game || tournament.gameName || "Jogo")} |
                     ${escapeHTML(getTournamentFormatLabel(tournament))} |
@@ -872,6 +1188,7 @@ async function initAccessControl() {
                     ${sourceLabel}
                     ${hasStructure}
                   </span>
+                  <span class="saved-rules-line">${escapeHTML(phaseRulesSummary)}</span>
                 </div>
 
                 <button
@@ -1174,6 +1491,100 @@ async function initAccessControl() {
       };
     }
 
+function getDoubleEliminationLowerRoundCount(totalWinnerRounds) {
+  return Math.max(0, (Number(totalWinnerRounds) - 1) * 2);
+}
+
+function getDoubleEliminationLowerMatchCount(targetSlots, lowerRoundNumber) {
+  const divisorPower = Math.floor((Number(lowerRoundNumber) + 3) / 2);
+  return Math.max(1, Math.floor(Number(targetSlots) / Math.pow(2, divisorPower)));
+}
+
+function getDoubleEliminationLowerRoundName(lowerRoundNumber, totalLowerRounds) {
+  if (lowerRoundNumber === totalLowerRounds) {
+    return "Lower Final";
+  }
+
+  if (lowerRoundNumber === totalLowerRounds - 1) {
+    return "Lower Semi-Final";
+  }
+
+  if (lowerRoundNumber === totalLowerRounds - 2) {
+    return "Lower Quarter";
+  }
+
+  return `Lower Round ${lowerRoundNumber}`;
+}
+
+function getDoubleEliminationLowerDrop(baseId, winnerRoundNumber, winnerMatchIndex) {
+  if (winnerRoundNumber <= 1) {
+    return {
+      loserNextMatchId: `${baseId}-lb-r1-m${Math.floor(winnerMatchIndex / 2) + 1}`,
+      loserNextSlot: winnerMatchIndex % 2 === 0 ? "playerA" : "playerB"
+    };
+  }
+
+  return {
+    loserNextMatchId: `${baseId}-lb-r${(winnerRoundNumber * 2) - 2}-m${winnerMatchIndex + 1}`,
+    loserNextSlot: "playerB"
+  };
+}
+
+function getDoubleEliminationLowerWinnerTarget(baseId, lowerRoundNumber, lowerMatchIndex, totalLowerRounds) {
+  if (lowerRoundNumber >= totalLowerRounds) {
+    return {
+      nextMatchId: `${baseId}-gf-m1`,
+      nextSlot: "playerB"
+    };
+  }
+
+  if (lowerRoundNumber % 2 === 1) {
+    return {
+      nextMatchId: `${baseId}-lb-r${lowerRoundNumber + 1}-m${lowerMatchIndex + 1}`,
+      nextSlot: "playerA"
+    };
+  }
+
+  return {
+    nextMatchId: `${baseId}-lb-r${lowerRoundNumber + 1}-m${Math.floor(lowerMatchIndex / 2) + 1}`,
+    nextSlot: lowerMatchIndex % 2 === 0 ? "playerA" : "playerB"
+  };
+}
+
+function buildDoubleEliminationLowerBracket(baseId, targetSlots, totalWinnerRounds) {
+  const totalLowerRounds = getDoubleEliminationLowerRoundCount(totalWinnerRounds);
+
+  return Array.from({ length: totalLowerRounds }, (_, roundIndex) => {
+    const roundNumber = roundIndex + 1;
+    const matchesInRound = getDoubleEliminationLowerMatchCount(targetSlots, roundNumber);
+    const roundName = getDoubleEliminationLowerRoundName(roundNumber, totalLowerRounds);
+
+    return {
+      id: `${baseId}-lb-round-${roundNumber}`,
+      name: roundName,
+      matches: Array.from({ length: matchesInRound }, (_, matchIndex) => {
+        const target = getDoubleEliminationLowerWinnerTarget(baseId, roundNumber, matchIndex, totalLowerRounds);
+
+        return {
+          id: `${baseId}-lb-r${roundNumber}-m${matchIndex + 1}`,
+          bracket: "losers",
+          round: roundNumber,
+          order: matchIndex + 1,
+          playerA: null,
+          playerB: null,
+          status: "waiting-results",
+          scoreA: null,
+          scoreB: null,
+          winnerId: null,
+          nextMatchId: target.nextMatchId,
+          nextSlot: target.nextSlot,
+          resultWorkflow: createMatchWorkflow()
+        };
+      })
+    };
+  });
+}
+
 function generateDoubleEliminationStructure(tournament, participants) {
   const orderedParticipants = tournament.settings.seedMode === "random"
     ? shuffleArray(participants)
@@ -1188,7 +1599,9 @@ function generateDoubleEliminationStructure(tournament, participants) {
 
   const baseId = tournament.slug || tournament.id;
   const totalWinnerRounds = Math.log2(targetSlots);
+  const totalLowerRounds = getDoubleEliminationLowerRoundCount(totalWinnerRounds);
   const winnersBracket = [];
+  const losersBracket = buildDoubleEliminationLowerBracket(baseId, targetSlots, totalWinnerRounds);
 
   for (let roundNumber = 1; roundNumber <= totalWinnerRounds; roundNumber += 1) {
     const matchesInRound = targetSlots / Math.pow(2, roundNumber);
@@ -1214,13 +1627,30 @@ function generateDoubleEliminationStructure(tournament, participants) {
         status = playerA && playerB ? "pending" : "bye";
 
         if (playerA && !playerB) {
-          winnerId = playerA.id;
+          winnerId = getMatchPlayerKey(playerA);
         }
 
         if (!playerA && playerB) {
-          winnerId = playerB.id;
+          winnerId = getMatchPlayerKey(playerB);
         }
       }
+
+      const winnerTarget = roundNumber < totalWinnerRounds
+        ? {
+            nextMatchId: `${baseId}-wb-r${roundNumber + 1}-m${Math.floor(matchIndex / 2) + 1}`,
+            nextSlot: matchIndex % 2 === 0 ? "playerA" : "playerB"
+          }
+        : {
+            nextMatchId: `${baseId}-gf-m1`,
+            nextSlot: "playerA"
+          };
+
+      const loserTarget = totalLowerRounds > 0
+        ? getDoubleEliminationLowerDrop(baseId, roundNumber, matchIndex)
+        : {
+            loserNextMatchId: null,
+            loserNextSlot: null
+          };
 
       round.matches.push({
         id: `${baseId}-wb-r${roundNumber}-m${matchIndex + 1}`,
@@ -1233,10 +1663,11 @@ function generateDoubleEliminationStructure(tournament, participants) {
         scoreA: null,
         scoreB: null,
         winnerId,
-        nextMatchId: roundNumber < totalWinnerRounds
-          ? `${baseId}-wb-r${roundNumber + 1}-m${Math.floor(matchIndex / 2) + 1}`
-          : `${baseId}-gf-m1`,
-        nextSlot: matchIndex % 2 === 0 ? "playerA" : "playerB"
+        nextMatchId: winnerTarget.nextMatchId,
+        nextSlot: winnerTarget.nextSlot,
+        loserNextMatchId: loserTarget.loserNextMatchId,
+        loserNextSlot: loserTarget.loserNextSlot,
+        resultWorkflow: createMatchWorkflow()
       });
     }
 
@@ -1258,7 +1689,9 @@ function generateDoubleEliminationStructure(tournament, participants) {
           status: "waiting-results",
           scoreA: null,
           scoreB: null,
-          winnerId: null
+          winnerId: null,
+          resetMatchId: Boolean(tournament.settings.grandFinalReset) ? `${baseId}-gf-reset-m1` : null,
+          resultWorkflow: createMatchWorkflow()
         }
       ]
     }
@@ -1279,13 +1712,14 @@ function generateDoubleEliminationStructure(tournament, participants) {
           status: "waiting-results",
           scoreA: null,
           scoreB: null,
-          winnerId: null
+          winnerId: null,
+          resultWorkflow: createMatchWorkflow()
         }
       ]
     });
   }
 
-  return {
+  const structure = {
     type: "double-elimination",
     label: "Double Elimination",
     generatedAt: new Date().toISOString(),
@@ -1294,11 +1728,13 @@ function generateDoubleEliminationStructure(tournament, participants) {
     settings: {
       targetSlots,
       seedMode: tournament.settings.seedMode || "manual",
-      grandFinalReset: Boolean(tournament.settings.grandFinalReset)
+      grandFinalReset: Boolean(tournament.settings.grandFinalReset),
+      lowerRounds: totalLowerRounds,
+      progressionMode: "winners-lower-grand-final"
     },
 
     winnersBracket,
-    losersBracket: [],
+    losersBracket,
 
     grandFinal: {
       status: "waiting-results",
@@ -1306,6 +1742,11 @@ function generateDoubleEliminationStructure(tournament, participants) {
       rounds: grandFinalRounds
     }
   };
+
+  applyDoubleEliminationPhaseFormats(tournament, structure);
+  applyAutomaticDoubleEliminationByes({ structure });
+
+  return structure;
 }
 
 function flattenStructureMatches(structure) {
@@ -1759,8 +2200,8 @@ function findEditableMatch(tournament, matchId) {
       return formats[matchFormat] || null;
     }
 
-    function validateScoreByMatchFormat(scoreA, scoreB, tournament) {
-      const matchFormat = tournament.settings ? tournament.settings.matchFormat : "Personalizado";
+    function validateScoreByMatchFormat(scoreA, scoreB, tournament, match = null) {
+      const matchFormat = getEffectiveMatchFormat(tournament, match);
       const requiredWins = getRequiredWinsForMatchFormat(matchFormat);
 
       if (!requiredWins) {
@@ -1819,7 +2260,7 @@ function findEditableMatch(tournament, matchId) {
         };
       }
 
-      const formatValidation = validateScoreByMatchFormat(scoreA, scoreB, tournament);
+      const formatValidation = validateScoreByMatchFormat(scoreA, scoreB, tournament, match);
 
       if (!formatValidation.valid) {
         return formatValidation;
@@ -1848,12 +2289,13 @@ function getWinnerPlayerFromMatch(match) {
   if (match.winnerId) {
     const playerAKey = getMatchPlayerKey(match.playerA);
     const playerBKey = getMatchPlayerKey(match.playerB);
+    const winnerKey = String(match.winnerId);
 
-    if (String(match.winnerId) === playerAKey) {
+    if (winnerKey === playerAKey) {
       return match.playerA;
     }
 
-    if (String(match.winnerId) === playerBKey) {
+    if (winnerKey === playerBKey) {
       return match.playerB;
     }
   }
@@ -1866,6 +2308,29 @@ function getWinnerPlayerFromMatch(match) {
   }
 
   return scoreA > scoreB ? match.playerA : match.playerB;
+}
+
+function getLoserPlayerFromMatch(match) {
+  if (!match || !match.playerA || !match.playerB) {
+    return null;
+  }
+
+  const winner = getWinnerPlayerFromMatch(match);
+  const winnerKey = getMatchPlayerKey(winner);
+
+  if (!winnerKey) {
+    return null;
+  }
+
+  if (winnerKey === getMatchPlayerKey(match.playerA)) {
+    return match.playerB;
+  }
+
+  if (winnerKey === getMatchPlayerKey(match.playerB)) {
+    return match.playerA;
+  }
+
+  return null;
 }
 
 function findMatchInRounds(rounds, matchId) {
@@ -1940,25 +2405,171 @@ function resetMatchResultOnly(match) {
   }
 }
 
-function clearDoubleEliminationProgression(tournament, match) {
-  if (!tournament || tournament.structure?.type !== "double-elimination") {
+function isGrandFinalMainMatch(match) {
+  if (!match) {
+    return false;
+  }
+
+  const id = String(match.id || "").toLowerCase();
+  const bracket = String(match.bracket || "").toLowerCase();
+
+  return bracket === "grand-final" || (id.includes("gf-m1") && !id.includes("reset"));
+}
+
+function getGrandFinalResetMatch(tournament) {
+  const rounds = Array.isArray(tournament?.structure?.grandFinal?.rounds)
+    ? tournament.structure.grandFinal.rounds
+    : [];
+
+  for (const round of rounds) {
+    const matches = Array.isArray(round.matches) ? round.matches : [];
+    const resetMatch = matches.find((match) => {
+      const id = String(match.id || "").toLowerCase();
+      const bracket = String(match.bracket || "").toLowerCase();
+      return bracket.includes("reset") || id.includes("reset");
+    });
+
+    if (resetMatch) {
+      return resetMatch;
+    }
+  }
+
+  return null;
+}
+
+function resetGrandFinalResetMatch(tournament) {
+  const resetMatch = getGrandFinalResetMatch(tournament);
+
+  if (!resetMatch) {
     return;
   }
 
-  if (!match?.nextMatchId || !match?.nextSlot) {
+  resetMatch.playerA = null;
+  resetMatch.playerB = null;
+  resetMatch.status = "waiting-results";
+  resetMatch.updatedAt = new Date().toISOString();
+  resetMatchResultOnly(resetMatch);
+}
+
+function syncGrandFinalResetAfterMain(tournament, match) {
+  if (!tournament || tournament.structure?.type !== "double-elimination" || !isGrandFinalMainMatch(match)) {
     return;
   }
 
-  const nextMatch = findDoubleEliminationMatch(tournament.structure, match.nextMatchId);
+  if (!tournament.structure?.grandFinal?.resetIfNeeded) {
+    return;
+  }
+
+  const resetMatch = getGrandFinalResetMatch(tournament);
+
+  if (!resetMatch || !match.playerA || !match.playerB || match.status !== "completed") {
+    resetGrandFinalResetMatch(tournament);
+    return;
+  }
+
+  const winnerKey = String(match.winnerId || "");
+  const lowerWinnerKey = getMatchPlayerKey(match.playerB);
+  const lowerSideForcedReset = Boolean(winnerKey && lowerWinnerKey && winnerKey === lowerWinnerKey);
+
+  if (!lowerSideForcedReset) {
+    resetGrandFinalResetMatch(tournament);
+    return;
+  }
+
+  const previousA = getMatchPlayerKey(resetMatch.playerA);
+  const previousB = getMatchPlayerKey(resetMatch.playerB);
+  const nextA = getMatchPlayerKey(match.playerA);
+  const nextB = getMatchPlayerKey(match.playerB);
+
+  if ((previousA && previousA !== nextA) || (previousB && previousB !== nextB)) {
+    resetMatchResultOnly(resetMatch);
+  }
+
+  resetMatch.playerA = { ...match.playerA };
+  resetMatch.playerB = { ...match.playerB };
+  resetMatch.status = resetMatch.status === "completed" ? "completed" : "pending";
+  resetMatch.updatedAt = new Date().toISOString();
+}
+
+function clearDoubleEliminationProgression(tournament, match, visited = new Set()) {
+  if (!tournament || tournament.structure?.type !== "double-elimination" || !match) {
+    return;
+  }
+
+  const visitKey = String(match.id || "");
+
+  if (visitKey && visited.has(visitKey)) {
+    return;
+  }
+
+  if (visitKey) {
+    visited.add(visitKey);
+  }
+
+  const targets = [
+    {
+      matchId: match.nextMatchId,
+      slot: match.nextSlot
+    },
+    {
+      matchId: match.loserNextMatchId,
+      slot: match.loserNextSlot
+    }
+  ];
+
+  targets.forEach((target) => {
+    if (!target.matchId || !target.slot) {
+      return;
+    }
+
+    const nextMatch = findDoubleEliminationMatch(tournament.structure, target.matchId);
+
+    if (!nextMatch) {
+      return;
+    }
+
+    clearDoubleEliminationProgression(tournament, nextMatch, visited);
+    nextMatch[target.slot] = null;
+    resetMatchResultOnly(nextMatch);
+
+    if (isGrandFinalMainMatch(nextMatch)) {
+      resetGrandFinalResetMatch(tournament);
+    }
+  });
+}
+
+function placeDoubleEliminationPlayer(tournament, matchId, slot, player) {
+  if (!tournament || tournament.structure?.type !== "double-elimination" || !matchId || !slot || !player) {
+    return false;
+  }
+
+  const nextMatch = findDoubleEliminationMatch(tournament.structure, matchId);
 
   if (!nextMatch) {
-    return;
+    return false;
   }
 
-  clearDoubleEliminationProgression(tournament, nextMatch);
+  const currentSlotPlayer = nextMatch[slot];
+  const currentSlotKey = getMatchPlayerKey(currentSlotPlayer);
+  const playerKey = getMatchPlayerKey(player);
 
-  nextMatch[match.nextSlot] = null;
-  resetMatchResultOnly(nextMatch);
+  if (currentSlotPlayer && currentSlotKey !== playerKey) {
+    clearDoubleEliminationProgression(tournament, nextMatch);
+    resetMatchResultOnly(nextMatch);
+  }
+
+  nextMatch[slot] = {
+    ...player
+  };
+
+  if (nextMatch.status !== "completed") {
+    nextMatch.status = nextMatch.playerA && nextMatch.playerB
+      ? "pending"
+      : "waiting-results";
+  }
+
+  nextMatch.updatedAt = new Date().toISOString();
+  return true;
 }
 
 function advanceDoubleEliminationWinner(tournament, match) {
@@ -1976,32 +2587,43 @@ function advanceDoubleEliminationWinner(tournament, match) {
     return;
   }
 
-  const nextMatch = findDoubleEliminationMatch(tournament.structure, match.nextMatchId);
+  placeDoubleEliminationPlayer(tournament, match.nextMatchId, match.nextSlot, winner);
+}
 
-  if (!nextMatch) {
+function advanceDoubleEliminationLoser(tournament, match) {
+  if (!tournament || tournament.structure?.type !== "double-elimination") {
     return;
   }
 
-  const currentSlotPlayer = nextMatch[match.nextSlot];
-  const currentSlotKey = getMatchPlayerKey(currentSlotPlayer);
-  const winnerKey = getMatchPlayerKey(winner);
-
-  if (currentSlotPlayer && currentSlotKey !== winnerKey) {
-    clearDoubleEliminationProgression(tournament, nextMatch);
-    resetMatchResultOnly(nextMatch);
+  if (!match?.loserNextMatchId || !match?.loserNextSlot) {
+    return;
   }
 
-  nextMatch[match.nextSlot] = {
-    ...winner
-  };
+  const loser = getLoserPlayerFromMatch(match);
 
-  if (nextMatch.status !== "completed") {
-    nextMatch.status = nextMatch.playerA && nextMatch.playerB
-      ? "pending"
-      : "waiting-results";
+  if (!loser) {
+    return;
   }
 
-  nextMatch.updatedAt = new Date().toISOString();
+  placeDoubleEliminationPlayer(tournament, match.loserNextMatchId, match.loserNextSlot, loser);
+}
+
+function applyAutomaticDoubleEliminationByes(tournament) {
+  if (!tournament || tournament.structure?.type !== "double-elimination") {
+    return;
+  }
+
+  const rounds = Array.isArray(tournament.structure.winnersBracket)
+    ? tournament.structure.winnersBracket
+    : [];
+
+  rounds.forEach((round) => {
+    (round.matches || []).forEach((match) => {
+      if (match.status === "bye" && match.winnerId) {
+        advanceDoubleEliminationWinner(tournament, match);
+      }
+    });
+  });
 }
 
 function applyMatchResult(match, scoreA, scoreB, tournament = null) {
@@ -2025,11 +2647,17 @@ function applyMatchResult(match, scoreA, scoreB, tournament = null) {
   }
 
   advanceDoubleEliminationWinner(tournament, match);
+  advanceDoubleEliminationLoser(tournament, match);
+  syncGrandFinalResetAfterMain(tournament, match);
 }
 
 function clearMatchObject(match, tournament = null) {
   clearDoubleEliminationProgression(tournament, match);
   resetMatchResultOnly(match);
+
+  if (isGrandFinalMainMatch(match)) {
+    resetGrandFinalResetMatch(tournament);
+  }
 }
 
 function isCompletedPlayableMatch(match) {
@@ -2527,6 +3155,319 @@ function renderTournamentFinalizationPanel(tournament) {
   `;
 }
 
+
+function getResultsSafetySummary(tournament) {
+  const structure = tournament?.structure || null;
+  const matches = flattenStructureMatches(structure);
+  const playable = matches.filter((match) => match && match.playerA && match.playerB);
+  const completed = playable.filter((match) => match.status === "completed" && match.winnerId);
+  const pending = playable.filter((match) => match.status !== "completed" || !match.winnerId);
+  const waitingPlayers = matches.filter((match) => match && (!match.playerA || !match.playerB));
+  const checkinMode = structure?.checkinMode || getTournamentCheckinMode(tournament);
+  const eligible = Number(structure?.eligibleParticipantsCount || 0);
+  const totalSnapshot = Number(structure?.totalParticipantsSnapshot || (Array.isArray(tournament?.participants) ? tournament.participants.length : 0));
+
+  return {
+    matches,
+    playable,
+    completed,
+    pending,
+    waitingPlayers,
+    checkinMode,
+    eligible,
+    totalSnapshot,
+    isReal: isSupabaseTournament(tournament),
+    format: structure?.type || tournament?.format || "sem estrutura"
+  };
+}
+
+function renderResultsSafetyPanel(tournament) {
+  if (!tournament || !tournament.structure) {
+    return "";
+  }
+
+  const summary = getResultsSafetySummary(tournament);
+  const phaseSummary = getTournamentPhaseRulesSummary(tournament);
+  const sourceLabel = summary.isReal ? "Supabase / inscrições reais" : "Local / teste";
+  const checkinLabel = summary.checkinMode === "required" ? "Obrigatório" : "Opcional";
+
+  return `
+    <div class="structure-card results-safety-card">
+      <div class="results-safety-header">
+        <div>
+          <h4>Validação antes de lançar resultados</h4>
+          <p class="manager-meta">
+            Confira jogadores, formato da fase e placar antes de salvar. Em Double Elimination, editar uma partida já lançada pode recalcular avanços posteriores.
+          </p>
+        </div>
+        <span class="results-safety-source">${escapeHTML(sourceLabel)}</span>
+      </div>
+
+      <div class="results-safety-grid">
+        <div class="results-safety-metric">
+          <strong>${escapeHTML(summary.completed.length)} / ${escapeHTML(summary.playable.length)}</strong>
+          <span>partidas concluídas</span>
+        </div>
+        <div class="results-safety-metric">
+          <strong>${escapeHTML(summary.pending.length)}</strong>
+          <span>partidas pendentes</span>
+        </div>
+        <div class="results-safety-metric">
+          <strong>${escapeHTML(summary.waitingPlayers.length)}</strong>
+          <span>aguardando jogadores</span>
+        </div>
+        <div class="results-safety-metric">
+          <strong>${escapeHTML(checkinLabel)}</strong>
+          <span>check-in</span>
+        </div>
+      </div>
+
+      <div class="results-safety-notes">
+        <span>Participantes válidos na geração: ${escapeHTML(summary.eligible)} / ${escapeHTML(summary.totalSnapshot || summary.eligible)}</span>
+        <span>Regras de partidas: ${escapeHTML(phaseSummary)}</span>
+      </div>
+    </div>
+  `;
+}
+
+
+function renderRealTestChecklistItem(state, label, hint) {
+  const normalizedState = String(state || "pending").toLowerCase();
+  const stateLabels = {
+    ok: "OK",
+    pending: "Pendente",
+    warning: "Atenção",
+    neutral: "Opcional"
+  };
+
+  return `
+    <li class="real-test-checklist-item ${escapeHTML(normalizedState)}">
+      <span class="real-test-checklist-marker">${escapeHTML(stateLabels[normalizedState] || "Pendente")}</span>
+      <div>
+        <strong>${escapeHTML(label)}</strong>
+        <p>${escapeHTML(hint)}</p>
+      </div>
+    </li>
+  `;
+}
+
+function hasDoubleEliminationCoreSections(structure) {
+  if (!structure || structure.type !== "double-elimination") {
+    return false;
+  }
+
+  return Boolean(
+    structure.winnersBracket ||
+    structure.winnerBracket ||
+    structure.upperBracket ||
+    structure.lowerBracket ||
+    structure.losersBracket ||
+    structure.grandFinal ||
+    structure.grand_final
+  );
+}
+
+function renderRealTestChecklistPanel(tournament) {
+  if (!tournament || !tournament.structure) {
+    return "";
+  }
+
+  const summary = getResultsSafetySummary(tournament);
+  const structure = tournament.structure;
+  const isDoubleElimination = String(structure.type || tournament.format || "") === "double-elimination";
+  const hasParticipants = summary.totalSnapshot > 0;
+  const hasEligibleParticipants = summary.eligible > 0;
+  const hasPlayableMatches = summary.playable.length > 0;
+  const hasWaitingMatches = summary.waitingPlayers.length > 0;
+  const hasCompletedMatches = summary.completed.length > 0;
+  const doubleCoreReady = hasDoubleEliminationCoreSections(structure);
+
+  const items = [
+    renderRealTestChecklistItem(
+      summary.isReal ? "ok" : "warning",
+      "Origem dos dados",
+      summary.isReal
+        ? "Estrutura vinculada a torneio salvo/Supabase. Use este modo para validação real."
+        : "Estrutura local/de teste. Use apenas para ensaio visual ou conferência rápida."
+    ),
+    renderRealTestChecklistItem(
+      hasParticipants ? "ok" : "pending",
+      "Inscrições carregadas",
+      hasParticipants
+        ? `${summary.totalSnapshot} participante(s) encontrados na estrutura ou no torneio.`
+        : "Ainda não há participantes carregados para validar o fluxo real."
+    ),
+    renderRealTestChecklistItem(
+      hasEligibleParticipants ? "ok" : "pending",
+      "Check-in confirmado",
+      hasEligibleParticipants
+        ? `${summary.eligible} participante(s) válidos para geração da estrutura.`
+        : "Confirme o check-in antes de validar chave e resultados reais."
+    ),
+    renderRealTestChecklistItem(
+      hasPlayableMatches ? "ok" : (hasWaitingMatches ? "warning" : "pending"),
+      "Partidas prontas para teste",
+      hasPlayableMatches
+        ? `${summary.playable.length} partida(s) com dois jogadores/equipes definidos.`
+        : "A estrutura ainda possui partidas aguardando jogadores ou não tem confrontos jogáveis."
+    ),
+    renderRealTestChecklistItem(
+      isDoubleElimination ? (doubleCoreReady ? "ok" : "warning") : "neutral",
+      "Estrutura Double Elimination",
+      isDoubleElimination
+        ? (doubleCoreReady
+          ? "Winners/Lower/Grand Final detectadas para o teste de progressão."
+          : "Confira se Winners, Lower e Grand Final foram geradas antes do teste completo.")
+        : "Este item se aplica apenas a torneios Double Elimination."
+    ),
+    renderRealTestChecklistItem(
+      hasCompletedMatches ? "ok" : "pending",
+      "Resultados lançados",
+      hasCompletedMatches
+        ? `${summary.completed.length} resultado(s) já lançados. Confira se a progressão dependente está correta.`
+        : "Nenhum resultado lançado ainda. Faça este teste apenas com torneio de validação."
+    )
+  ];
+
+  return `
+    <div class="structure-card real-test-checklist-card">
+      <div class="results-safety-header">
+        <div>
+          <h4>Checklist de teste real</h4>
+          <p class="manager-meta">
+            Use esta lista antes do teste com participantes reais. Ela não bloqueia ações, apenas ajuda a conferir se o torneio está pronto para validar inscrição, check-in, chave, resultados e progressão.
+          </p>
+        </div>
+        <span class="results-safety-source">Teste guiado</span>
+      </div>
+
+      <ol class="real-test-checklist">
+        ${items.join("")}
+      </ol>
+
+      <div class="results-safety-notes">
+        <span>Fluxo sugerido: inscrição → check-in → gerar estrutura → lançar resultados → validar Lower/Grand Final.</span>
+        <span>Use primeiro um torneio de teste. Não valide em torneio oficial antes de confirmar a progressão completa.</span>
+      </div>
+    </div>
+  `;
+}
+
+function getResultMatchSafetyInfo(match, tournament) {
+  const isPlayable = Boolean(match?.playerA && match?.playerB);
+  const isCompleted = Boolean(match?.status === "completed" && match?.winnerId);
+  const matchFormat = getEffectiveMatchFormat(tournament, match);
+
+  if (!isPlayable) {
+    return {
+      className: "waiting",
+      label: "Aguardando jogador",
+      hint: "Esta partida ainda não possui os dois lados definidos."
+    };
+  }
+
+  if (isCompleted) {
+    return {
+      className: "done",
+      label: "Resultado lançado",
+      hint: "Editar este resultado pode alterar progressões dependentes.",
+      format: matchFormat
+    };
+  }
+
+  return {
+    className: "ready",
+    label: "Pronta para resultado",
+    hint: `Formato esperado: ${getMatchFormatLabel(matchFormat)}.`,
+    format: matchFormat
+  };
+}
+
+function describeMatchForResultAction(match, scoreA = null, scoreB = null, tournament = null) {
+  const playerA = getRawPlayerName(match?.playerA) || "A definir";
+  const playerB = getRawPlayerName(match?.playerB) || "A definir";
+  const formatLabel = getMatchFormatLabel(getEffectiveMatchFormat(tournament, match));
+  const phaseLabel = match?.phaseLabel || match?.roundName || match?.name || "Partida";
+  const scoreLabel = scoreA !== null && scoreB !== null ? ` — placar ${scoreA} x ${scoreB}` : "";
+
+  return `${phaseLabel}: ${playerA} vs ${playerB} (${formatLabel})${scoreLabel}`;
+}
+
+function hasDoubleEliminationDependentProgression(tournament, match) {
+  if (!tournament || tournament.structure?.type !== "double-elimination" || !match?.nextMatchId || !match?.nextSlot) {
+    return false;
+  }
+
+  const nextMatch = findDoubleEliminationMatch(tournament.structure, match.nextMatchId);
+  if (!nextMatch) return false;
+
+  return Boolean(nextMatch[match.nextSlot] || nextMatch.status === "completed" || nextMatch.winnerId);
+}
+
+function confirmResultSaveAction(tournament, updates) {
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return false;
+  }
+
+  const isDouble = tournament?.structure?.type === "double-elimination";
+  const hasCompletedEdit = updates.some((update) => update.match?.status === "completed" || update.match?.winnerId);
+  const hasDependentProgression = updates.some((update) => hasDoubleEliminationDependentProgression(tournament, update.match));
+
+  if (!isDouble && !hasCompletedEdit) {
+    return true;
+  }
+
+  const lines = updates.slice(0, 5).map((update) => {
+    return `• ${describeMatchForResultAction(update.match, update.scoreA, update.scoreB, tournament)}`;
+  });
+
+  const extraCount = updates.length > lines.length ? `\n• +${updates.length - lines.length} outra(s) partida(s)` : "";
+  const warning = [
+    `Confirmar salvamento de ${updates.length} resultado(s)?`,
+    "",
+    ...lines,
+    extraCount,
+    "",
+    isDouble ? "Atenção: em Double Elimination, vencedores avançam e perdedores podem cair para a Lower Bracket automaticamente." : "",
+    hasCompletedEdit ? "Você está editando uma partida que já tinha resultado lançado." : "",
+    hasDependentProgression ? "Existem progressões dependentes desta partida. O sistema pode limpar/recalcular partidas seguintes." : "",
+    "",
+    "Confira o placar, o FT/MD da fase e os jogadores antes de continuar."
+  ].filter(Boolean).join("\n");
+
+  return confirm(warning);
+}
+
+function buildClearResultWarning(tournament, matches, allResults = false) {
+  const list = Array.isArray(matches) ? matches : [];
+  const isDouble = tournament?.structure?.type === "double-elimination";
+  const hasDependentProgression = list.some((match) => hasDoubleEliminationDependentProgression(tournament, match));
+
+  if (allResults) {
+    return [
+      "Limpar TODOS os resultados deste torneio?",
+      "",
+      "Isso reseta placares, vencedores, tabela/progressão e rascunhos de resultado.",
+      isDouble ? "No Double Elimination, Winners, Lower, Grand Final e Reset serão recalculados a partir do estado limpo." : "",
+      "",
+      "Continuar?"
+    ].filter(Boolean).join("\n");
+  }
+
+  const lines = list.slice(0, 5).map((match) => `• ${describeMatchForResultAction(match, null, null, tournament)}`);
+  const extraCount = list.length > lines.length ? `\n• +${list.length - lines.length} outra(s) partida(s)` : "";
+
+  return [
+    `Limpar resultado de ${list.length} partida(s)?`,
+    "",
+    ...lines,
+    extraCount,
+    "",
+    hasDependentProgression ? "Atenção: uma ou mais partidas possuem progressão dependente e partidas seguintes podem ser limpas/recalculadas." : "",
+    "Continuar?"
+  ].filter(Boolean).join("\n");
+}
+
 async function finalizeTournament() {
   const tournament = getTournamentById(selectedTournamentId);
 
@@ -2675,7 +3616,7 @@ async function finalizeTournament() {
       const tournament = getTournamentById(selectedTournamentId);
 
       if (!ensureEditableResultsMode(tournament)) {
-        alert("Nesta etapa, o lançamento de resultados está ativo para Liga, Grupos + Playoffs e rodada inicial do Double Elimination.");
+        alert("O lançamento de resultados está ativo para Liga, Grupos + Playoffs e Double Elimination.");
         return;
       }
 
@@ -2702,6 +3643,15 @@ async function finalizeTournament() {
         return;
       }
 
+      if (!confirmResultSaveAction(tournament, [{
+        matchId,
+        match,
+        scoreA: parsed.scoreA,
+        scoreB: parsed.scoreB
+      }])) {
+        return;
+      }
+
       applyMatchResult(match, parsed.scoreA, parsed.scoreB, tournament);
       clearResultDraft(matchId);
 
@@ -2712,7 +3662,7 @@ async function finalizeTournament() {
       const tournament = getTournamentById(selectedTournamentId);
 
       if (!ensureEditableResultsMode(tournament)) {
-        alert("O salvamento em lote está ativo para Liga e fase de grupos.");
+        alert("O salvamento em lote está ativo para Liga, Grupos + Playoffs e Double Elimination.");
         return;
       }
 
@@ -2757,6 +3707,10 @@ async function finalizeTournament() {
         });
       }
 
+      if (!confirmResultSaveAction(tournament, updates)) {
+        return;
+      }
+
       updates.forEach((update) => {
         applyMatchResult(update.match, update.scoreA, update.scoreB, tournament);
         clearResultDraft(update.matchId);
@@ -2776,7 +3730,7 @@ async function finalizeTournament() {
       const match = findEditableMatch(tournament, matchId);
       if (!match) return;
 
-      const confirmClear = confirm("Limpar o resultado desta partida?");
+      const confirmClear = confirm(buildClearResultWarning(tournament, [match]));
       if (!confirmClear) return;
 
       clearMatchObject(match, tournament);
@@ -2789,7 +3743,7 @@ async function finalizeTournament() {
       const tournament = getTournamentById(selectedTournamentId);
 
       if (!ensureEditableResultsMode(tournament)) {
-        alert("A limpeza em lote está ativa para Liga e fase de grupos.");
+        alert("A limpeza em lote está ativa para Liga, Grupos + Playoffs e Double Elimination.");
         return;
       }
 
@@ -2801,7 +3755,10 @@ async function finalizeTournament() {
         return;
       }
 
-      const confirmClear = confirm(`Limpar os resultados das ${selectedCards.length} partida(s) selecionada(s)?`);
+      const selectedMatchesForWarning = selectedCards
+        .map((card) => findEditableMatch(tournament, card.dataset.matchCard))
+        .filter(Boolean);
+      const confirmClear = confirm(buildClearResultWarning(tournament, selectedMatchesForWarning));
       if (!confirmClear) return;
 
       let clearedCount = 0;
@@ -2812,7 +3769,7 @@ async function finalizeTournament() {
 
         if (!match) return;
 
-        clearMatchObject(match);
+        clearMatchObject(match, tournament);
         clearResultDraft(matchId);
         clearedCount += 1;
       });
@@ -2828,11 +3785,11 @@ async function finalizeTournament() {
       const tournament = getTournamentById(selectedTournamentId);
 
       if (!ensureEditableResultsMode(tournament)) {
-        alert("A limpeza total está ativa para Liga e fase de grupos.");
+        alert("A limpeza total está ativa para Liga, Grupos + Playoffs e Double Elimination.");
         return;
       }
 
-      const confirmClear = confirm("Limpar TODOS os resultados deste torneio e resetar a tabela de pontos?");
+      const confirmClear = confirm(buildClearResultWarning(tournament, flattenStructureMatches(tournament.structure), true));
       if (!confirmClear) return;
 
       let clearedCount = 0;
@@ -2841,7 +3798,7 @@ async function finalizeTournament() {
         tournament.structure.rounds.forEach((round) => {
           round.matches.forEach((match) => {
             if (!match.playerA || !match.playerB) return;
-            clearMatchObject(match);
+            clearMatchObject(match, tournament);
             clearResultDraft(match.id);
             clearedCount += 1;
           });
@@ -2853,12 +3810,29 @@ async function finalizeTournament() {
           group.rounds.forEach((round) => {
             round.matches.forEach((match) => {
               if (!match.playerA || !match.playerB) return;
-              clearMatchObject(match);
+              clearMatchObject(match, tournament);
               clearResultDraft(match.id);
               clearedCount += 1;
             });
           });
         });
+      }
+
+      if (tournament.structure.type === "double-elimination") {
+        flattenStructureMatches(tournament.structure).forEach((match) => {
+          if (!match) return;
+
+          const hadResult = match.status === "completed" || match.scoreA !== null || match.scoreB !== null || match.winnerId;
+          const hasPlayers = Boolean(match.playerA || match.playerB);
+
+          if (!hadResult && !hasPlayers) return;
+
+          clearMatchObject(match, tournament);
+          clearResultDraft(match.id);
+          clearedCount += 1;
+        });
+
+        applyAutomaticDoubleEliminationByes(tournament);
       }
 
       clearDraftsForTournament(selectedTournamentId);
@@ -2899,10 +3873,14 @@ async function finalizeTournament() {
         .map((match) => {
           const isBye = !match.playerA || !match.playerB;
           const isCompleted = match.status === "completed";
-          const winnerA = isCompleted && match.playerA && match.winnerId === match.playerA.id;
-          const winnerB = isCompleted && match.playerB && match.winnerId === match.playerB.id;
+          const winnerA = isCompleted && match.playerA && String(match.winnerId || "") === getMatchPlayerKey(match.playerA);
+          const winnerB = isCompleted && match.playerB && String(match.winnerId || "") === getMatchPlayerKey(match.playerB);
           const scoreAValue = getInputValueForMatch(match, "scoreA");
           const scoreBValue = getInputValueForMatch(match, "scoreB");
+          const activeTournament = getSelectedTournament();
+          const matchFormat = getEffectiveMatchFormat(activeTournament, match);
+          const matchPhaseLabel = match.phaseLabel || "Regra padrão";
+          const safetyInfo = getResultMatchSafetyInfo(match, activeTournament);
           const isSelected = isMatchDraftSelected(match.id);
 
           if (isBye) {
@@ -2922,6 +3900,16 @@ async function finalizeTournament() {
                 <input type="checkbox" data-select-result="${match.id}" ${isSelected ? "checked" : ""} />
                 <span>Selecionar partida</span>
               </label>
+
+              <div class="result-format-line">
+                <span>${escapeHTML(matchPhaseLabel)}</span>
+                <strong>${escapeHTML(getMatchFormatLabel(matchFormat))}</strong>
+              </div>
+
+              <div class="result-safety-line ${escapeHTML(safetyInfo.className)}">
+                <strong>${escapeHTML(safetyInfo.label)}</strong>
+                <span>${escapeHTML(safetyInfo.hint)}</span>
+              </div>
 
               <div class="result-match-top">
                 <div class="result-player">
@@ -5170,25 +6158,29 @@ function renderDoubleEliminationStructure(structure) {
     ? structure.losersBracket
     : [];
 
+  const grandFinalRounds = Array.isArray(structure.grandFinal?.rounds)
+    ? structure.grandFinal.rounds
+    : [];
+
   return `
-    <div class="structure-card">
+    <div class="structure-card double-results-summary-card">
       <h4>${escapeHTML(structure.label)}</h4>
 
       <p class="manager-meta">
         ${structure.playersUsed} participantes em ${structure.settings.targetSlots} slots.
-        Esta primeira geração cria a rodada inicial da Winners Bracket.
-        A Losers Bracket, Grand Final e reset serão refinados nas próximas etapas.
+        Esta versão já gera Winners Bracket, Lower Bracket e Grand Final com progressão real de vencedores e perdedores.
       </p>
 
-      ${renderBulkResultActions("No Double Elimination, esta versão permite registrar resultados da rodada inicial da Winners Bracket. A progressão completa para Losers, próximas rodadas e Grand Final será refinada depois.")}
+      ${renderBulkResultActions("No Double Elimination, salve os resultados com atenção: vencedores avançam, derrotados podem cair para a Lower e editar uma partida já lançada pode recalcular progressões dependentes.")}
     </div>
 
-    <div class="structure-grid">
+    <div class="structure-grid double-results-grid">
       ${
         winnersRounds.length > 0
           ? winnersRounds.map((round) => `
-            <div class="structure-card">
+            <div class="structure-card double-results-round winners">
               <h4>${escapeHTML(round.name)}</h4>
+              <p class="manager-meta">Winners Bracket · ${escapeHTML((round.matches || []).length)} partida(s)</p>
 
               <div class="match-list">
                 ${renderEditableMatchRows(round.matches || [])}
@@ -5208,8 +6200,9 @@ function renderDoubleEliminationStructure(structure) {
       ${
         losersRounds.length > 0
           ? losersRounds.map((round) => `
-            <div class="structure-card">
+            <div class="structure-card double-results-round lower">
               <h4>${escapeHTML(round.name)}</h4>
+              <p class="manager-meta">Lower Bracket · ${escapeHTML((round.matches || []).length)} partida(s)</p>
 
               <div class="match-list">
                 ${renderEditableMatchRows(round.matches || [])}
@@ -5218,12 +6211,27 @@ function renderDoubleEliminationStructure(structure) {
           `).join("")
           : `
             <div class="structure-card">
-              <h4>Losers Bracket</h4>
+              <h4>Lower Bracket</h4>
               <p class="manager-meta">
-                A Losers Bracket será gerada conforme os resultados da Winners Bracket forem refinados.
+                A Lower Bracket será exibida quando a estrutura Double Elimination for gerada.
               </p>
             </div>
           `
+      }
+
+      ${
+        grandFinalRounds.length > 0
+          ? grandFinalRounds.map((round) => `
+            <div class="structure-card double-results-round grand-final">
+              <h4>${escapeHTML(round.name)}</h4>
+              <p class="manager-meta">Grand Final${structure.grandFinal?.resetIfNeeded ? " · Reset se necessário ativo" : ""}</p>
+
+              <div class="match-list">
+                ${renderEditableMatchRows(round.matches || [])}
+              </div>
+            </div>
+          `).join("")
+          : ""
       }
     </div>
   `;
@@ -5242,19 +6250,21 @@ function renderDoubleEliminationStructure(structure) {
       }
 
       const finalizationPanel = renderTournamentFinalizationPanel(tournament);
+      const resultsSafetyPanel = renderResultsSafetyPanel(tournament);
+      const realTestChecklistPanel = renderRealTestChecklistPanel(tournament);
 
       if (structure.type === "league") {
-        structureOutput.innerHTML = finalizationPanel + renderLeagueStructure(structure);
+        structureOutput.innerHTML = finalizationPanel + resultsSafetyPanel + realTestChecklistPanel + renderLeagueStructure(structure);
         return;
       }
 
       if (structure.type === "groups-playoffs") {
-        structureOutput.innerHTML = finalizationPanel + renderGroupsStructure(structure);
+        structureOutput.innerHTML = finalizationPanel + resultsSafetyPanel + realTestChecklistPanel + renderGroupsStructure(structure);
         return;
       }
 
       if (structure.type === "double-elimination") {
-        structureOutput.innerHTML = finalizationPanel + renderDoubleEliminationStructure(structure);
+        structureOutput.innerHTML = finalizationPanel + resultsSafetyPanel + realTestChecklistPanel + renderDoubleEliminationStructure(structure);
         return;
       }
 
@@ -5873,6 +6883,12 @@ function renderDoubleEliminationStructure(structure) {
       });
     });
     formatSelect.addEventListener("change", updateFormatInfo);
+    document.getElementById("phaseRulesPreset")?.addEventListener("change", applyPhaseRulesPreset);
+    document.getElementById("matchFormat")?.addEventListener("change", function() {
+      if (getPhaseRuleElementValue("phaseRulesPreset", "standard") === "standard") {
+        applyPhaseRulesPreset();
+      }
+    });
 
    initAccessControl()
   .then(async function (isAuthorized) {

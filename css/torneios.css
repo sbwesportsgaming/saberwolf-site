@@ -2471,6 +2471,24 @@ body.sbw-has-sidebar .sbw-tournaments-hub {
   background: rgba(244, 195, 93, 0.12);
 }
 
+.status-pill.registration.checked {
+  color: #b9ffd6;
+  border-color: rgba(91, 255, 167, 0.36);
+  background: rgba(91, 255, 167, 0.12);
+}
+
+.public-tournament-actions a.public-card-btn.is-registration-checkin {
+  color: #d7f7ff;
+  border-color: rgba(57, 217, 255, 0.4);
+  background: rgba(57, 217, 255, 0.1);
+}
+
+.public-tournament-actions a.public-card-btn.is-registration-confirmed {
+  color: #c8ffdf;
+  border-color: rgba(91, 255, 167, 0.34);
+  background: rgba(91, 255, 167, 0.1);
+}
+
 .public-tournament-card-content {
   display: flex;
   flex: 1;
