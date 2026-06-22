@@ -191,6 +191,214 @@ function getTournamentMatches(tournament) {
   return [];
 }
 
+function sbwBuildPublicMatchKey(match, index = 0, prefix = "match") {
+  return String(
+    match?.id ||
+    match?.matchId ||
+    match?.match_id ||
+    `${prefix}-${index + 1}`
+  );
+}
+
+function sbwNormalizePublicMatch(match, context = {}) {
+  if (!match || typeof match !== "object") {
+    return null;
+  }
+
+  const index = Number.isFinite(context.index) ? context.index : 0;
+  const prefix = context.prefix || context.bracket || context.roundName || "match";
+  const roundName =
+    match.roundName ||
+    match.roundLabel ||
+    match.round_name ||
+    match.name ||
+    context.roundName ||
+    context.roundLabel ||
+    (match.round ? `Rodada ${match.round}` : "Partida");
+
+  return {
+    ...match,
+    id: match.id || match.matchId || match.match_id || sbwBuildPublicMatchKey(match, index, prefix),
+    roundName,
+    roundLabel: match.roundLabel || match.round_name || roundName,
+    groupName: match.groupName || match.group_name || context.groupName || "",
+    bracketLabel: match.bracketLabel || match.bracket_label || context.bracketLabel || context.bracket || match.bracket || "",
+    stageLabel: match.stageLabel || match.stage_label || context.stageLabel || "",
+    _sbwPublicMatchKey: sbwBuildPublicMatchKey(match, index, prefix)
+  };
+}
+
+function sbwAddPublicMatches(target, matches, context = {}) {
+  if (!Array.isArray(matches) || matches.length === 0) {
+    return;
+  }
+
+  matches.forEach((match, index) => {
+    const normalized = sbwNormalizePublicMatch(match, {
+      ...context,
+      index
+    });
+
+    if (normalized) {
+      target.push(normalized);
+    }
+  });
+}
+
+function sbwCollectPublicMatchesFromStructure(tournament) {
+  const structure = getTournamentStructure(tournament);
+  const matches = [];
+
+  if (!structure || typeof structure !== "object") {
+    return matches;
+  }
+
+  if (Array.isArray(structure.rounds)) {
+    structure.rounds.forEach((round, roundIndex) => {
+      sbwAddPublicMatches(matches, round.matches, {
+        roundName: round.name || round.label || `Rodada ${roundIndex + 1}`,
+        bracketLabel: structure.label || getFormatLabel(getTournamentFormat(tournament)),
+        prefix: `round-${roundIndex + 1}`
+      });
+    });
+  }
+
+  if (Array.isArray(structure.winnersBracket)) {
+    structure.winnersBracket.forEach((round, roundIndex) => {
+      sbwAddPublicMatches(matches, round.matches, {
+        roundName: round.name || round.label || `Winners R${roundIndex + 1}`,
+        bracketLabel: "Winners Bracket",
+        prefix: `winners-${roundIndex + 1}`
+      });
+    });
+  }
+
+  if (Array.isArray(structure.losersBracket)) {
+    structure.losersBracket.forEach((round, roundIndex) => {
+      sbwAddPublicMatches(matches, round.matches, {
+        roundName: round.name || round.label || `Lower R${roundIndex + 1}`,
+        bracketLabel: "Lower Bracket",
+        prefix: `lower-${roundIndex + 1}`
+      });
+    });
+  }
+
+  if (Array.isArray(structure.grandFinal?.rounds)) {
+    structure.grandFinal.rounds.forEach((round, roundIndex) => {
+      sbwAddPublicMatches(matches, round.matches, {
+        roundName: round.name || round.label || (roundIndex === 0 ? "Grand Final" : "Reset se necessário"),
+        bracketLabel: "Grand Final",
+        prefix: `grand-final-${roundIndex + 1}`
+      });
+    });
+  }
+
+  if (Array.isArray(structure.groups)) {
+    structure.groups.forEach((group, groupIndex) => {
+      const groupName = group.name || group.label || `Grupo ${String.fromCharCode(65 + groupIndex)}`;
+
+      if (Array.isArray(group.rounds)) {
+        group.rounds.forEach((round, roundIndex) => {
+          sbwAddPublicMatches(matches, round.matches, {
+            groupName,
+            roundName: `${groupName} — ${round.name || round.label || `Rodada ${roundIndex + 1}`}`,
+            bracketLabel: "Fase de grupos",
+            prefix: `${groupName}-round-${roundIndex + 1}`
+          });
+        });
+      }
+
+      sbwAddPublicMatches(matches, group.matches, {
+        groupName,
+        roundName: `${groupName} — partidas`,
+        bracketLabel: "Fase de grupos",
+        prefix: `${groupName}-matches`
+      });
+    });
+  }
+
+  if (structure.playoffs) {
+    const playoffs = structure.playoffs;
+
+    if (Array.isArray(playoffs.rounds)) {
+      playoffs.rounds.forEach((round, roundIndex) => {
+        sbwAddPublicMatches(matches, round.matches, {
+          roundName: round.name || round.label || `Playoffs R${roundIndex + 1}`,
+          bracketLabel: "Playoffs",
+          prefix: `playoffs-${roundIndex + 1}`
+        });
+      });
+    }
+
+    if (Array.isArray(playoffs.sides)) {
+      playoffs.sides.forEach((side, sideIndex) => {
+        const sideLabel = side.name || side.label || `Lado ${sideIndex + 1}`;
+
+        (side.rounds || []).forEach((round, roundIndex) => {
+          sbwAddPublicMatches(matches, round.matches, {
+            roundName: round.name || round.label || `${sideLabel} R${roundIndex + 1}`,
+            bracketLabel: sideLabel,
+            prefix: `${sideLabel}-round-${roundIndex + 1}`
+          });
+        });
+      });
+    }
+
+    if (playoffs.final) {
+      sbwAddPublicMatches(matches, [playoffs.final], {
+        roundName: "Final",
+        bracketLabel: "Playoffs",
+        prefix: "playoffs-final"
+      });
+    }
+
+    if (playoffs.thirdPlace) {
+      sbwAddPublicMatches(matches, [playoffs.thirdPlace], {
+        roundName: "Disputa de 3º lugar",
+        bracketLabel: "Playoffs",
+        prefix: "playoffs-third"
+      });
+    }
+  }
+
+  return matches;
+}
+
+function sbwGetPublicMatches(tournament) {
+  const directMatches = getTournamentMatches(tournament).map((match, index) => {
+    return sbwNormalizePublicMatch(match, {
+      index,
+      prefix: "direct",
+      bracketLabel: getFormatLabel(getTournamentFormat(tournament))
+    });
+  }).filter(Boolean);
+
+  const structureMatches = sbwCollectPublicMatchesFromStructure(tournament);
+  const seen = new Set();
+  const merged = [];
+
+  [...directMatches, ...structureMatches].forEach((match, index) => {
+    const key = String(match.id || match._sbwPublicMatchKey || `public-${index}`);
+
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    merged.push(match);
+  });
+
+  return merged;
+}
+
+function sbwGetPublicMatchRoundLabel(match) {
+  return match?.roundName || match?.roundLabel || match?.round_name || match?.name || "Partida";
+}
+
+function sbwGetPublicMatchBracketLabel(match) {
+  return match?.bracketLabel || match?.bracket_label || match?.groupName || match?.bracket || match?.stageLabel || "Torneio";
+}
+
 function getTournamentStandings(tournament) {
   const structure = getTournamentStructure(tournament);
 
@@ -420,7 +628,7 @@ function getTournamentFormat(tournament) {
   function getDescription(tournament) {
     return tournament.description ||
       tournament.shortDescription ||
-      "Torneio publicado na plataforma SaberWolf.";
+      "Torneio publicado na plataforma -SBW-.";
   }
 
   function getRules(tournament) {
@@ -704,7 +912,7 @@ function getTournamentFormat(tournament) {
   }
 
   function getResultCounts(tournament) {
-    const matches = getTournamentMatches(tournament);
+    const matches = sbwGetPublicMatches(tournament);
 
     return matches.reduce((acc, match) => {
       const playerA = getMatchPlayer(match, "A");
@@ -964,11 +1172,22 @@ function getTournamentFormat(tournament) {
     `;
   }
 
-  function renderParticipants(tournament) {
+  function renderParticipants(tournament, options = {}) {
+    const onlyCheckedIn = Boolean(options.onlyCheckedIn);
     const participants = getParticipants(tournament)
       .filter((participant) => {
         const status = String(participant.status || "registered").toLowerCase();
-        return !["removed", "cancelled", "canceled", "disqualified"].includes(status);
+        const active = !["removed", "cancelled", "canceled", "disqualified"].includes(status);
+
+        if (!active) {
+          return false;
+        }
+
+        if (onlyCheckedIn) {
+          return sbwGetCheckInStatusInfo(participant).className === "checked-in";
+        }
+
+        return true;
       })
       .sort((a, b) => {
         const seedA = Number(a.seed || 999999);
@@ -988,8 +1207,11 @@ function getTournamentFormat(tournament) {
             <i class="fa-solid fa-user-plus"></i>
           </div>
           <div>
-            <strong>Nenhum participante publicado ainda</strong>
-            <p>Quando jogadores confirmarem inscrição, eles aparecerão aqui com status, equipe e check-in.</p>
+            <strong>${onlyCheckedIn ? "Nenhum check-in confirmado ainda" : "Nenhum participante publicado ainda"}</strong>
+            <p>${onlyCheckedIn
+              ? "Depois do fechamento do check-in, esta lista mostra apenas participantes que confirmaram presença."
+              : "Quando jogadores confirmarem inscrição pela plataforma -SBW-, eles aparecerão aqui com status, equipe e check-in."
+            }</p>
           </div>
         </div>
       `;
@@ -1549,6 +1771,197 @@ function getTournamentFormat(tournament) {
     return false;
   }
 
+  function sbwGetCurrentUserBracketKeys() {
+    const keys = new Set();
+
+    [
+      sbwCurrentDetailAuthUser?.id,
+      sbwCurrentDetailAuthUser?.email,
+      sbwCurrentDetailProfile?.id,
+      sbwCurrentDetailProfile?.auth_user_id,
+      sbwCurrentDetailProfile?.authUserId,
+      sbwCurrentDetailProfile?.slug,
+      sbwCurrentDetailProfile?.username,
+      sbwCurrentDetailProfile?.nickname,
+      sbwCurrentDetailProfile?.display_name,
+      sbwCurrentDetailProfile?.displayName
+    ].forEach((value) => {
+      if (value) {
+        keys.add(String(value).trim().toLowerCase());
+      }
+    });
+
+    return keys;
+  }
+
+  function sbwGetBracketEntityName(entity) {
+    return getPlayerName(entity);
+  }
+
+  function sbwGetBracketEntityLogoLabel(entity) {
+    const name = sbwGetBracketEntityName(entity);
+    const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+
+    if (entity?.tag || entity?.shortName || entity?.abbr || entity?.code) {
+      return String(entity.tag || entity.shortName || entity.abbr || entity.code).slice(0, 4).toUpperCase();
+    }
+
+    if (words.length >= 2) {
+      return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+    }
+
+    return String(name || "?").slice(0, 3).toUpperCase();
+  }
+
+  function sbwGetBracketEntityShortName(entity) {
+    const name = sbwGetBracketEntityName(entity);
+
+    if (entity?.tag || entity?.shortName || entity?.abbr || entity?.code) {
+      return String(entity.tag || entity.shortName || entity.abbr || entity.code).slice(0, 5).toUpperCase();
+    }
+
+    return sbwGetBracketEntityLogoLabel(entity);
+  }
+
+  function sbwGetBracketEntitySearchText(entity) {
+    if (!entity) {
+      return "";
+    }
+
+    return [
+      entity.id,
+      entity.profileId,
+      entity.profile_id,
+      entity.playerSlug,
+      entity.player_slug,
+      entity.slug,
+      entity.nickname,
+      entity.name,
+      entity.playerName,
+      entity.displayName,
+      entity.display_name,
+      entity.team,
+      entity.organization,
+      entity.club,
+      entity.tag,
+      entity.shortName,
+      entity.abbr,
+      entity.code
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function sbwIsCurrentUserBracketEntity(entity) {
+    if (!entity) {
+      return false;
+    }
+
+    const keys = sbwGetCurrentUserBracketKeys();
+
+    if (keys.size === 0) {
+      return false;
+    }
+
+    const candidates = [
+      entity.id,
+      entity.profileId,
+      entity.profile_id,
+      entity.userId,
+      entity.user_id,
+      entity.authUserId,
+      entity.auth_user_id,
+      entity.playerSlug,
+      entity.player_slug,
+      entity.slug,
+      entity.nickname,
+      entity.name,
+      entity.playerName,
+      entity.displayName,
+      entity.display_name,
+      entity.email
+    ].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+
+    return candidates.some((candidate) => keys.has(candidate));
+  }
+
+  function sbwGetRoundShortLabel(round, roundIndex, totalRounds, mode = "default") {
+    const raw = String(round?.shortLabel || round?.abbr || round?.stage || round?.name || round?.label || "").toLowerCase();
+
+    if (raw.includes("champ") || raw.includes("campe")) {
+      return "🏆";
+    }
+
+    if (raw.includes("final")) {
+      return "F";
+    }
+
+    if (raw.includes("semi") || raw.includes("sf")) {
+      return "SF";
+    }
+
+    if (raw.includes("quarta") || raw.includes("quarter") || raw.includes("qf")) {
+      return "QF";
+    }
+
+    const remaining = Math.max(totalRounds - roundIndex, 1);
+
+    if (mode === "bottom-up") {
+      if (roundIndex === totalRounds - 1) return "F";
+      if (roundIndex === totalRounds - 2) return "SF";
+      if (roundIndex === totalRounds - 3) return "QF";
+    }
+
+    const matchCount = Array.isArray(round?.matches) ? round.matches.length : 0;
+    const slots = Math.max(matchCount * 2, Math.pow(2, remaining));
+
+    if (slots >= 32) return "R32";
+    if (slots >= 16) return "R16";
+    if (slots >= 8) return "QF";
+    if (slots >= 4) return "SF";
+
+    return roundIndex === totalRounds - 1 ? "F" : `R${roundIndex + 1}`;
+  }
+
+  function sbwGetRoundName(round, roundIndex, totalRounds) {
+    return round?.name || round?.label || round?.title || `Rodada ${roundIndex + 1} / ${totalRounds}`;
+  }
+
+  function sbwGetMatchSearchText(match) {
+    return [
+      sbwGetBracketEntitySearchText(getMatchPlayer(match, "A")),
+      sbwGetBracketEntitySearchText(getMatchPlayer(match, "B")),
+      match?.name,
+      match?.label,
+      match?.roundName,
+      match?.status
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function renderBracketCompetitor(player, options = {}) {
+    const winner = Boolean(options.winner);
+    const score = options.score === null || options.score === undefined || options.score === "" ? "-" : options.score;
+    const seed = options.seed;
+    const empty = !player;
+    const isCurrentUser = !empty && sbwIsCurrentUserBracketEntity(player);
+    const name = empty ? "A definir" : sbwGetBracketEntityName(player);
+    const logo = empty ? "—" : sbwGetBracketEntityLogoLabel(player);
+    const searchText = empty ? "" : sbwGetBracketEntitySearchText(player);
+    const seedLabel = seed ? String(seed) : "";
+
+    return `
+      <div
+        class="sbw-bracket-team ${winner ? "is-winner" : ""} ${isCurrentUser ? "is-current-user" : ""} ${empty ? "is-empty" : ""}"
+        data-bracket-search-text="${escapeHTML(searchText)}"
+        title="${escapeHTML(name)}"
+      >
+        <span class="sbw-bracket-team-seed">${escapeHTML(seedLabel)}</span>
+        <span class="sbw-bracket-team-logo">${escapeHTML(logo)}</span>
+        <span class="sbw-bracket-team-name">${escapeHTML(name)}</span>
+        ${isCurrentUser ? `<span class="sbw-bracket-you-badge">Você</span>` : ""}
+        <strong class="sbw-bracket-score">${escapeHTML(score)}</strong>
+      </div>
+    `;
+  }
+
   function renderMatch(match, options = {}) {
     const playerA = getMatchPlayer(match, "A");
     const playerB = getMatchPlayer(match, "B");
@@ -1557,283 +1970,800 @@ function getTournamentFormat(tournament) {
     const status = getMatchPublicStatus(match);
     const winnerSide = getMatchWinnerSide(match);
     const winnerName = getMatchWinnerName(match);
-
-    const winnerA = winnerSide === "A";
-    const winnerB = winnerSide === "B";
-
-    const hasNextRound = Boolean(options.hasNextRound);
-    const matchIndex = Number(options.matchIndex || 0);
-    const rowSpan = Number(options.rowSpan || 1);
-    const startRow = Number(options.startRow || 1);
-    const connectorHeight = Number(options.connectorHeight || 118);
-
-    const connectorClass = hasNextRound
-      ? `has-next-round ${matchIndex % 2 === 0 ? "connect-down" : "connect-up"}`
-      : "";
+    const phaseLabel = options.phaseLabel || match?.roundName || match?.roundLabel || match?.name || "Partida";
+    const searchText = sbwGetMatchSearchText(match);
+    const seedA = match?.seedA || match?.seed_a || playerA?.seed || "";
+    const seedB = match?.seedB || match?.seed_b || playerB?.seed || "";
+    const laneKey = options.laneKey || "bracket";
+    const roundIndex = Number.isFinite(Number(options.roundIndex)) ? Number(options.roundIndex) : 0;
+    const matchIndex = Number.isFinite(Number(options.matchIndex)) ? Number(options.matchIndex) : 0;
+    const showHeader = Boolean(options.showHeader);
 
     return `
-      <div
-        class="bracket-public-match ${connectorClass} ${status.className}"
-        style="--grid-row: ${startRow} / span ${rowSpan}; --connector-height: ${connectorHeight}px;"
+      <article
+        class="sbw-bracket-match ${status.className} ${winnerName ? "has-winner" : ""}"
+        data-bracket-match
+        data-bracket-lane-key="${escapeHTML(laneKey)}"
+        data-bracket-round-index="${escapeHTML(roundIndex)}"
+        data-bracket-match-index="${escapeHTML(matchIndex)}"
+        data-bracket-search-text="${escapeHTML(searchText)}"
       >
-        <div class="bracket-public-player ${winnerA ? "winner" : ""}">
-          <span>${escapeHTML(getPlayerName(playerA))}</span>
-          <strong>${escapeHTML(scoreA)}</strong>
-        </div>
+        ${showHeader ? `
+          <header class="sbw-bracket-match-head">
+            <span>${escapeHTML(phaseLabel)}</span>
+            <em>${escapeHTML(match?.bestOf || match?.format || match?.matchFormat || "BO3")}</em>
+          </header>
+        ` : ""}
+        ${renderBracketCompetitor(playerA, { winner: winnerSide === "A", score: scoreA, seed: seedA })}
+        ${renderBracketCompetitor(playerB, { winner: winnerSide === "B", score: scoreB, seed: seedB })}
+        <footer class="sbw-bracket-match-foot">
+          <span class="sbw-bracket-status ${status.className}">${escapeHTML(status.label)}</span>
+          ${winnerName ? `<span>Vencedor: ${escapeHTML(winnerName)}</span>` : `<span>Aguardando</span>`}
+        </footer>
+      </article>
+    `;
+  }
 
-        <div class="bracket-public-player ${winnerB ? "winner" : ""}">
-          <span>${escapeHTML(getPlayerName(playerB))}</span>
-          <strong>${escapeHTML(scoreB)}</strong>
-        </div>
 
-        <div class="bracket-public-match-footer">
-          <span class="bracket-status-pill ${status.className}">${escapeHTML(status.label)}</span>
-          ${winnerName ? `<span class="bracket-winner-label">Vencedor: ${escapeHTML(winnerName)}</span>` : ""}
+  function sbwNormalizeParticipantForBracket(participant, index = 0) {
+    if (!participant) {
+      return null;
+    }
+
+    const raw = participant?.raw && typeof participant.raw === "object" ? participant.raw : {};
+    const metadata = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+    const name = getPlayerName(participant);
+
+    return {
+      ...participant,
+      id: participant.id || participant.profileId || participant.profile_id || raw.id || `participant-${index + 1}`,
+      seed: Number(participant.seed || participant.position || index + 1),
+      nickname: name,
+      name,
+      team: getPlayerTeam(participant),
+      logoLabel: participant.logoLabel || participant.acronym || participant.tag || metadata.acronym || ""
+    };
+  }
+
+  function sbwIsBracketParticipantActive(participant) {
+    const status = String(participant?.status || "registered").trim().toLowerCase().replaceAll("-", "_");
+    return !["removed", "cancelled", "canceled", "disqualified"].includes(status);
+  }
+
+  function sbwShouldRevealBracketParticipants(tournament) {
+    return sbwIsCheckInClosed(tournament);
+  }
+
+  function sbwGetConfirmedParticipantsForBracket(tournament) {
+    if (!sbwShouldRevealBracketParticipants(tournament)) {
+      return [];
+    }
+
+    return getParticipants(tournament)
+      .filter((participant) => sbwIsBracketParticipantActive(participant))
+      .filter((participant) => sbwGetCheckInStatusInfo(participant).className === "checked-in")
+      .map((participant, index) => sbwNormalizeParticipantForBracket(participant, index))
+      .sort((a, b) => {
+        const seedA = Number(a.seed || 999999);
+        const seedB = Number(b.seed || 999999);
+
+        if (seedA !== seedB) {
+          return seedA - seedB;
+        }
+
+        return String(getPlayerName(a)).localeCompare(String(getPlayerName(b)), "pt-BR");
+      });
+  }
+
+  function sbwGetBracketSizeForTournament(tournament, minimum = 16) {
+    const participants = sbwGetConfirmedParticipantsForBracket(tournament);
+    let size = minimum;
+
+    while (participants.length > size) {
+      size *= 2;
+    }
+
+    return size;
+  }
+
+  function sbwBuildBracketSeedOrder(size) {
+    if (size <= 2) {
+      return [1, 2];
+    }
+
+    const previous = sbwBuildBracketSeedOrder(size / 2);
+    return previous.flatMap((seed) => [seed, size + 1 - seed]);
+  }
+
+  function sbwGetOpeningRoundLabelBySize(size) {
+    if (size >= 64) return "R64";
+    if (size >= 32) return "R32";
+    if (size >= 16) return "R16";
+    if (size >= 8) return "QF";
+    if (size >= 4) return "SF";
+    return "F";
+  }
+
+  function sbwGetGeneratedRoundLabels(size) {
+    const labels = [];
+    let current = size;
+
+    while (current >= 2) {
+      labels.push(sbwGetOpeningRoundLabelBySize(current));
+      current = current / 2;
+    }
+
+    return labels;
+  }
+
+  function sbwBuildBracketSlotMap(tournament, size) {
+    const participants = sbwGetConfirmedParticipantsForBracket(tournament);
+    const map = new Map();
+
+    participants.slice(0, size).forEach((participant, index) => {
+      const seed = Number(participant.seed || index + 1);
+      const safeSeed = Number.isFinite(seed) && seed >= 1 && seed <= size ? seed : index + 1;
+      map.set(safeSeed, participant);
+    });
+
+    return map;
+  }
+
+  function sbwBuildPlaceholderOpeningMatches(tournament, options = {}) {
+    const size = Number(options.size || sbwGetBracketSizeForTournament(tournament, 16));
+    const branch = options.branch || "winners";
+    const revealParticipants = Boolean(options.revealParticipants ?? true);
+    const slotMap = revealParticipants ? sbwBuildBracketSlotMap(tournament, size) : new Map();
+    const seedOrder = sbwBuildBracketSeedOrder(size);
+    const roundLabel = options.roundLabel || sbwGetOpeningRoundLabelBySize(size);
+
+    return Array.from({ length: size / 2 }, (_, index) => {
+      const seedA = seedOrder[index * 2];
+      const seedB = seedOrder[index * 2 + 1];
+
+      return {
+        id: `${branch}-${roundLabel}-${index + 1}`,
+        name: `${roundLabel}-${index + 1}`,
+        roundName: roundLabel,
+        roundLabel,
+        bestOf: options.bestOf || "BO3",
+        status: "pending",
+        playerA: slotMap.get(seedA) || null,
+        playerB: slotMap.get(seedB) || null,
+        seedA,
+        seedB
+      };
+    });
+  }
+
+  function sbwBuildPlaceholderRounds(tournament, options = {}) {
+    const size = Number(options.size || sbwGetBracketSizeForTournament(tournament, 16));
+    const branch = options.branch || "winners";
+    const labels = sbwGetGeneratedRoundLabels(size);
+
+    return labels.map((label, roundIndex) => {
+      const roundSize = Math.max(2, size / Math.pow(2, roundIndex));
+      const matchesCount = Math.max(1, roundSize / 2);
+      const isOpening = roundIndex === 0;
+
+      return {
+        name: label === "R16" ? "Oitavas" : label === "R32" ? "Fase inicial" : label === "QF" ? "Quartas" : label === "SF" ? "Semifinal" : "Final",
+        label,
+        matches: isOpening
+          ? sbwBuildPlaceholderOpeningMatches(tournament, {
+              size,
+              branch,
+              roundLabel: label,
+              revealParticipants: options.revealParticipants !== false,
+              bestOf: label === "F" ? "BO5" : "BO3"
+            })
+          : Array.from({ length: matchesCount }, (_, index) => ({
+              id: `${branch}-${label}-${index + 1}`,
+              name: `${label}-${index + 1}`,
+              roundName: label,
+              roundLabel: label,
+              bestOf: label === "F" ? "BO5" : "BO3",
+              status: "pending",
+              playerA: null,
+              playerB: null
+            }))
+      };
+    });
+  }
+
+  function sbwBuildPlaceholderLowerRounds(tournament, options = {}) {
+    const size = Number(options.size || sbwGetBracketSizeForTournament(tournament, 16));
+    const roundsCount = Math.max(1, Math.ceil(Math.log2(Math.max(size, 2))) * 2 - 2);
+
+    return Array.from({ length: roundsCount }, (_, roundIndex) => {
+      const matchesCount = Math.max(1, Math.floor(size / (4 * Math.pow(2, Math.floor(roundIndex / 2)))));
+      const isLast = roundIndex === roundsCount - 1;
+      const isSemi = roundIndex === roundsCount - 2;
+      const isQuarter = roundIndex === roundsCount - 3;
+      const label = isLast ? "LF" : isSemi ? "LSF" : isQuarter ? "LQF" : `LR${roundIndex + 1}`;
+      const name = isLast ? "Lower Final" : isSemi ? "Lower Semi-Final" : isQuarter ? "Lower Quarter" : `Lower Round ${roundIndex + 1}`;
+
+      return {
+        name,
+        label,
+        matches: Array.from({ length: matchesCount }, (_, index) => ({
+          id: `lower-${label}-${index + 1}`,
+          name: `${label}-${index + 1}`,
+          roundName: label,
+          roundLabel: label,
+          bestOf: isLast || isSemi || isQuarter ? "BO3" : "BO1",
+          status: "pending",
+          playerA: null,
+          playerB: null
+        }))
+      };
+    });
+  }
+
+  function sbwRenderBracketNotice(tournament) {
+    const reveal = sbwShouldRevealBracketParticipants(tournament);
+    const confirmed = sbwGetConfirmedParticipantsForBracket(tournament).length;
+    const active = getParticipants(tournament).filter((participant) => sbwIsBracketParticipantActive(participant)).length;
+
+    return `
+      <div class="sbw-bracket-readiness-note ${reveal ? "is-closed" : "is-open"}">
+        <i class="fa-solid ${reveal ? "fa-circle-check" : "fa-clock"}"></i>
+        <div>
+          <strong>${reveal ? "Check-in fechado" : "Bracket em preparação"}</strong>
+          <p>${reveal
+            ? `A chave usa os ${confirmed} participante${confirmed === 1 ? "" : "s"} com check-in confirmado.`
+            : `A chave já fica visível, mas os nomes entram após o fechamento do check-in. Inscritos atuais: ${active}.`
+          }</p>
         </div>
       </div>
     `;
   }
 
-  function renderRounds(rounds) {
-    if (!Array.isArray(rounds) || rounds.length === 0) {
-      return `
-        <div class="detail-card">
-          <p>
-            O chaveamento será exibido quando as partidas forem geradas.
-          </p>
-        </div>
-      `;
+  function sbwNormalizeBracketRounds(rounds) {
+    if (!Array.isArray(rounds)) {
+      return [];
     }
 
-    const firstRoundMatches = Array.isArray(rounds[0]?.matches)
-      ? rounds[0].matches.length
-      : 1;
+    return rounds.map((round, index) => ({
+      ...round,
+      name: round?.name || round?.label || round?.title || `Rodada ${index + 1}`,
+      matches: Array.isArray(round?.matches) ? round.matches : []
+    })).filter((round) => Array.isArray(round.matches));
+  }
 
-    const baseMatchCount = Math.max(firstRoundMatches, 1);
-    const slotHeight = 118;
+  function sbwGetPlayoffRounds(tournament) {
+    const structure = getTournamentStructure(tournament);
+    const playoffs = structure?.playoffs || tournament?.playoffs || structure?.bracket || tournament?.bracket || null;
 
+    if (Array.isArray(playoffs?.rounds)) {
+      return sbwNormalizeBracketRounds(playoffs.rounds);
+    }
+
+    if (Array.isArray(playoffs?.sides) && playoffs.sides.length > 0) {
+      const firstSideRounds = playoffs.sides[0]?.rounds;
+
+      if (Array.isArray(firstSideRounds)) {
+        return sbwNormalizeBracketRounds(firstSideRounds);
+      }
+    }
+
+    if (Array.isArray(structure?.rounds)) {
+      return sbwNormalizeBracketRounds(structure.rounds);
+    }
+
+    return [];
+  }
+
+  function sbwGetAllBracketMatches(rounds = []) {
+    return rounds.flatMap((round) => Array.isArray(round.matches) ? round.matches : []);
+  }
+
+  function renderBracketEmptyState(title, description) {
     return `
-      <div class="bracket-public-area">
-        <div class="bracket-public">
-          ${rounds.map((round, roundIndex) => {
-            const isLastRound = roundIndex === rounds.length - 1;
-            const matches = Array.isArray(round.matches) ? round.matches : [];
-            const rowSpan = Math.pow(2, roundIndex);
-
-            return `
-              <div class="bracket-public-round">
-                <h4>${escapeHTML(round.name || round.label || `Rodada ${roundIndex + 1}`)}</h4>
-
-                <div
-                  class="bracket-public-round-matches"
-                  style="--base-match-count: ${baseMatchCount};"
-                >
-                  ${matches.map((match, matchIndex) => {
-                    const startRow = matchIndex * rowSpan + 1;
-                    const connectorHeight = slotHeight * rowSpan;
-
-                    return renderMatch(match, {
-                      hasNextRound: !isLastRound,
-                      matchIndex,
-                      rowSpan,
-                      startRow,
-                      connectorHeight
-                    });
-                  }).join("")}
-                </div>
-              </div>
-            `;
-          }).join("")}
+      <div class="sbw-bracket-empty-state">
+        <div class="sbw-bracket-empty-icon">
+          <i class="fa-solid fa-code-branch"></i>
+        </div>
+        <div>
+          <strong>${escapeHTML(title)}</strong>
+          <p>${escapeHTML(description)}</p>
         </div>
       </div>
     `;
+  }
+
+  function renderBracketControls() {
+    return `
+      <div class="sbw-bracket-controls" data-bracket-controls>
+        <button type="button" data-bracket-control="reset" title="Voltar ao início da bracket"><i class="fa-solid fa-crosshairs"></i></button>
+        <button type="button" data-bracket-control="zoom-out" title="Diminuir zoom">−</button>
+        <span data-bracket-zoom-label>100%</span>
+        <button type="button" data-bracket-control="zoom-in" title="Aumentar zoom">+</button>
+        <em>Use a rolagem horizontal e vertical da área da chave</em>
+      </div>
+    `;
+  }
+
+  function renderBracketShell(options = {}) {
+    const title = options.title || "Chave do torneio";
+    const subtitle = options.subtitle || "Estrutura competitiva publicada pela plataforma -SBW-.";
+    const rightRail = options.rightRail || "";
+    const content = options.content || "";
+    const chips = Array.isArray(options.chips) ? options.chips : [];
+
+    const hasRightRail = Boolean(String(rightRail || "").trim());
+
+    return `
+      <div class="sbw-bracket-layout ${options.modeClass || ""} ${hasRightRail ? "has-side-panel" : "is-full-width"}" data-bracket-layout>
+        <div class="sbw-bracket-main-panel">
+          <div class="sbw-bracket-toolbar">
+            <div>
+              <span class="sbw-bracket-eyebrow">${escapeHTML(options.eyebrow || "Chaves")}</span>
+              <h4>${escapeHTML(title)}</h4>
+              <p>${escapeHTML(subtitle)}</p>
+            </div>
+            <label class="sbw-bracket-search">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="search" placeholder="Buscar equipe ou jogador..." data-bracket-search>
+            </label>
+          </div>
+
+          ${chips.length > 0 ? `
+            <div class="sbw-bracket-focus-chips">
+              ${chips.map((chip, index) => `
+                <button type="button" data-bracket-focus="${escapeHTML(chip.value || "all")}" class="${index === 0 ? "active" : ""}">
+                  ${escapeHTML(chip.label || chip.value || "Visão")}
+                </button>
+              `).join("")}
+            </div>
+          ` : ""}
+
+          <div class="sbw-bracket-viewport" data-bracket-viewport>
+            <div class="sbw-bracket-canvas" data-bracket-canvas>
+              <svg class="sbw-bracket-connectors" data-bracket-connectors aria-hidden="true"></svg>
+              ${content}
+            </div>
+          </div>
+
+          ${renderBracketControls()}
+        </div>
+
+        ${hasRightRail ? `
+          <aside class="sbw-bracket-side-panel">
+            ${rightRail}
+          </aside>
+        ` : ""}
+      </div>
+    `;
+  }
+
+  function renderBracketSideRail(tournament, matches = [], options = {}) {
+    const completedMatches = matches.filter((match) => getMatchPublicStatus(match).className === "completed").slice(-3).reverse();
+    const pendingMatch = matches.find((match) => ["pending", "live"].includes(getMatchPublicStatus(match).className));
+    const description = getDescription(tournament);
+
+    return `
+      <div class="sbw-bracket-info-card">
+        <span>Sobre o torneio</span>
+        <p>${escapeHTML(description || "A estrutura pública será atualizada conforme o organizador lançar resultados na plataforma -SBW-.")}</p>
+        <a href="#regras">Ver regras completas <i class="fa-solid fa-arrow-right"></i></a>
+      </div>
+
+      <div class="sbw-bracket-info-card">
+        <span>Legenda</span>
+        <div class="sbw-bracket-legend">
+          <b><i class="line win"></i> Vitória</b>
+          <b><i class="line pending"></i> Pendente</b>
+          <b><i class="badge-you">Você</i> usuário logado</b>
+          <b><i class="bo">BO</i> Melhor de (n)</b>
+        </div>
+      </div>
+
+      <div class="sbw-bracket-info-card">
+        <span>${escapeHTML(options.nextTitle || "Próxima partida")}</span>
+        ${pendingMatch ? `
+          <strong>${escapeHTML(getPlayerName(getMatchPlayer(pendingMatch, "A")))} vs ${escapeHTML(getPlayerName(getMatchPlayer(pendingMatch, "B")))}</strong>
+          <p>${escapeHTML(pendingMatch.roundName || pendingMatch.roundLabel || pendingMatch.name || "Fase atual")}</p>
+        ` : `
+          <strong>A definir</strong>
+          <p>As próximas partidas aparecerão quando a estrutura avançar.</p>
+        `}
+      </div>
+
+      <div class="sbw-bracket-info-card">
+        <span>Últimos resultados</span>
+        ${completedMatches.length > 0 ? `
+          <div class="sbw-bracket-results-list">
+            ${completedMatches.map((match) => `
+              <div>
+                <strong>${escapeHTML(getPlayerName(getMatchPlayer(match, "A")))}</strong>
+                <b>${escapeHTML(getMatchScore(match, "scoreA"))} - ${escapeHTML(getMatchScore(match, "scoreB"))}</b>
+                <strong>${escapeHTML(getPlayerName(getMatchPlayer(match, "B")))}</strong>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<p>Nenhum resultado público registrado ainda.</p>`}
+      </div>
+    `;
+  }
+
+  function sbwGetStructureRoundList(structure, keys = []) {
+    if (!structure || typeof structure !== "object") {
+      return [];
+    }
+
+    for (const key of keys) {
+      const value = key.split(".").reduce((current, part) => current && current[part], structure);
+
+      if (Array.isArray(value) && value.length > 0) {
+        return sbwNormalizeBracketRounds(value);
+      }
+    }
+
+    return [];
+  }
+
+  function sbwGetWinnersRoundsFromStructure(structure) {
+    return sbwGetStructureRoundList(structure, [
+      "winnersBracket",
+      "winners_bracket",
+      "winnerBracket",
+      "winner_bracket",
+      "winners.rounds",
+      "winner.rounds",
+      "upperBracket",
+      "upper_bracket",
+      "upper.rounds"
+    ]);
+  }
+
+  function sbwGetLowerRoundsFromStructure(structure) {
+    return sbwGetStructureRoundList(structure, [
+      "losersBracket",
+      "losers_bracket",
+      "lowerBracket",
+      "lower_bracket",
+      "losers.rounds",
+      "lower.rounds",
+      "lowerBracketRounds"
+    ]);
+  }
+
+  function sbwGetGrandFinalRoundsFromStructure(structure) {
+    const rounds = sbwGetStructureRoundList(structure, [
+      "grandFinal.rounds",
+      "grand_final.rounds",
+      "finals.rounds",
+      "grandFinalRounds"
+    ]);
+
+    if (rounds.length > 0) {
+      return rounds;
+    }
+
+    const finalMatch = structure?.grandFinal?.match || structure?.grand_final?.match || structure?.grandFinal || structure?.final;
+
+    if (finalMatch && !Array.isArray(finalMatch)) {
+      return [{ name: "Grand Final", label: "GF", matches: [finalMatch] }];
+    }
+
+    return [];
+  }
+
+  function sbwGetSingleEliminationRounds(tournament) {
+    const structure = getTournamentStructure(tournament);
+    const directRounds = sbwGetPlayoffRounds(tournament);
+
+    if (directRounds.length > 0) {
+      return directRounds;
+    }
+
+    return sbwGetStructureRoundList(structure, [
+      "bracket.rounds",
+      "singleElimination.rounds",
+      "single_elimination.rounds",
+      "playoff.rounds",
+      "rounds"
+    ]);
+  }
+
+  function sbwGetBracketRoundFormat(round) {
+    const direct = round?.bestOf || round?.format || round?.matchFormat || round?.match_format;
+
+    if (direct) {
+      return String(direct).toUpperCase();
+    }
+
+    const matches = Array.isArray(round?.matches) ? round.matches : [];
+    const sample = matches.find((match) => match?.bestOf || match?.format || match?.matchFormat || match?.match_format);
+    const value = sample?.bestOf || sample?.format || sample?.matchFormat || sample?.match_format;
+
+    return String(value || "BO3").toUpperCase();
+  }
+
+  function sbwGetBracketRoundHeader(round, roundIndex, totalRounds, options = {}) {
+    const format = sbwGetBracketRoundFormat(round);
+    const laneKey = String(options.laneKey || "").toLowerCase();
+    const raw = String(round?.name || round?.label || round?.title || "").trim();
+    const rawUpper = raw.toUpperCase();
+    const isLast = roundIndex === totalRounds - 1;
+    const isSemi = roundIndex === totalRounds - 2;
+
+    if (laneKey.includes("winners") && isLast) {
+      return `WINNERS FINAL (${format})`;
+    }
+
+    if (laneKey.includes("winners") && isSemi) {
+      return `WINNERS SEMI-FINAL (${format})`;
+    }
+
+    if (laneKey.includes("lower") && isLast) {
+      return `LOWER FINAL (${format})`;
+    }
+
+    if (laneKey.includes("lower") && isSemi) {
+      return `LOWER SEMI-FINAL (${format})`;
+    }
+
+    if (rawUpper.includes("GRAND")) {
+      return `GRAND FINAL (${format})`;
+    }
+
+    return `ROUND ${roundIndex + 1} (${format})`;
+  }
+
+  function renderBracketLane(title, subtitle, rounds, options = {}) {
+    const normalizedRounds = sbwNormalizeBracketRounds(rounds);
+    const focus = options.focus || "all";
+    const laneClass = options.className || "";
+    const laneKey = options.laneKey || focus || "bracket";
+    const fallback = options.fallback || "As partidas serão exibidas quando a estrutura avançar.";
+
+    return `
+      <section class="sbw-bracket-lane ${laneClass}" data-bracket-lane="${escapeHTML(laneKey)}" data-bracket-focus-target="${escapeHTML(focus)}">
+        <div class="sbw-double-lane-head">
+          <span>${escapeHTML(title)}</span>
+          <strong>${escapeHTML(subtitle)}</strong>
+        </div>
+        ${normalizedRounds.length > 0 ? renderRounds(normalizedRounds, { laneKey }) : renderBracketEmptyState(title, fallback)}
+      </section>
+    `;
+  }
+
+  function renderRounds(rounds, options = {}) {
+    const normalizedRounds = sbwNormalizeBracketRounds(rounds);
+    const laneKey = options.laneKey || "bracket";
+
+    if (normalizedRounds.length === 0) {
+      return renderBracketEmptyState(
+        "Chave ainda não gerada",
+        "Quando o organizador gerar a estrutura, as partidas aparecerão aqui."
+      );
+    }
+
+    return `
+      <div class="sbw-horizontal-bracket" data-bracket-rounds data-bracket-lane-key="${escapeHTML(laneKey)}">
+        ${normalizedRounds.map((round, roundIndex) => {
+          const matches = Array.isArray(round.matches) ? round.matches : [];
+          const shortLabel = sbwGetRoundShortLabel(round, roundIndex, normalizedRounds.length);
+          const isFinalArea = roundIndex >= normalizedRounds.length - 2;
+          const roundHeader = sbwGetBracketRoundHeader(round, roundIndex, normalizedRounds.length, { laneKey });
+
+          return `
+            <section
+              class="sbw-horizontal-round"
+              data-bracket-round
+              data-bracket-round-index="${escapeHTML(roundIndex)}"
+              data-bracket-focus-target="${isFinalArea ? "finals" : "all"}"
+              data-bracket-stage="${escapeHTML(shortLabel.toLowerCase())}"
+            >
+              <header class="sbw-horizontal-round-head">
+                <strong>${escapeHTML(roundHeader)}</strong>
+              </header>
+              <div class="sbw-horizontal-round-matches">
+                ${matches.map((match, matchIndex) => renderMatch(match, {
+                  phaseLabel: shortLabel,
+                  laneKey,
+                  roundIndex,
+                  matchIndex
+                })).join("")}
+              </div>
+            </section>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+
+  function renderSingleEliminationPublic(tournament, options = {}) {
+    const realRounds = options.rounds || sbwGetSingleEliminationRounds(tournament);
+    const bracketSize = sbwGetBracketSizeForTournament(tournament, 16);
+    const rounds = realRounds.length > 0
+      ? realRounds
+      : sbwBuildPlaceholderRounds(tournament, {
+          branch: options.branch || "single",
+          size: bracketSize,
+          revealParticipants: true
+        });
+    const usingGeneratedSkeleton = realRounds.length === 0;
+
+    const content = `
+      ${sbwRenderBracketNotice(tournament)}
+      <div class="sbw-single-bracket ${usingGeneratedSkeleton ? "is-skeleton" : ""}" data-bracket-size="${escapeHTML(bracketSize)}">
+        ${renderBracketLane(
+          options.laneTitle || "Bracket",
+          options.laneSubtitle || "Eliminação simples",
+          rounds,
+          { focus: "all", className: "sbw-single-lane" }
+        )}
+      </div>
+    `;
+
+    return renderBracketShell({
+      modeClass: "sbw-bracket-mode-single sbw-bracket-clean-mode sbw-bracket-reference-mode",
+      eyebrow: options.eyebrow || "Bracket",
+      title: options.title || "Chave do torneio",
+      subtitle: usingGeneratedSkeleton
+        ? "Chave pré-montada em visual compacto. Os nomes entram após o fechamento do check-in."
+        : "Chave pública em visual compacto da plataforma -SBW-.",
+      content,
+      chips: options.chips || [
+        { label: "Visão completa", value: "all" },
+        { label: "Top 16", value: "r16" },
+        { label: "Top 8", value: "qf" },
+        { label: "Finais", value: "finals" }
+      ]
+    });
   }
 
   function renderPlayoffs(tournament) {
-    const structure = getTournamentStructure(tournament);
+    const realRounds = sbwGetPlayoffRounds(tournament);
 
-    const playoffs =
-      structure?.playoffs ||
-      tournament.playoffs ||
-      structure?.bracket ||
-      tournament.bracket ||
-      null;
-
-    if (!playoffs) {
-      return `
-        <div class="detail-card">
-          <p>
-            Os playoffs serão exibidos quando a fase eliminatória for gerada.
-          </p>
-        </div>
-      `;
-    }
-
-    if (Array.isArray(playoffs.sides) && playoffs.sides.length > 0) {
-      return `
-        <div class="playoffs-public-block">
-          ${playoffs.sides.map((side) => `
-            <div class="detail-card public-bracket-card">
-              <h4>${escapeHTML(side.label || side.name || "Chave")}</h4>
-              ${renderRounds(side.rounds || [])}
-            </div>
-          `).join("")}
-
-          ${
-            playoffs.final
-              ? `
-                <div class="detail-card public-final-card">
-                  <h4>${escapeHTML(playoffs.final.name || "Final Geral")}</h4>
-                  ${renderMatch(playoffs.final)}
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            playoffs.thirdPlace
-              ? `
-                <div class="detail-card public-final-card">
-                  <h4>${escapeHTML(playoffs.thirdPlace.name || "Disputa de 3º lugar")}</h4>
-                  ${renderMatch(playoffs.thirdPlace)}
-                </div>
-              `
-              : ""
-          }
-        </div>
-      `;
-    }
-
-    if (Array.isArray(playoffs.rounds) && playoffs.rounds.length > 0) {
-      return renderRounds(playoffs.rounds);
-    }
-
-    return `
-      <div class="detail-card">
-        <p>
-          A bracket existe, mas ainda não possui rodadas públicas para exibir.
-        </p>
-      </div>
-    `;
+    return renderSingleEliminationPublic(tournament, {
+      rounds: realRounds,
+      branch: "playoffs",
+      eyebrow: "Groups + Playoffs",
+      title: "Bracket de Playoffs",
+      laneTitle: "Playoffs",
+      laneSubtitle: "Mata-mata",
+      chips: [
+        { label: "Visão completa", value: "all" },
+        { label: "Top 16", value: "r16" },
+        { label: "Top 8", value: "qf" },
+        { label: "Finais", value: "finals" }
+      ]
+    });
   }
 
   function renderDoubleEliminationFinalsPublic(rounds) {
-  if (!Array.isArray(rounds) || rounds.length === 0) {
+    const normalizedRounds = sbwNormalizeBracketRounds(rounds);
+
+    if (normalizedRounds.length === 0) {
+      return `
+        <div class="sbw-double-finals-row" data-bracket-focus-target="grand-final finals">
+          <section class="sbw-double-final-card is-grand-final-main" data-grand-final-card>
+            ${renderMatch({
+              id: "grand-final-placeholder",
+              name: "Grand Final",
+              roundName: "GF",
+              roundLabel: "GF",
+              bestOf: "BO5",
+              status: "pending",
+              playerA: null,
+              playerB: null
+            }, { phaseLabel: "GF", laneKey: "grand", roundIndex: 0, matchIndex: 0 })}
+          </section>
+        </div>
+      `;
+    }
+
     return `
-      <div class="detail-card double-elim-placeholder">
-        <strong>Grand Final em preparação</strong>
-        <p>
-          A Grand Final será exibida quando a progressão completa do Double Elimination
-          estiver disponível.
-        </p>
+      <div class="sbw-double-finals-row" data-bracket-focus-target="grand-final finals">
+        ${normalizedRounds.map((round, roundIndex) => {
+          const roundMatches = Array.isArray(round.matches) ? round.matches : [];
+          const roundFormat = sbwGetBracketRoundFormat(round);
+          const isReset = roundIndex > 0;
+
+          return `
+            <section class="sbw-double-final-card ${isReset ? "is-grand-final-reset" : "is-grand-final-main"}" data-grand-final-card>
+              ${isReset ? `
+                <div class="sbw-grand-final-reset-label">
+                  <span>Reset se necessário</span>
+                  <strong>${escapeHTML(roundFormat)}</strong>
+                </div>
+              ` : ""}
+              ${roundMatches.map((match, matchIndex) => renderMatch(match, {
+                phaseLabel: roundIndex === 0 ? "GF" : "Reset",
+                laneKey: "grand",
+                roundIndex,
+                matchIndex
+              })).join("") || `<p>Partida ainda não definida.</p>`}
+            </section>
+          `;
+        }).join("")}
       </div>
     `;
   }
 
-  return `
-    <div class="double-elim-finals-grid">
-      ${rounds.map((round, roundIndex) => {
-        const matches = Array.isArray(round.matches)
-          ? round.matches
-          : [];
+  function renderDoubleEliminationPublic(tournament) {
+    const structure = getTournamentStructure(tournament);
+    const bracketSize = sbwGetBracketSizeForTournament(tournament, 16);
+    const realWinnersRounds = sbwGetWinnersRoundsFromStructure(structure);
+    const realLosersRounds = sbwGetLowerRoundsFromStructure(structure);
+    const realGrandFinalRounds = sbwGetGrandFinalRoundsFromStructure(structure);
+    const usingGeneratedSkeleton = realWinnersRounds.length === 0 && realLosersRounds.length === 0;
 
-        return `
-          <div class="detail-card double-elim-final-card">
-            <span>${roundIndex === 0 ? "Final principal" : "Reset opcional"}</span>
-            <h4>${escapeHTML(round.name || `Final ${roundIndex + 1}`)}</h4>
+    const winnersRounds = realWinnersRounds.length > 0
+      ? realWinnersRounds
+      : sbwBuildPlaceholderRounds(tournament, {
+          branch: "winners",
+          size: bracketSize,
+          revealParticipants: true
+        });
+    const losersRounds = realLosersRounds.length > 0
+      ? realLosersRounds
+      : sbwBuildPlaceholderLowerRounds(tournament, {
+          size: bracketSize
+        });
+    const grandFinalRounds = realGrandFinalRounds.length > 0
+      ? realGrandFinalRounds
+      : [{
+          name: "Grand Final",
+          label: "GF",
+          matches: [{
+            id: "grand-final-placeholder",
+            name: "Grand Final",
+            roundName: "GF",
+            roundLabel: "GF",
+            bestOf: "BO5",
+            status: "pending",
+            playerA: null,
+            playerB: null
+          }]
+        }];
 
-            ${
-              matches.length > 0
-                ? matches.map((match) => renderMatch(match)).join("")
-                : `
-                  <p class="double-elim-final-empty">
-                    Partida ainda não definida.
-                  </p>
-                `
-            }
+    const content = `
+      ${sbwRenderBracketNotice(tournament)}
+      <div class="sbw-double-bracket ${usingGeneratedSkeleton ? "is-skeleton" : ""}" data-bracket-size="${escapeHTML(bracketSize)}">
+        <div class="sbw-double-board">
+          <div class="sbw-double-top-row">
+            ${renderBracketLane("Winners Bracket", "Chave superior", winnersRounds, { focus: "winners", laneKey: "winners", className: "sbw-winners-lane" })}
+
+            <section class="sbw-bracket-lane sbw-double-grand" data-bracket-lane="grand" data-bracket-focus-target="grand-final finals">
+              <div class="sbw-double-lane-head">
+                <span>Grand Final</span>
+                <strong>Final</strong>
+              </div>
+              ${renderDoubleEliminationFinalsPublic(grandFinalRounds)}
+            </section>
           </div>
-        `;
-      }).join("")}
-    </div>
-  `;
-}
 
-function renderDoubleEliminationPublic(tournament) {
-  const structure = getTournamentStructure(tournament);
-
-  if (!structure) {
-    return `
-      <div class="detail-card double-elim-placeholder">
-        <strong>Double Elimination em preparação</strong>
-        <p>
-          O chaveamento Double Elimination será exibido quando o organizador gerar a estrutura.
-        </p>
+          ${renderBracketLane("Lower Bracket", "Chave inferior", losersRounds, { focus: "lower", laneKey: "lower", className: "sbw-lower-lane" })}
+        </div>
       </div>
     `;
+
+    return renderBracketShell({
+      modeClass: "sbw-bracket-mode-double sbw-bracket-clean-mode sbw-bracket-reference-mode",
+      eyebrow: "Double Elimination",
+      title: "Chave dupla eliminação",
+      subtitle: usingGeneratedSkeleton
+        ? "Winners, Lower e Grand Final ficam visíveis desde a preparação. Os nomes entram após o fechamento do check-in."
+        : "Winners, Lower e Grand Final no visual compacto da plataforma -SBW-.",
+      content,
+      chips: [
+        { label: "Visão completa", value: "all" },
+        { label: "Top 16", value: "r16" },
+        { label: "Top 8", value: "qf" },
+        { label: "Winners", value: "winners" },
+        { label: "Lower", value: "lower" },
+        { label: "Grand Final", value: "grand-final" }
+      ]
+    });
   }
 
-  const winnersRounds = Array.isArray(structure.winnersBracket)
-    ? structure.winnersBracket
-    : [];
 
-  const losersRounds = Array.isArray(structure.losersBracket)
-    ? structure.losersBracket
-    : [];
-
-  const grandFinalRounds = Array.isArray(structure.grandFinal?.rounds)
-    ? structure.grandFinal.rounds
-    : [];
-
-  return `
-    <div class="structure-block">
-
-      <div class="detail-section-header">
-        <span>Double Elimination</span>
-        <h3>Winners Bracket</h3>
-      </div>
-
-      ${
-        winnersRounds.length > 0
-          ? renderRounds(winnersRounds)
-          : `
-            <div class="detail-card double-elim-placeholder">
-              <strong>Winners Bracket em preparação</strong>
-              <p>
-                A Winners Bracket será exibida quando as partidas forem geradas.
-              </p>
-            </div>
-          `
-      }
-
-      <div class="detail-section-header">
-        <span>Double Elimination</span>
-        <h3>Losers Bracket</h3>
-      </div>
-
-      ${
-        losersRounds.length > 0
-          ? renderRounds(losersRounds)
-          : `
-            <div class="detail-card double-elim-placeholder">
-              <strong>Losers Bracket em preparação</strong>
-              <p>
-                A Losers Bracket ainda não foi gerada nesta versão. Ela será alimentada
-                conforme os resultados da Winners Bracket forem refinados.
-              </p>
-            </div>
-          `
-      }
-
-      <div class="detail-section-header">
-        <span>Final</span>
-        <h3>Grand Final</h3>
-      </div>
-
-      ${renderDoubleEliminationFinalsPublic(grandFinalRounds)}
-
-    </div>
-  `;
-}
 function renderStructureMeta(tournament) {
   const structure = getTournamentStructure(tournament);
 
@@ -1876,7 +2806,7 @@ function renderStructureMeta(tournament) {
         <span><b>Origem</b>${escapeHTML(sourceLabel)}</span>
         <span><b>Jogadores usados</b>${escapeHTML(playersUsed || "-")}${totalSnapshot ? ` / ${escapeHTML(totalSnapshot)}` : ""}</span>
         <span><b>Partidas</b>${escapeHTML(matchesCount || "A definir")}</span>
-        <span><b>Resultados</b>${escapeHTML(resultCounts.completed)} / ${escapeHTML(resultCounts.total || matchesCount || 0)}</span>
+        <span><b>Resultados</b>${String(resultCounts.completed)} / ${escapeHTML(resultCounts.total || matchesCount || 0)}</span>
         <span><b>Gerada em</b>${escapeHTML(generatedLabel)}</span>
         <span><b>Último resultado</b>${escapeHTML(formatDateTimeLabel(resultsUpdatedAt))}</span>
       </div>
@@ -1909,49 +2839,46 @@ function renderStructureMeta(tournament) {
 
     if (format === "groups-playoffs") {
       return `
-        <div class="structure-block">
-          ${metaHtml}
-          ${finalResultsHtml}
-
-          <div class="detail-section-header">
-            <span>Fase de grupos</span>
-            <h3>Grupos e classificação</h3>
-          </div>
-
-          ${renderGroupPhaseHistory(tournament)}
-
-          ${renderGroups(tournament)}
-
-          <div class="detail-section-header">
-            <span>Playoffs</span>
-            <h3>Chaveamento público</h3>
-          </div>
-
+        <div class="structure-block structure-block--clean-bracket">
           ${renderPlayoffs(tournament)}
+
+          <details class="sbw-structure-secondary-groups">
+            <summary>
+              <span>Groups</span>
+              Ver fase de grupos e classificação
+            </summary>
+            <div class="sbw-structure-secondary-body">
+              ${renderGroupPhaseHistory(tournament)}
+              ${renderGroups(tournament)}
+            </div>
+          </details>
         </div>
       `;
     }
 
 if (format === "double-elimination") {
   return `
-    <div class="structure-block">
-      ${metaHtml}
-      ${finalResultsHtml}
+    <div class="structure-block structure-block--clean-bracket">
       ${renderDoubleEliminationPublic(tournament)}
     </div>
   `;
 }
 
+    if (format === "single-elimination") {
+      return `
+        <div class="structure-block structure-block--clean-bracket">
+          ${renderSingleEliminationPublic(tournament)}
+        </div>
+      `;
+    }
+
     return `
-      <div class="structure-block">
-        ${metaHtml}
-        ${hasGeneratedStructure(tournament) ? "" : `
-          <div class="detail-card">
-            <p>
-              A estrutura competitiva será exibida quando o organizador gerar o torneio.
-            </p>
-          </div>
-        `}
+      <div class="structure-block structure-block--clean-bracket">
+        ${renderSingleEliminationPublic(tournament, {
+          title: "Chave do torneio",
+          laneTitle: "Bracket",
+          laneSubtitle: getFormatLabel(format)
+        })}
       </div>
     `;
   }
@@ -2130,6 +3057,7 @@ function renderRegistrationNotice(registrationState) {
 function renderRegistrationPanel(tournament, registrationState, availability) {
   const maxLabel = availability.maxParticipants ? availability.maxParticipants : "∞";
   const checkInLabel = tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir";
+  const checkInOpen = registrationState.alreadyRegistered && sbwIsCheckInOpen(tournament);
   const accountLabel = registrationState.supabaseMode
     ? (registrationState.requiresLogin ? "Login obrigatório" : "Conta conectada")
     : "Modo demonstração";
@@ -2181,14 +3109,21 @@ function renderRegistrationPanel(tournament, registrationState, availability) {
 
       <button
         type="button"
-        class="detail-btn registration-main-button"
-        data-action="tournament-registration"
+        class="detail-btn registration-main-button ${checkInOpen ? "checkin-open" : ""}"
+        data-action="${checkInOpen ? "tournament-checkin" : "tournament-registration"}"
         data-tournament-id="${escapeHTML(tournament.id)}"
-        ${registrationState.disabled ? "disabled" : ""}
+        ${registrationState.disabled && !checkInOpen ? "disabled" : ""}
       >
-        <i class="fa-solid ${registrationState.requiresLogin ? "fa-right-to-bracket" : registrationState.alreadyRegistered ? "fa-circle-check" : "fa-ticket"}"></i>
-        ${escapeHTML(registrationState.buttonLabel)}
+        <i class="fa-solid ${checkInOpen ? "fa-clipboard-check" : registrationState.requiresLogin ? "fa-right-to-bracket" : registrationState.alreadyRegistered ? "fa-circle-check" : "fa-ticket"}"></i>
+        ${escapeHTML(checkInOpen ? "Fazer check-in" : registrationState.buttonLabel)}
       </button>
+
+      ${registrationState.alreadyRegistered && !checkInOpen ? `
+        <div class="registration-checkin-hint">
+          <i class="fa-regular fa-clock"></i>
+          O botão de check-in aparecerá aqui quando a janela de confirmação estiver aberta.
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -2216,7 +3151,7 @@ function saveDetailRegistration(tournament, registrationData = {}) {
     tournamentName: tournament.name || tournament.title || "Torneio",
     status: "pending-login",
     createdAt: new Date().toISOString(),
-    note: "Inscrição simulada. Na versão final, o usuário precisará estar logado na SaberWolf.",
+    note: "Inscrição simulada. Na versão final, o usuário precisará estar logado na plataforma -SBW-.",
     source: tournament.source || "local",
     ...registrationData
   };
@@ -2333,267 +3268,905 @@ async function handleTournamentRegistration(tournamentId) {
   renderTournament(tournament);
 }
 
-      function renderTournament(tournament) {
+function sbwGetTournamentDetailView() {
+  const rawView = String(getQueryParam("view") || "").trim().toLowerCase();
+  const rawHash = String(window.location.hash || "").replace("#", "").trim().toLowerCase();
+  const source = rawView || rawHash || "visao-geral";
 
-       const status = getStatusInfo(tournament.status);
-       const participantsCount = getParticipantsCount(tournament);
-       const maxParticipants = getMaxParticipants(tournament);
-       const registrationAvailability = sbwGetRegistrationAvailability(tournament);
-       const registrationOpen = registrationAvailability.open;
-       const registrationState = sbwBuildRegistrationViewState(tournament, registrationOpen);
-       const alreadyRegistered = registrationState.alreadyRegistered;
-       const registrationButtonLabel = registrationState.buttonLabel;
-       const registrationButtonDisabled = registrationState.disabled ? "disabled" : "";
+  const viewMap = {
+    overview: "visao-geral",
+    "visao-geral": "visao-geral",
+    geral: "visao-geral",
+    cronograma: "cronograma",
+    schedule: "cronograma",
+    participantes: "participantes",
+    participants: "participantes",
+    estrutura: "chaves",
+    bracket: "chaves",
+    brackets: "chaves",
+    chaves: "chaves",
+    playoffs: "chaves",
+    resultados: "resultados",
+    results: "resultados",
+    partidas: "resultados",
+    matches: "resultados",
+    regras: "regras",
+    rules: "regras",
+    inscricao: "inscricao",
+    inscrição: "inscricao",
+    registration: "inscricao"
+  };
 
-    document.title = `${tournament.name || "Torneio"} | -SBW-`;
+  return viewMap[source] || "visao-geral";
+}
 
-    root.innerHTML = `
-      <div class="tournament-detail-page">
+function sbwGetTournamentUrlKey(tournament) {
+  return getQueryParam("id") || tournament?.slug || tournament?.id || "";
+}
 
-        <section class="detail-topbar" aria-label="Navegação do torneio">
-          <a href="torneios.html" class="detail-back-link">
-            <i class="fa-solid fa-arrow-left"></i>
-            Torneios
+function sbwBuildTournamentViewUrl(tournament, view) {
+  const urlKey = sbwGetTournamentUrlKey(tournament);
+  const params = new URLSearchParams();
+  params.set("id", urlKey);
+  params.set("view", view || "visao-geral");
+  return `detalhe-torneio.html?${params.toString()}`;
+}
+
+function sbwGetTournamentViewLabel(view) {
+  const labels = {
+    "visao-geral": "Visão geral",
+    cronograma: "Cronograma",
+    participantes: "Participantes",
+    chaves: "Chaves",
+    resultados: "Resultados",
+    regras: "Regras",
+    inscricao: "Inscrição"
+  };
+
+  return labels[view] || labels["visao-geral"];
+}
+
+function renderDetailNav(tournament, activeView) {
+  const views = [
+    ["visao-geral", "Visão geral"],
+    ["cronograma", "Cronograma"],
+    ["participantes", "Participantes"],
+    ["chaves", "Chaves"],
+    ["resultados", "Resultados"],
+    ["regras", "Regras"],
+    ["inscricao", "Inscrição"]
+  ];
+
+  return `
+    <section class="detail-nav-section">
+      <nav class="detail-nav" aria-label="Áreas do torneio">
+        ${views.map(([view, label]) => `
+          <a class="${activeView === view ? "is-active" : ""}" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, view))}">
+            ${escapeHTML(label)}
           </a>
-        </section>
-
-        <section class="detail-hero"${sbwBuildTournamentHeroStyle(tournament)}>
-
-          <div class="detail-hero-content">
-
-            <div class="detail-hero-grid">
-
-              <div class="detail-hero-main">
-
-                <span class="status-pill ${escapeHTML(status.className)}">
-                  ${escapeHTML(status.label)}
-                </span>
-
-                <h2>
-                  ${escapeHTML(tournament.name || tournament.title || "Torneio sem nome")}
-                </h2>
-
-                <p>
-                  ${escapeHTML(getDescription(tournament))}
-                </p>
-
-                <div class="detail-hero-tags">
-                  <span><i class="fa-solid fa-gamepad"></i> ${escapeHTML(tournament.game || "Jogo a definir")}</span>
-                  <span><i class="fa-solid fa-sitemap"></i> ${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</span>
-                  <span><i class="fa-solid fa-tv"></i> ${escapeHTML(tournament.platform || "Plataforma a definir")}</span>
-                  <span><i class="fa-solid fa-shield-halved"></i> ${escapeHTML(getOrganizer(tournament))}</span>
-                  <span class="detail-registration-tag ${escapeHTML(registrationAvailability.className)}"><i class="fa-solid fa-ticket"></i> ${escapeHTML(registrationAvailability.label)}</span>
-                </div>
-
-              </div>
-
-              <aside class="detail-summary-card">
-
-                <span class="status-pill ${escapeHTML(status.className)}">
-                  ${escapeHTML(status.label)}
-                </span>
-
-                <div class="detail-summary-grid">
-
-                  <div class="detail-summary-item">
-                    <span>Participantes</span>
-                    <strong>${participantsCount} / ${escapeHTML(maxParticipants)}</strong>
-                  </div>
-
-                  <div class="detail-summary-item">
-                    <span>Inscrição</span>
-                    <strong>${escapeHTML(registrationAvailability.shortLabel)}</strong>
-                  </div>
-
-                  <div class="detail-summary-item">
-                    <span>Início</span>
-                    <strong>${escapeHTML(formatDate(tournament.startDate))}</strong>
-                  </div>
-
-                  <div class="detail-summary-item">
-                    <span>Horário</span>
-                    <strong>${escapeHTML(tournament.startTime || "A definir")}</strong>
-                  </div>
-
-                  <div class="detail-summary-item">
-                    <span>Check-in</span>
-                    <strong>${escapeHTML(tournament.checkInTime || "A definir")}</strong>
-                  </div>
-
-                  <div class="detail-summary-item">
-                    <span>Partidas</span>
-                    <strong>${escapeHTML(tournament.matchFormat || "A definir")}</strong>
-                  </div>
-
-                  <div class="detail-summary-item">
-                    <span>Premiação</span>
-                    <strong>${escapeHTML(getPrize(tournament))}</strong>
-                  </div>
-
-                </div>
-
-                <div class="detail-actions">
-                  <button
-                    type="button"
-                    class="detail-btn"
-                    data-action="tournament-registration"
-                    data-tournament-id="${escapeHTML(tournament.id)}"
-                    ${registrationButtonDisabled}
-                  >
-                    <i class="fa-solid ${alreadyRegistered ? "fa-circle-check" : registrationState.requiresLogin ? "fa-right-to-bracket" : "fa-ticket"}"></i>
-                    ${escapeHTML(registrationButtonLabel)}
-                  </button>
-
-                  <a class="detail-btn secondary" href="#estrutura">
-                    Ver estrutura
-                  </a>
-                </div>
-
-              </aside>
-
-            </div>
-
-          </div>
-
-        </section>
-
-        <section class="detail-nav-section">
-
-          <nav class="detail-nav">
-            <a href="#visao-geral">Visão geral</a>
-            <a href="#cronograma">Cronograma</a>
-            <a href="#participantes">Participantes</a>
-            <a href="#estrutura">Estrutura</a>
-            <a href="#regras">Regras</a>
-            <a href="#inscricao">Inscrição</a>
-          </nav>
-
-        </section>
-
-        <section class="detail-content">
-
-          <section class="detail-section" id="visao-geral">
-
-            <div class="detail-section-header">
-              <span>Visão geral</span>
-              <h3>Informações do torneio</h3>
-            </div>
-
-            <div class="stats-grid">
-
-              <div class="info-mini-card">
-                <span>Organizador</span>
-                <strong>${escapeHTML(getOrganizer(tournament))}</strong>
-              </div>
-
-              <div class="info-mini-card">
-                <span>Formato</span>
-                <strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong>
-              </div>
-
-              <div class="info-mini-card">
-                <span>Jogo</span>
-                <strong>${escapeHTML(tournament.game || "A definir")}</strong>
-              </div>
-
-              <div class="info-mini-card">
-                <span>Plataforma</span>
-                <strong>${escapeHTML(tournament.platform || "A definir")}</strong>
-              </div>
-
-            </div>
-
-            <div class="detail-card">
-              <p>${escapeHTML(getDescription(tournament))}</p>
-            </div>
-
-          </section>
-
-          <section class="detail-section" id="cronograma">
-
-            <div class="detail-section-header">
-              <span>Cronograma</span>
-              <h3>Datas e horários</h3>
-            </div>
-
-            <div class="timeline-grid">
-
-              <div class="info-mini-card">
-                <span>Check-in</span>
-                <strong>${escapeHTML(tournament.checkInTime || "A definir")}</strong>
-              </div>
-
-              <div class="info-mini-card">
-                <span>Data de início</span>
-                <strong>${escapeHTML(formatDate(tournament.startDate))}</strong>
-              </div>
-
-              <div class="info-mini-card">
-                <span>Horário de início</span>
-                <strong>${escapeHTML(tournament.startTime || "A definir")}</strong>
-              </div>
-
-              <div class="info-mini-card">
-                <span>Status</span>
-                <strong>${escapeHTML(status.label)}</strong>
-              </div>
-
-            </div>
-
-          </section>
-
-          <section class="detail-section" id="participantes">
-
-            <div class="detail-section-header">
-              <span>Participantes</span>
-              <h3>Inscritos e confirmados</h3>
-            </div>
-
-            ${renderParticipantsOverview(tournament, registrationAvailability)}
-            ${renderParticipants(tournament)}
-
-          </section>
-
-          <section class="detail-section" id="estrutura">
-
-            <div class="detail-section-header">
-              <span>Competição</span>
-              <h3>Estrutura pública</h3>
-            </div>
-
-            ${renderStructure(tournament)}
-
-          </section>
-
-          <section class="detail-section" id="regras">
-
-            <div class="detail-section-header">
-              <span>Regras</span>
-              <h3>Regulamento do torneio</h3>
-            </div>
-
-            <div class="detail-card">
-              <p>${escapeHTML(getRules(tournament))}</p>
-            </div>
-
-          </section>
-
-          <section class="detail-section" id="inscricao">
-
-            <div class="detail-section-header">
-              <span>Inscrição</span>
-              <h3>Participar do torneio</h3>
-            </div>
-
-            ${renderRegistrationPanel(tournament, registrationState, registrationAvailability)}
-
-          </section>
-
-        </section>
-
+        `).join("")}
+      </nav>
+    </section>
+  `;
+}
+
+function sbwGetCheckInDateValue(tournament, type = "end") {
+  const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+  const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+  const keys = type === "start"
+    ? ["checkInStartsAt", "checkinStartsAt", "check_in_starts_at", "checkInStart", "checkinStart", "checkInTime", "checkin"]
+    : ["checkInEndsAt", "checkinEndsAt", "check_in_ends_at", "checkInEnd", "checkinEnd", "checkInDeadline"];
+
+  for (const key of keys) {
+    const value = tournament?.[key] || metadata?.[key] || settings?.[key];
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function sbwParseFlexibleDate(value, tournament) {
+  if (!value) {
+    return null;
+  }
+
+  const raw = String(value).trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const direct = new Date(raw);
+
+  if (!Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  if (/^\d{1,2}:\d{2}$/.test(raw) && tournament?.startDate) {
+    const composed = new Date(`${tournament.startDate}T${raw}:00`);
+    return Number.isNaN(composed.getTime()) ? null : composed;
+  }
+
+  return null;
+}
+
+function sbwIsCheckInClosed(tournament) {
+  const endValue = sbwGetCheckInDateValue(tournament, "end");
+  const endDate = sbwParseFlexibleDate(endValue, tournament);
+
+  if (endDate) {
+    return Date.now() > endDate.getTime();
+  }
+
+  const status = String(tournament?.status || "").toLowerCase().replaceAll("-", "_");
+  return ["structure_generated", "in_progress", "running", "finished", "completed"].includes(status);
+}
+
+function sbwIsCheckInOpen(tournament) {
+  const startDate = sbwParseFlexibleDate(sbwGetCheckInDateValue(tournament, "start"), tournament);
+  const endDate = sbwParseFlexibleDate(sbwGetCheckInDateValue(tournament, "end"), tournament);
+  const now = Date.now();
+
+  if (startDate && now < startDate.getTime()) {
+    return false;
+  }
+
+  if (endDate && now > endDate.getTime()) {
+    return false;
+  }
+
+  return Boolean(startDate || endDate || tournament?.checkInTime || tournament?.checkin);
+}
+
+function sbwGetPublicMatchTimeLabel(match) {
+  const value = match?.scheduledAt || match?.scheduled_at || match?.date || match?.datetime || match?.startsAt || match?.starts_at || "";
+
+  if (!value) {
+    return "Horário a definir";
+  }
+
+  return formatDateTimeLabel(value);
+}
+
+function sbwIsPublicMatchPlayable(match) {
+  return Boolean(getMatchPlayer(match, "A") && getMatchPlayer(match, "B"));
+}
+
+function sbwSortPublicMatchesForResults(matches) {
+  return [...matches].sort((a, b) => {
+    const statusWeight = {
+      live: 0,
+      pending: 1,
+      bye: 2,
+      completed: 3
+    };
+    const statusA = getMatchPublicStatus(a).className;
+    const statusB = getMatchPublicStatus(b).className;
+    const weightA = statusWeight[statusA] ?? 4;
+    const weightB = statusWeight[statusB] ?? 4;
+
+    if (weightA !== weightB) {
+      return weightA - weightB;
+    }
+
+    const roundA = Number(a?.round || a?.roundNumber || a?.round_number || 0);
+    const roundB = Number(b?.round || b?.roundNumber || b?.round_number || 0);
+
+    if (Number.isFinite(roundA) && Number.isFinite(roundB) && roundA !== roundB) {
+      return roundA - roundB;
+    }
+
+    const orderA = Number(a?.order || a?.matchOrder || a?.match_order || 0);
+    const orderB = Number(b?.order || b?.matchOrder || b?.match_order || 0);
+
+    if (Number.isFinite(orderA) && Number.isFinite(orderB) && orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
+  });
+}
+
+function sbwRenderPublicMatchCard(match, options = {}) {
+  const playerA = getMatchPlayer(match, "A");
+  const playerB = getMatchPlayer(match, "B");
+  const status = getMatchPublicStatus(match);
+  const winnerSide = getMatchWinnerSide(match);
+  const scoreA = getMatchScore(match, "scoreA");
+  const scoreB = getMatchScore(match, "scoreB");
+  const compact = options.compact ? " is-compact" : "";
+
+  return `
+    <article class="sbw-result-match-card ${escapeHTML(status.className)}${compact}">
+      <header>
+        <span>${escapeHTML(sbwGetPublicMatchBracketLabel(match))}</span>
+        <strong>${escapeHTML(sbwGetPublicMatchRoundLabel(match))}</strong>
+        <em class="league-match-status-pill ${escapeHTML(status.className)}">${escapeHTML(status.label)}</em>
+      </header>
+
+      <div class="sbw-result-match-row ${winnerSide === "A" ? "is-winner" : ""}">
+        <b>${escapeHTML(getPlayerName(playerA))}</b>
+        <span>${escapeHTML(scoreA)}</span>
+      </div>
+
+      <div class="sbw-result-match-row ${winnerSide === "B" ? "is-winner" : ""}">
+        <b>${escapeHTML(getPlayerName(playerB))}</b>
+        <span>${escapeHTML(scoreB)}</span>
+      </div>
+
+      <footer>
+        <small>${escapeHTML(sbwGetPublicMatchTimeLabel(match))}</small>
+        ${getMatchWinnerName(match) ? `<strong>Vencedor: ${escapeHTML(getMatchWinnerName(match))}</strong>` : `<strong>${sbwIsPublicMatchPlayable(match) ? "Aguardando resultado" : "Jogadores a definir"}</strong>`}
+      </footer>
+    </article>
+  `;
+}
+
+function sbwRenderPublicMatchList(matches, emptyText, options = {}) {
+  if (!Array.isArray(matches) || matches.length === 0) {
+    return `
+      <div class="detail-card sbw-results-empty-card">
+        <p>${escapeHTML(emptyText)}</p>
       </div>
     `;
   }
+
+  return `
+    <div class="sbw-results-match-list">
+      ${matches.map((match) => sbwRenderPublicMatchCard(match, options)).join("")}
+    </div>
+  `;
+}
+
+function sbwRenderResultsDashboard(tournament) {
+  const matches = sbwSortPublicMatchesForResults(sbwGetPublicMatches(tournament));
+  const completedMatches = matches.filter((match) => getMatchPublicStatus(match).className === "completed").reverse();
+  const liveMatches = matches.filter((match) => getMatchPublicStatus(match).className === "live");
+  const pendingMatches = matches.filter((match) => ["pending", "bye"].includes(getMatchPublicStatus(match).className));
+  const nextMatches = pendingMatches.filter((match) => sbwIsPublicMatchPlayable(match)).slice(0, 6);
+  const featuredMatch = liveMatches[0] || nextMatches[0] || pendingMatches[0] || completedMatches[0] || null;
+  const resultCounts = getResultCounts(tournament);
+  const updatedAt = getResultsUpdatedAt(tournament);
+
+  return `
+    <div class="sbw-results-page">
+      <div class="sbw-results-summary-grid">
+        <article class="detail-card sbw-results-feature-card">
+          <span>${liveMatches.length > 0 ? "Partida em andamento" : "Próxima partida"}</span>
+          ${featuredMatch ? `
+            <h4>${escapeHTML(getPlayerName(getMatchPlayer(featuredMatch, "A")))} <small>vs</small> ${escapeHTML(getPlayerName(getMatchPlayer(featuredMatch, "B")))}</h4>
+            <p>${escapeHTML(sbwGetPublicMatchBracketLabel(featuredMatch))} • ${escapeHTML(sbwGetPublicMatchRoundLabel(featuredMatch))}</p>
+            <div class="sbw-results-feature-score">
+              <strong>${escapeHTML(getMatchScore(featuredMatch, "scoreA"))}</strong>
+              <b>x</b>
+              <strong>${escapeHTML(getMatchScore(featuredMatch, "scoreB"))}</strong>
+            </div>
+          ` : `
+            <h4>Partidas a definir</h4>
+            <p>As partidas aparecerão aqui quando a estrutura for gerada pelo organizador.</p>
+          `}
+        </article>
+
+        <div class="sbw-results-stat-grid">
+          <div class="info-mini-card"><span>Total de partidas</span><strong>${String(matches.length)}</strong></div>
+          <div class="info-mini-card"><span>Finalizadas</span><strong>${String(resultCounts.completed)}</strong></div>
+          <div class="info-mini-card"><span>Em andamento</span><strong>${String(liveMatches.length)}</strong></div>
+          <div class="info-mini-card"><span>Atualização</span><strong>${escapeHTML(formatDateTimeLabel(updatedAt))}</strong></div>
+        </div>
+      </div>
+
+      ${renderFinalResultsSummary(tournament)}
+
+      <div class="sbw-results-columns">
+        <article class="detail-card sbw-results-block">
+          <header>
+            <span>Próximas partidas</span>
+            <strong>${String(nextMatches.length)} listada${nextMatches.length === 1 ? "" : "s"}</strong>
+          </header>
+          ${sbwRenderPublicMatchList(nextMatches, "Nenhuma próxima partida jogável definida ainda.", { compact: true })}
+        </article>
+
+        <article class="detail-card sbw-results-block">
+          <header>
+            <span>Últimos resultados</span>
+            <strong>${String(completedMatches.length)} resultado${completedMatches.length === 1 ? "" : "s"}</strong>
+          </header>
+          ${sbwRenderPublicMatchList(completedMatches.slice(0, 8), "Nenhum resultado público registrado ainda.", { compact: true })}
+        </article>
+      </div>
+
+      <article class="detail-card sbw-results-block sbw-results-all-block">
+        <header>
+          <span>Todas as partidas</span>
+          <strong>${String(matches.length)} partida${matches.length === 1 ? "" : "s"}</strong>
+        </header>
+        ${sbwRenderPublicMatchList(matches, "As partidas aparecerão aqui quando a estrutura do torneio for gerada.")}
+      </article>
+    </div>
+  `;
+}
+
+function renderTournamentOverviewCards(tournament, availability) {
+  const status = getStatusInfo(tournament.status);
+  const matches = sbwGetPublicMatches(tournament);
+  const completedMatches = matches.filter((match) => getMatchPublicStatus(match).className === "completed").slice(-3).reverse();
+  const pendingMatch = matches.find((match) => ["pending", "live"].includes(getMatchPublicStatus(match).className));
+  const description = getDescription(tournament);
+  const structure = getTournamentStructure(tournament);
+  const generatedAt = getStructureGeneratedAt(tournament);
+
+  return `
+    <div class="detail-overview-grid">
+      <div class="detail-overview-main">
+        <div class="stats-grid">
+          <div class="info-mini-card">
+            <span>Organizador</span>
+            <strong>${escapeHTML(getOrganizer(tournament))}</strong>
+          </div>
+          <div class="info-mini-card">
+            <span>Formato</span>
+            <strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong>
+          </div>
+          <div class="info-mini-card">
+            <span>Jogo</span>
+            <strong>${escapeHTML(tournament.game || "A definir")}</strong>
+          </div>
+          <div class="info-mini-card">
+            <span>Plataforma</span>
+            <strong>${escapeHTML(tournament.platform || "A definir")}</strong>
+          </div>
+        </div>
+
+        <div class="detail-card detail-overview-description">
+          <strong>Sobre o torneio</strong>
+          <p>${escapeHTML(description)}</p>
+          <a href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "regras"))}">Ver regras completas <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+
+        <div class="timeline-grid">
+          <div class="info-mini-card">
+            <span>Check-in</span>
+            <strong>${escapeHTML(tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir")}</strong>
+          </div>
+          <div class="info-mini-card">
+            <span>Data de início</span>
+            <strong>${escapeHTML(formatDate(tournament.startDate))}</strong>
+          </div>
+          <div class="info-mini-card">
+            <span>Horário de início</span>
+            <strong>${escapeHTML(tournament.startTime || "A definir")}</strong>
+          </div>
+          <div class="info-mini-card">
+            <span>Status</span>
+            <strong>${escapeHTML(status.label)}</strong>
+          </div>
+        </div>
+      </div>
+
+      <aside class="detail-overview-side">
+        <div class="sbw-bracket-info-card">
+          <span>Informações do torneio</span>
+          <strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong>
+          <p>Participantes: ${escapeHTML(getParticipantsCount(tournament))} / ${escapeHTML(getMaxParticipants(tournament))}</p>
+          <p>Inscrição: ${escapeHTML(availability.shortLabel)}</p>
+        </div>
+
+        <div class="sbw-bracket-info-card">
+          <span>Datas</span>
+          <strong>${escapeHTML(formatDate(tournament.startDate))}</strong>
+          <p>Horário: ${escapeHTML(tournament.startTime || "A definir")}</p>
+          <p>Check-in: ${escapeHTML(tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir")}</p>
+        </div>
+
+        <div class="sbw-bracket-info-card">
+          <span>Legenda</span>
+          <div class="sbw-bracket-legend">
+            <b><i class="line win"></i> Vencedor/confirmado</b>
+            <b><i class="line pending"></i> Pendente</b>
+            <b><i class="badge-you">Você</i> usuário logado</b>
+            <b><i class="bo">BO</i> Melhor de (n)</b>
+          </div>
+        </div>
+
+        <div class="sbw-bracket-info-card">
+          <span>Próxima partida</span>
+          ${pendingMatch ? `
+            <strong>${escapeHTML(getPlayerName(getMatchPlayer(pendingMatch, "A")))} vs ${escapeHTML(getPlayerName(getMatchPlayer(pendingMatch, "B")))}</strong>
+            <p>${escapeHTML(pendingMatch.roundName || pendingMatch.roundLabel || pendingMatch.name || "Fase atual")}</p>
+          ` : `
+            <strong>A definir</strong>
+            <p>As próximas partidas aparecerão quando a estrutura avançar.</p>
+          `}
+        </div>
+
+        <div class="sbw-bracket-info-card">
+          <span>Últimos resultados</span>
+          ${completedMatches.length > 0 ? `
+            <div class="sbw-bracket-results-list">
+              ${completedMatches.map((match) => `
+                <div>
+                  <strong>${escapeHTML(getPlayerName(getMatchPlayer(match, "A")))}</strong>
+                  <b>${escapeHTML(getMatchScore(match, "scoreA"))} - ${escapeHTML(getMatchScore(match, "scoreB"))}</b>
+                  <strong>${escapeHTML(getPlayerName(getMatchPlayer(match, "B")))}</strong>
+                </div>
+              `).join("")}
+            </div>
+          ` : `<p>Nenhum resultado público registrado ainda.</p>`}
+        </div>
+
+        <div class="sbw-bracket-info-card">
+          <span>Estrutura</span>
+          <strong>${structure ? "Publicada" : "Aguardando geração"}</strong>
+          <p>${structure ? `Gerada em: ${escapeHTML(formatDateTimeLabel(generatedAt))}` : "A bracket aparecerá na página Chaves quando o organizador gerar a estrutura."}</p>
+        </div>
+      </aside>
+    </div>
+  `;
+}
+
+function renderTournamentViewContent(tournament, activeView, registrationState, registrationAvailability) {
+  const status = getStatusInfo(tournament.status);
+
+  if (activeView === "cronograma") {
+    return `
+      <section class="detail-section detail-section-page" id="cronograma">
+        <div class="detail-section-header">
+          <span>Cronograma</span>
+          <h3>Datas e horários do torneio</h3>
+          <p>Agenda pública do torneio dentro da plataforma -SBW-.</p>
+        </div>
+        <div class="timeline-grid">
+          <div class="info-mini-card"><span>Check-in</span><strong>${escapeHTML(tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir")}</strong></div>
+          <div class="info-mini-card"><span>Data de início</span><strong>${escapeHTML(formatDate(tournament.startDate))}</strong></div>
+          <div class="info-mini-card"><span>Horário de início</span><strong>${escapeHTML(tournament.startTime || "A definir")}</strong></div>
+          <div class="info-mini-card"><span>Status</span><strong>${escapeHTML(status.label)}</strong></div>
+        </div>
+      </section>
+    `;
+  }
+
+  if (activeView === "participantes") {
+    const onlyCheckedIn = sbwIsCheckInClosed(tournament);
+
+    return `
+      <section class="detail-section detail-section-page" id="participantes">
+        <div class="detail-section-header">
+          <span>Participantes</span>
+          <h3>${onlyCheckedIn ? "Participantes confirmados no check-in" : "Todos os inscritos"}</h3>
+          <p>${onlyCheckedIn
+            ? "Após o fechamento do check-in, a página mostra os jogadores que confirmaram presença."
+            : "Antes do fechamento do check-in, a página mostra todos os jogadores inscritos no torneio."
+          }</p>
+        </div>
+        ${renderParticipantsOverview(tournament, registrationAvailability)}
+        ${renderParticipants(tournament, { onlyCheckedIn })}
+      </section>
+    `;
+  }
+
+  if (activeView === "chaves") {
+    return `
+      <section class="detail-section detail-section-page detail-section-bracket-page" id="estrutura">
+        <div class="detail-section-header">
+          <span>Competição</span>
+          <h3>Chaves e estrutura pública</h3>
+          <p>A bracket aparece somente nesta área, preservando a Visão geral limpa.</p>
+        </div>
+        ${renderStructure(tournament)}
+      </section>
+    `;
+  }
+
+  if (activeView === "resultados") {
+    return `
+      <section class="detail-section detail-section-page" id="resultados">
+        <div class="detail-section-header">
+          <span>Partidas</span>
+          <h3>Resultados e partidas públicas</h3>
+          <p>Área pública para acompanhar próximas partidas, partidas em andamento e últimos resultados do torneio.</p>
+        </div>
+        ${sbwRenderResultsDashboard(tournament)}
+      </section>
+    `;
+  }
+
+  if (activeView === "regras") {
+    return `
+      <section class="detail-section detail-section-page" id="regras">
+        <div class="detail-section-header">
+          <span>Regras</span>
+          <h3>Regulamento do torneio</h3>
+          <p>Regras publicadas pelo organizador responsável.</p>
+        </div>
+        <div class="detail-card detail-rules-card">
+          <p>${escapeHTML(getRules(tournament))}</p>
+        </div>
+      </section>
+    `;
+  }
+
+  if (activeView === "inscricao") {
+    return `
+      <section class="detail-section detail-section-page" id="inscricao">
+        <div class="detail-section-header">
+          <span>Inscrição</span>
+          <h3>Participar do torneio</h3>
+          <p>Jogadores cadastrados na plataforma -SBW- podem se inscrever quando as inscrições estiverem abertas.</p>
+        </div>
+        ${renderRegistrationPanel(tournament, registrationState, registrationAvailability)}
+      </section>
+    `;
+  }
+
+  return `
+    <section class="detail-section detail-section-page" id="visao-geral">
+      <div class="detail-section-header">
+        <span>Visão geral</span>
+        <h3>Informações do torneio</h3>
+        <p>Resumo principal, datas, legenda, próximos jogos e resultados ficam concentrados nesta área.</p>
+      </div>
+      ${renderTournamentOverviewCards(tournament, registrationAvailability)}
+    </section>
+  `;
+}
+
+function renderTournament(tournament) {
+  const status = getStatusInfo(tournament.status);
+  const participantsCount = getParticipantsCount(tournament);
+  const maxParticipants = getMaxParticipants(tournament);
+  const activeView = sbwGetTournamentDetailView();
+  const registrationAvailability = sbwGetRegistrationAvailability(tournament);
+  const registrationOpen = registrationAvailability.open;
+  const registrationState = sbwBuildRegistrationViewState(tournament, registrationOpen);
+  const alreadyRegistered = registrationState.alreadyRegistered;
+  const registrationButtonLabel = registrationState.buttonLabel;
+  const registrationButtonDisabled = registrationState.disabled ? "disabled" : "";
+
+  document.title = `${tournament.name || "Torneio"} — ${sbwGetTournamentViewLabel(activeView)} | -SBW-`;
+
+  root.innerHTML = `
+    <div class="tournament-detail-page detail-view-${escapeHTML(activeView)}">
+      <section class="detail-topbar" aria-label="Navegação do torneio">
+        <a href="torneios.html" class="detail-back-link">
+          <i class="fa-solid fa-arrow-left"></i>
+          Torneios
+        </a>
+      </section>
+
+      <section class="detail-hero"${sbwBuildTournamentHeroStyle(tournament)}>
+        <div class="detail-hero-content">
+          <div class="detail-hero-grid">
+            <div class="detail-hero-main">
+              <span class="status-pill ${escapeHTML(status.className)}">
+                ${escapeHTML(status.label)}
+              </span>
+              <h2>${escapeHTML(tournament.name || tournament.title || "Torneio sem nome")}</h2>
+              <p>${escapeHTML(getDescription(tournament))}</p>
+              <div class="detail-hero-tags">
+                <span><i class="fa-solid fa-gamepad"></i> ${escapeHTML(tournament.game || "Jogo a definir")}</span>
+                <span><i class="fa-solid fa-sitemap"></i> ${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</span>
+                <span><i class="fa-solid fa-tv"></i> ${escapeHTML(tournament.platform || "Plataforma a definir")}</span>
+                <span><i class="fa-solid fa-shield-halved"></i> ${escapeHTML(getOrganizer(tournament))}</span>
+                <span class="detail-registration-tag ${escapeHTML(registrationAvailability.className)}"><i class="fa-solid fa-ticket"></i> ${escapeHTML(registrationAvailability.label)}</span>
+              </div>
+            </div>
+
+            <aside class="detail-summary-card">
+              <span class="status-pill ${escapeHTML(status.className)}">
+                ${escapeHTML(status.label)}
+              </span>
+              <div class="detail-summary-grid">
+                <div class="detail-summary-item"><span>Participantes</span><strong>${participantsCount} / ${escapeHTML(maxParticipants)}</strong></div>
+                <div class="detail-summary-item"><span>Inscrição</span><strong>${escapeHTML(registrationAvailability.shortLabel)}</strong></div>
+                <div class="detail-summary-item"><span>Início</span><strong>${escapeHTML(formatDate(tournament.startDate))}</strong></div>
+                <div class="detail-summary-item"><span>Horário</span><strong>${escapeHTML(tournament.startTime || "A definir")}</strong></div>
+                <div class="detail-summary-item"><span>Check-in</span><strong>${escapeHTML(tournament.checkInTime || "A definir")}</strong></div>
+                <div class="detail-summary-item"><span>Premiação</span><strong>${escapeHTML(getPrize(tournament))}</strong></div>
+              </div>
+              <div class="detail-actions">
+                <button type="button" class="detail-btn" data-action="tournament-registration" data-tournament-id="${escapeHTML(tournament.id)}" ${registrationButtonDisabled}>
+                  <i class="fa-solid ${alreadyRegistered ? "fa-circle-check" : registrationState.requiresLogin ? "fa-right-to-bracket" : "fa-ticket"}"></i>
+                  ${escapeHTML(registrationButtonLabel)}
+                </button>
+                <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "chaves"))}">
+                  Ver chaves
+                </a>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      ${renderDetailNav(tournament, activeView)}
+
+      <section class="detail-content detail-content--single-view">
+        ${renderTournamentViewContent(tournament, activeView, registrationState, registrationAvailability)}
+      </section>
+    </div>
+  `;
+}
+
+
+  function sbwGetElementBoxRelativeTo(element, parent) {
+    let x = 0;
+    let y = 0;
+    let node = element;
+
+    while (node && node !== parent) {
+      x += node.offsetLeft || 0;
+      y += node.offsetTop || 0;
+      node = node.offsetParent;
+    }
+
+    return {
+      x,
+      y,
+      width: element.offsetWidth || 0,
+      height: element.offsetHeight || 0
+    };
+  }
+
+  function sbwCreateConnectorPath(svg, d, className = "") {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    path.setAttribute("class", `sbw-bracket-connector-path ${className}`.trim());
+    svg.appendChild(path);
+  }
+
+  function sbwBuildConnectorPath(from, to, options = {}) {
+    const rawDistance = to.x - from.x;
+    const isReturnPath = rawDistance < 0;
+    const distance = Math.max(30, Math.abs(rawDistance));
+    const elbow = options.elbow || Math.min(70, Math.max(34, distance * 0.52));
+    const midX = isReturnPath ? from.x + elbow : from.x + elbow;
+
+    return `M ${from.x} ${from.y} H ${midX} V ${to.y} H ${to.x}`;
+  }
+
+  function sbwGetBracketConnectorTargetIndex(laneKey, sourceIndex, sourceCount, targetCount) {
+    const safeTargetCount = Number(targetCount || 0);
+
+    if (safeTargetCount <= 0) {
+      return -1;
+    }
+
+    if (sourceCount === safeTargetCount) {
+      return Math.min(sourceIndex, safeTargetCount - 1);
+    }
+
+    const ratio = Math.max(1, sourceCount / safeTargetCount);
+    return Math.min(Math.floor(sourceIndex / ratio), safeTargetCount - 1);
+  }
+
+  function sbwAlignGrandFinalWithWinners(layout) {
+    const canvas = layout.querySelector("[data-bracket-canvas]");
+    const grandLane = canvas?.querySelector(".sbw-double-grand");
+    const winnersFinalMatch = canvas?.querySelector(".sbw-winners-lane [data-bracket-round]:last-child [data-bracket-match]");
+    const grandFinalMatch = canvas?.querySelector(".sbw-double-grand [data-bracket-match]");
+
+    if (!canvas || !grandLane || !winnersFinalMatch || !grandFinalMatch) {
+      return false;
+    }
+
+    const winnersBox = sbwGetElementBoxRelativeTo(winnersFinalMatch, canvas);
+    const grandBox = sbwGetElementBoxRelativeTo(grandFinalMatch, canvas);
+    const currentPadding = parseFloat(window.getComputedStyle(grandLane).paddingTop || "0") || 0;
+    const winnersCenterY = winnersBox.y + winnersBox.height / 2;
+    const grandCenterY = grandBox.y + grandBox.height / 2;
+    const nextPadding = Math.max(0, Math.min(620, currentPadding + (winnersCenterY - grandCenterY)));
+    const previousValue = parseFloat(grandLane.dataset.sbwGrandAlign || "-1");
+
+    if (Math.abs(nextPadding - previousValue) < 1) {
+      return false;
+    }
+
+    grandLane.dataset.sbwGrandAlign = String(nextPadding);
+    grandLane.style.setProperty("--sbw-grand-align-offset", `${nextPadding}px`);
+    grandLane.style.setProperty("padding-top", `${nextPadding}px`, "important");
+    return true;
+  }
+
+  function sbwDrawBracketConnectors(layout) {
+    const canvas = layout.querySelector("[data-bracket-canvas]");
+    const svg = layout.querySelector("[data-bracket-connectors]");
+
+    if (!canvas || !svg) {
+      return;
+    }
+
+    svg.innerHTML = "";
+    sbwAlignGrandFinalWithWinners(layout);
+    const width = Math.max(canvas.scrollWidth, canvas.offsetWidth, 1);
+    const height = Math.max(canvas.scrollHeight, canvas.offsetHeight, 1);
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    canvas.querySelectorAll("[data-bracket-rounds]").forEach((bracket) => {
+      const rounds = Array.from(bracket.querySelectorAll(":scope > [data-bracket-round]"));
+      const laneKey = String(bracket.dataset.bracketLaneKey || "");
+
+      rounds.forEach((round, roundIndex) => {
+        const nextRound = rounds[roundIndex + 1];
+
+        if (!nextRound) {
+          return;
+        }
+
+        const sourceMatches = Array.from(round.querySelectorAll(":scope [data-bracket-match]"));
+        const targetMatches = Array.from(nextRound.querySelectorAll(":scope [data-bracket-match]"));
+
+        sourceMatches.forEach((sourceMatch, sourceIndex) => {
+          const targetIndex = sbwGetBracketConnectorTargetIndex(
+            laneKey,
+            sourceIndex,
+            sourceMatches.length,
+            targetMatches.length
+          );
+          const targetMatch = targetMatches[targetIndex];
+
+          if (!targetMatch) {
+            return;
+          }
+
+          const sourceBox = sbwGetElementBoxRelativeTo(sourceMatch, canvas);
+          const targetBox = sbwGetElementBoxRelativeTo(targetMatch, canvas);
+          const from = {
+            x: sourceBox.x + sourceBox.width,
+            y: sourceBox.y + sourceBox.height / 2
+          };
+          const to = {
+            x: targetBox.x,
+            y: targetBox.y + targetBox.height / 2
+          };
+
+          sbwCreateConnectorPath(
+            svg,
+            sbwBuildConnectorPath(from, to),
+            laneKey.includes("lower") ? "is-lower" : "is-winners"
+          );
+        });
+      });
+    });
+
+    const grandFinalMatch = canvas.querySelector(".sbw-double-grand [data-bracket-match]");
+
+    if (grandFinalMatch) {
+      const grandBox = sbwGetElementBoxRelativeTo(grandFinalMatch, canvas);
+      const grandTarget = {
+        x: grandBox.x,
+        y: grandBox.y + grandBox.height / 2
+      };
+
+      [
+        { selector: ".sbw-winners-lane [data-bracket-round]:last-child [data-bracket-match]", className: "is-grand" },
+        { selector: ".sbw-lower-lane [data-bracket-round]:last-child [data-bracket-match]", className: "is-lower is-grand is-dashed" }
+      ].forEach((item) => {
+        const sourceMatch = canvas.querySelector(item.selector);
+
+        if (!sourceMatch) {
+          return;
+        }
+
+        const sourceBox = sbwGetElementBoxRelativeTo(sourceMatch, canvas);
+        const from = {
+          x: sourceBox.x + sourceBox.width,
+          y: sourceBox.y + sourceBox.height / 2
+        };
+
+        sbwCreateConnectorPath(svg, sbwBuildConnectorPath(from, grandTarget, { elbow: 62 }), item.className);
+      });
+    }
+  }
+
+  function sbwBindTournamentBracketInteractions() {
+    const layouts = root.querySelectorAll("[data-bracket-layout]");
+
+    layouts.forEach((layout) => {
+      const viewport = layout.querySelector("[data-bracket-viewport]");
+      const canvas = layout.querySelector("[data-bracket-canvas]");
+      const zoomLabel = layout.querySelector("[data-bracket-zoom-label]");
+      const searchInput = layout.querySelector("[data-bracket-search]");
+
+      if (!viewport || !canvas) {
+        return;
+      }
+
+      const defaultZoom = layout.classList.contains("sbw-bracket-reference-mode") ? 1 : 0.9;
+      const state = { zoom: defaultZoom };
+
+      const redraw = () => {
+        window.requestAnimationFrame(() => sbwDrawBracketConnectors(layout));
+      };
+
+      const applyZoom = () => {
+        canvas.style.transform = "none";
+        canvas.style.zoom = String(state.zoom);
+        if (zoomLabel) {
+          zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
+        }
+        redraw();
+      };
+
+      const reset = () => {
+        state.zoom = defaultZoom;
+        viewport.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+        applyZoom();
+      };
+
+      layout.querySelectorAll("[data-bracket-control]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const action = button.dataset.bracketControl;
+
+          if (action === "zoom-in") {
+            state.zoom = Math.min(1.3, state.zoom + 0.08);
+          } else if (action === "zoom-out") {
+            state.zoom = Math.max(0.58, state.zoom - 0.08);
+          } else if (action === "reset") {
+            reset();
+            return;
+          }
+
+          applyZoom();
+        });
+      });
+
+      layout.querySelectorAll("[data-bracket-focus]").forEach((button) => {
+        button.addEventListener("click", () => {
+          layout.querySelectorAll("[data-bracket-focus]").forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+
+          const focus = button.dataset.bracketFocus;
+          const target = focus && focus !== "all"
+            ? canvas.querySelector(`[data-bracket-focus-target~="${CSS.escape(focus)}"], [data-bracket-stage="${CSS.escape(focus)}"]`)
+            : null;
+
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+          } else {
+            reset();
+          }
+        });
+      });
+
+      if (searchInput) {
+        searchInput.addEventListener("input", () => {
+          const query = searchInput.value.trim().toLowerCase();
+          const matches = canvas.querySelectorAll("[data-bracket-search-text]");
+          let firstMatch = null;
+
+          matches.forEach((item) => {
+            const haystack = String(item.dataset.bracketSearchText || "").toLowerCase();
+            const active = query && haystack.includes(query);
+            item.classList.toggle("is-search-hit", Boolean(active));
+
+            if (active && !firstMatch && item.hasAttribute("data-bracket-match")) {
+              firstMatch = item;
+            }
+          });
+
+          if (firstMatch) {
+            firstMatch.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+          }
+        });
+      }
+
+      if (window.ResizeObserver) {
+        const observer = new ResizeObserver(redraw);
+        observer.observe(canvas);
+        observer.observe(viewport);
+      }
+
+      window.addEventListener("resize", redraw);
+      applyZoom();
+      setTimeout(redraw, 120);
+      setTimeout(redraw, 420);
+    });
+  }
+
 
   root.addEventListener("click", function(event) {
     const button = event.target.closest("[data-action]");
@@ -2607,6 +4180,11 @@ async function handleTournamentRegistration(tournamentId) {
     if (action === "tournament-registration") {
       event.preventDefault();
       handleTournamentRegistration(button.dataset.tournamentId);
+    }
+
+    if (action === "tournament-checkin") {
+      event.preventDefault();
+      alert("Check-in público preparado. A confirmação real será ativada quando a janela de check-in e a regra de atualização do Supabase estiverem configuradas para jogadores.");
     }
   });
 
@@ -2650,6 +4228,7 @@ async function initTournamentDetailPage() {
   sbwCurrentDetailTournament = tournament;
   await hydrateDetailRegistrationState(tournament);
   renderTournament(tournament);
+  sbwBindTournamentBracketInteractions();
 
   if (window.location.hash) {
     const target = document.querySelector(window.location.hash);
