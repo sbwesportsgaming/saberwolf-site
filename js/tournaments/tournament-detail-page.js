@@ -10,6 +10,8 @@ let sbwCurrentDetailRegistration = null;
 let sbwCurrentDetailParticipants = [];
 let sbwCurrentDetailRegistrationChecked = false;
 let sbwCurrentDetailRegistrationBusy = false;
+let sbwCurrentDetailOrganizerAccess = null;
+
 
 
 function sbwGetTournamentCoverData(tournament) {
@@ -647,6 +649,229 @@ function getTournamentFormat(tournament) {
     return tournament.organizer ||
       tournament.organizerName ||
       "SaberWolf";
+  }
+
+  function sbwNormalizeDetailAccessKey(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function sbwGetTournamentOrganizerData(tournament) {
+    const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+    const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+    const organizer = tournament?.organizer && typeof tournament.organizer === "object" ? tournament.organizer : {};
+    const organizerName = typeof tournament?.organizer === "string" ? tournament.organizer : "";
+
+    const id =
+      tournament?.organizerId ||
+      tournament?.organizer_id ||
+      tournament?.tournamentOrganizerId ||
+      tournament?.tournament_organizer_id ||
+      metadata.organizerId ||
+      metadata.organizer_id ||
+      settings.organizerId ||
+      settings.organizer_id ||
+      organizer.id ||
+      "";
+
+    const slug =
+      tournament?.organizerSlug ||
+      tournament?.organizer_slug ||
+      tournament?.tournamentOrganizerSlug ||
+      tournament?.tournament_organizer_slug ||
+      metadata.organizerSlug ||
+      metadata.organizer_slug ||
+      settings.organizerSlug ||
+      settings.organizer_slug ||
+      organizer.slug ||
+      "";
+
+    const name =
+      tournament?.organizerName ||
+      tournament?.organizer_name ||
+      metadata.organizerName ||
+      metadata.organizer_name ||
+      settings.organizerName ||
+      settings.organizer_name ||
+      organizer.name ||
+      organizer.displayName ||
+      organizer.display_name ||
+      organizer.title ||
+      organizerName ||
+      "SaberWolf";
+
+    return {
+      id,
+      slug,
+      name,
+      displayName: organizer.displayName || organizer.display_name || name,
+      tag: organizer.tag || metadata.organizerTag || settings.organizerTag || ""
+    };
+  }
+
+  function sbwGetDetailOrganizerMatchKeys(source) {
+    if (!source) {
+      return [];
+    }
+
+    const values = [
+      source.id,
+      source.slug,
+      source.name,
+      source.displayName,
+      source.display_name,
+      source.title,
+      source.tag,
+      source.organizerId,
+      source.organizer_id,
+      source.organizerSlug,
+      source.organizer_slug
+    ];
+
+    if (source.access && typeof source.access === "object") {
+      values.push(
+        source.access.id,
+        source.access.organizer_id,
+        source.access.slug,
+        source.access.organizer_slug,
+        source.access.name,
+        source.access.display_name
+      );
+    }
+
+    return values
+      .filter(Boolean)
+      .map(sbwNormalizeDetailAccessKey)
+      .filter(Boolean);
+  }
+
+  function sbwDetailOrganizerAccessMatchesTournament(access, tournament) {
+    const organizerKeys = sbwGetDetailOrganizerMatchKeys(sbwGetTournamentOrganizerData(tournament));
+    const accessKeys = sbwGetDetailOrganizerMatchKeys(access);
+
+    if (organizerKeys.length === 0 || accessKeys.length === 0) {
+      return false;
+    }
+
+    return accessKeys.some((key) => organizerKeys.includes(key));
+  }
+
+  function sbwDetailOrganizerAccessCanManage(access) {
+    if (!access) {
+      return false;
+    }
+
+    const role = String(access.memberRole || access.member_role || access.role || access.currentUserRole || "").toLowerCase();
+
+    return Boolean(
+      access.canCreateTournament === true ||
+      access.canCreateTournaments === true ||
+      access.can_create_tournaments === true ||
+      access.canManageOrganization === true ||
+      access.canManageOrganizer === true ||
+      access.can_manage_organization === true ||
+      access.can_manage_organizer === true ||
+      ["owner", "admin", "manager", "organizer_admin", "tournament_admin", "admin_sbw"].includes(role)
+    );
+  }
+
+  function sbwDetailProfileCanManageOrganizer(profile) {
+    const permissions = profile?.permissions && typeof profile.permissions === "object" ? profile.permissions : {};
+    const rawPermissions = profile?.rawPermissions || profile?.raw_permissions || {};
+    const role = String(profile?.role || profile?.userRole || permissions.role || rawPermissions.role || "").toLowerCase();
+
+    return Boolean(
+      profile?.isAdmin === true ||
+      profile?.is_admin === true ||
+      permissions.isAdmin === true ||
+      permissions.is_admin === true ||
+      permissions.admin === true ||
+      permissions.adminMaster === true ||
+      permissions.admin_master === true ||
+      permissions.can_manage_tournament_organizers === true ||
+      permissions.canManageTournamentOrganizers === true ||
+      rawPermissions.can_manage_tournament_organizers === true ||
+      rawPermissions.canManageTournamentOrganizers === true ||
+      ["admin", "admin_sbw", "admin_master", "owner"].includes(role)
+    );
+  }
+
+  async function sbwHydrateDetailOrganizerAccess(tournament) {
+    sbwCurrentDetailOrganizerAccess = null;
+
+    if (!tournament || !sbwCurrentDetailAuthUser || typeof sbwGetMyTournamentOrganizerAccessAsync !== "function") {
+      return null;
+    }
+
+    try {
+      const accessList = await sbwGetMyTournamentOrganizerAccessAsync();
+      const match = (Array.isArray(accessList) ? accessList : []).find((access) => {
+        return sbwDetailOrganizerAccessMatchesTournament(access, tournament);
+      });
+
+      sbwCurrentDetailOrganizerAccess = match || null;
+      return sbwCurrentDetailOrganizerAccess;
+    } catch (error) {
+      console.warn("[SaberWolf Torneios] Não foi possível validar acesso ao organizador do torneio:", error);
+      sbwCurrentDetailOrganizerAccess = null;
+      return null;
+    }
+  }
+
+  function sbwCanManageCurrentTournamentOrganizer(tournament) {
+    if (sbwDetailOrganizerAccessCanManage(sbwCurrentDetailOrganizerAccess)) {
+      return true;
+    }
+
+    if (sbwDetailProfileCanManageOrganizer(sbwCurrentDetailProfile)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function sbwBuildTournamentOrganizerPublicUrl(tournament) {
+    const organizer = sbwGetTournamentOrganizerData(tournament);
+    const organizerKey = organizer.slug || organizer.id || organizer.name || getOrganizer(tournament);
+
+    if (window.SBWRoutes && typeof window.SBWRoutes.organizer === "function") {
+      return window.SBWRoutes.organizer(organizerKey);
+    }
+
+    return `organizador.html?slug=${encodeURIComponent(organizerKey)}`;
+  }
+
+  function sbwBuildTournamentOrganizerManageUrl(tournament) {
+    const organizer = sbwGetTournamentOrganizerData(tournament);
+    const organizerKey = organizer.slug || organizer.id || organizer.name || getOrganizer(tournament);
+    return `editar-organizador.html?slug=${encodeURIComponent(organizerKey)}`;
+  }
+
+  function sbwGetTournamentOrganizerAction(tournament) {
+    const canManage = sbwCanManageCurrentTournamentOrganizer(tournament);
+
+    return {
+      label: canManage ? "Gerenciar organização" : "Ver organizador",
+      icon: canManage ? "fa-sliders" : "fa-shield-halved",
+      href: canManage ? sbwBuildTournamentOrganizerManageUrl(tournament) : sbwBuildTournamentOrganizerPublicUrl(tournament),
+      className: canManage ? "manage" : "view"
+    };
+  }
+
+  function renderTournamentOrganizerActionButton(tournament, extraClass = "") {
+    const action = sbwGetTournamentOrganizerAction(tournament);
+
+    return `
+      <a class="detail-btn secondary tournament-organizer-action ${escapeHTML(action.className)} ${escapeHTML(extraClass)}" href="${escapeHTML(action.href)}">
+        <i class="fa-solid ${escapeHTML(action.icon)}"></i>
+        ${escapeHTML(action.label)}
+      </a>
+    `;
   }
 
   function getPlayerName(player) {
@@ -2908,6 +3133,7 @@ async function hydrateDetailRegistrationState(tournament) {
   sbwCurrentDetailProfile = null;
   sbwCurrentDetailRegistration = null;
   sbwCurrentDetailParticipants = [];
+  sbwCurrentDetailOrganizerAccess = null;
   sbwCurrentDetailRegistrationChecked = false;
 
   if (!tournament || !isSupabaseRegistrationReady()) {
@@ -2952,6 +3178,9 @@ async function hydrateDetailRegistrationState(tournament) {
         sbwCurrentDetailAuthUser
       );
     }
+
+
+    await sbwHydrateDetailOrganizerAccess(tournament);
   } catch (error) {
     console.warn("[SaberWolf Torneios] Não foi possível verificar login/inscrição:", error);
   } finally {
@@ -3107,16 +3336,20 @@ function renderRegistrationPanel(tournament, registrationState, availability) {
 
       ${renderRegistrationNotice(registrationState)}
 
-      <button
-        type="button"
-        class="detail-btn registration-main-button ${checkInOpen ? "checkin-open" : ""}"
-        data-action="${checkInOpen ? "tournament-checkin" : "tournament-registration"}"
-        data-tournament-id="${escapeHTML(tournament.id)}"
-        ${registrationState.disabled && !checkInOpen ? "disabled" : ""}
-      >
-        <i class="fa-solid ${checkInOpen ? "fa-clipboard-check" : registrationState.requiresLogin ? "fa-right-to-bracket" : registrationState.alreadyRegistered ? "fa-circle-check" : "fa-ticket"}"></i>
-        ${escapeHTML(checkInOpen ? "Fazer check-in" : registrationState.buttonLabel)}
-      </button>
+      <div class="registration-action-row">
+        <button
+          type="button"
+          class="detail-btn registration-main-button ${checkInOpen ? "checkin-open" : ""}"
+          data-action="${checkInOpen ? "tournament-checkin" : "tournament-registration"}"
+          data-tournament-id="${escapeHTML(tournament.id)}"
+          ${registrationState.disabled && !checkInOpen ? "disabled" : ""}
+        >
+          <i class="fa-solid ${checkInOpen ? "fa-clipboard-check" : registrationState.requiresLogin ? "fa-right-to-bracket" : registrationState.alreadyRegistered ? "fa-circle-check" : "fa-ticket"}"></i>
+          ${escapeHTML(checkInOpen ? "Fazer check-in" : registrationState.buttonLabel)}
+        </button>
+
+        ${renderTournamentOrganizerActionButton(tournament, "registration-organizer-button")}
+      </div>
 
       ${registrationState.alreadyRegistered && !checkInOpen ? `
         <div class="registration-checkin-hint">
@@ -3551,7 +3784,7 @@ function sbwRenderResultsDashboard(tournament) {
         </article>
 
         <div class="sbw-results-stat-grid">
-          <div class="info-mini-card"><span>Total de partidas</span><strong>${String(matches.length)}</strong></div>
+          <div class="info-mini-card"><span>Total de partidas</span><strong>${String(resultCounts.total)}</strong></div>
           <div class="info-mini-card"><span>Finalizadas</span><strong>${String(resultCounts.completed)}</strong></div>
           <div class="info-mini-card"><span>Em andamento</span><strong>${String(liveMatches.length)}</strong></div>
           <div class="info-mini-card"><span>Atualização</span><strong>${escapeHTML(formatDateTimeLabel(updatedAt))}</strong></div>
@@ -3871,6 +4104,7 @@ function renderTournament(tournament) {
                   <i class="fa-solid ${alreadyRegistered ? "fa-circle-check" : registrationState.requiresLogin ? "fa-right-to-bracket" : "fa-ticket"}"></i>
                   ${escapeHTML(registrationButtonLabel)}
                 </button>
+                ${renderTournamentOrganizerActionButton(tournament, "hero-organizer-button")}
                 <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "chaves"))}">
                   Ver chaves
                 </a>

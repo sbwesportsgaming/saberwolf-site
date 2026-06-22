@@ -4266,3 +4266,46 @@
     min-height: 180px;
   }
 }
+
+/*
+  -SBW- v1.6.66.1 — ações rápidas do torneio.
+  Botão de acesso ao organizador ao lado da inscrição pública.
+*/
+.tournament-organizer-action {
+  white-space: nowrap;
+}
+
+.tournament-organizer-action.manage {
+  border-color: rgba(168, 85, 247, 0.34);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(56, 189, 248, 0.10));
+  color: #f3e8ff;
+}
+
+.tournament-organizer-action.view {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(2, 6, 23, 0.42);
+  color: rgba(226, 232, 240, 0.90);
+}
+
+.registration-action-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.registration-action-row .registration-main-button,
+.registration-action-row .registration-organizer-button {
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .registration-action-row {
+    width: 100%;
+  }
+
+  .registration-action-row .registration-main-button,
+  .registration-action-row .registration-organizer-button {
+    width: 100%;
+  }
+}
