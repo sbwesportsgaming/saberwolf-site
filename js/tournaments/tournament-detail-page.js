@@ -1261,8 +1261,27 @@ function getTournamentFormat(tournament) {
     return sbwGetRegistrationAvailability(tournament).open;
   }
 
+  function sbwGetParticipantStatusKey(participant) {
+    return String(participant?.status || participant?.registrationStatus || participant?.registration_status || "registered")
+      .trim()
+      .toLowerCase()
+      .replaceAll("-", "_");
+  }
+
+  function sbwIsParticipantRemoved(participant) {
+    return [
+      "removed",
+      "cancelled",
+      "canceled",
+      "disqualified",
+      "dq",
+      "no_show_removed",
+      "registration_cancelled"
+    ].includes(sbwGetParticipantStatusKey(participant));
+  }
+
   function sbwGetParticipantStatusInfo(participant) {
-    const status = String(participant?.status || "registered").trim().toLowerCase().replaceAll("-", "_");
+    const status = sbwGetParticipantStatusKey(participant);
 
     if (status === "waitlist" || status === "lista_espera") {
       return {
@@ -1275,6 +1294,13 @@ function getTournamentFormat(tournament) {
       return {
         className: "confirmed",
         label: "Confirmado"
+      };
+    }
+
+    if (sbwIsParticipantRemoved(participant)) {
+      return {
+        className: "removed",
+        label: "Removido"
       };
     }
 
@@ -1362,59 +1388,23 @@ function getTournamentFormat(tournament) {
     return items;
   }
 
-  function renderParticipantsOverview(tournament, availability) {
-    const participants = getParticipants(tournament)
-      .filter((participant) => {
-        const status = String(participant.status || "registered").toLowerCase();
-        return !["removed", "cancelled", "canceled", "disqualified"].includes(status);
-      });
-    const checkedInCount = participants.filter((participant) => sbwGetCheckInStatusInfo(participant).className === "checked-in").length;
-    const waitlistCount = participants.filter((participant) => sbwGetParticipantStatusInfo(participant).className === "waitlist").length;
-    const maxLabel = availability.maxParticipants ? availability.maxParticipants : "∞";
-
-    return `
-      <div class="participants-overview-grid">
-        <div class="participants-overview-card">
-          <span>Inscritos</span>
-          <strong>${escapeHTML(availability.participantsCount)} / ${escapeHTML(maxLabel)}</strong>
-        </div>
-
-        <div class="participants-overview-card">
-          <span>Check-in</span>
-          <strong>${escapeHTML(checkedInCount)} confirmado${checkedInCount === 1 ? "" : "s"}</strong>
-        </div>
-
-        <div class="participants-overview-card">
-          <span>Lista de espera</span>
-          <strong>${escapeHTML(waitlistCount)}</strong>
-        </div>
-
-        <div class="participants-overview-card ${escapeHTML(availability.className)}">
-          <span>Status da inscrição</span>
-          <strong>${escapeHTML(availability.shortLabel)}</strong>
-        </div>
-      </div>
-    `;
+  function sbwIsParticipantCheckedIn(participant) {
+    return sbwGetCheckInStatusInfo(participant).className === "checked-in";
   }
 
-  function renderParticipants(tournament, options = {}) {
-    const onlyCheckedIn = Boolean(options.onlyCheckedIn);
-    const participants = getParticipants(tournament)
-      .filter((participant) => {
-        const status = String(participant.status || "registered").toLowerCase();
-        const active = !["removed", "cancelled", "canceled", "disqualified"].includes(status);
+  function sbwGetPublicParticipants(tournament, options = {}) {
+    const includeRemoved = Boolean(options.includeRemoved);
 
-        if (!active) {
-          return false;
-        }
-
-        if (onlyCheckedIn) {
-          return sbwGetCheckInStatusInfo(participant).className === "checked-in";
-        }
-
-        return true;
-      })
+    return getParticipants(tournament)
+      .filter((participant) => includeRemoved || !sbwIsParticipantRemoved(participant))
       .sort((a, b) => {
+        const checkedA = sbwIsParticipantCheckedIn(a) ? 1 : 0;
+        const checkedB = sbwIsParticipantCheckedIn(b) ? 1 : 0;
+
+        if (checkedA !== checkedB && options.confirmedFirst) {
+          return checkedB - checkedA;
+        }
+
         const seedA = Number(a.seed || 999999);
         const seedB = Number(b.seed || 999999);
 
@@ -1424,26 +1414,118 @@ function getTournamentFormat(tournament) {
 
         return String(getPlayerName(a)).localeCompare(String(getPlayerName(b)), "pt-BR");
       });
+  }
 
-    if (participants.length === 0) {
+  function sbwGetParticipantsPublicStats(tournament, availability) {
+    const all = getParticipants(tournament);
+    const active = all.filter((participant) => !sbwIsParticipantRemoved(participant));
+    const checkedIn = active.filter(sbwIsParticipantCheckedIn);
+    const pendingCheckIn = active.filter((participant) => {
+      const checkIn = sbwGetCheckInStatusInfo(participant).className;
+      return checkIn !== "checked-in" && checkIn !== "waived";
+    });
+    const waitlist = active.filter((participant) => sbwGetParticipantStatusInfo(participant).className === "waitlist");
+    const removed = all.filter(sbwIsParticipantRemoved);
+    const checkInClosed = sbwIsCheckInClosed(tournament);
+    const checkInOpen = sbwIsCheckInOpen(tournament) && !checkInClosed;
+
+    return {
+      all,
+      active,
+      checkedIn,
+      pendingCheckIn,
+      waitlist,
+      removed,
+      checkInClosed,
+      checkInOpen,
+      participantsCount: availability?.participantsCount ?? active.length,
+      maxParticipants: availability?.maxParticipants || sbwGetMaxParticipantsNumber(tournament) || null
+    };
+  }
+
+  function sbwGetParticipantsStageInfo(stats) {
+    if (stats.checkInClosed) {
+      return {
+        className: "closed",
+        label: "Check-in encerrado",
+        title: "Confirmados em destaque",
+        description: "A lista prioriza quem confirmou presença. Inscritos sem check-in aparecem separados para auditoria visual."
+      };
+    }
+
+    if (stats.checkInOpen) {
+      return {
+        className: "open",
+        label: "Check-in aberto",
+        title: "Confirmação em andamento",
+        description: "Todos os inscritos aparecem nesta área. Quem confirmar check-in passa a receber destaque visual."
+      };
+    }
+
+    return {
+      className: "waiting",
+      label: "Pré check-in",
+      title: "Lista de inscritos",
+      description: "Antes do fechamento do check-in, a página mostra todos os inscritos reais publicados na plataforma -SBW-."
+    };
+  }
+
+  function renderParticipantsOverview(tournament, availability) {
+    const stats = sbwGetParticipantsPublicStats(tournament, availability);
+    const maxLabel = stats.maxParticipants ? stats.maxParticipants : "∞";
+    const confirmedLabel = stats.checkedIn.length === 1 ? "confirmado" : "confirmados";
+    const pendingLabel = stats.pendingCheckIn.length === 1 ? "pendente" : "pendentes";
+
+    return `
+      <div class="participants-overview-grid participants-overview-grid--refined">
+        <div class="participants-overview-card">
+          <span>Inscritos ativos</span>
+          <strong>${escapeHTML(stats.active.length)} / ${escapeHTML(maxLabel)}</strong>
+          <small>Participantes válidos para o torneio</small>
+        </div>
+
+        <div class="participants-overview-card confirmed">
+          <span>Check-in</span>
+          <strong>${escapeHTML(stats.checkedIn.length)} ${escapeHTML(confirmedLabel)}</strong>
+          <small>Presença confirmada</small>
+        </div>
+
+        <div class="participants-overview-card pending">
+          <span>Pendências</span>
+          <strong>${escapeHTML(stats.pendingCheckIn.length)} ${escapeHTML(pendingLabel)}</strong>
+          <small>Aguardando check-in ou revisão</small>
+        </div>
+
+        <div class="participants-overview-card ${escapeHTML(availability.className)}">
+          <span>Inscrição</span>
+          <strong>${escapeHTML(availability.shortLabel)}</strong>
+          <small>${escapeHTML(availability.reason || "Status atual da inscrição")}</small>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderParticipantsList(participants, options = {}) {
+    const emptyTitle = options.emptyTitle || "Nenhum participante publicado ainda";
+    const emptyText = options.emptyText || "Quando jogadores confirmarem inscrição pela plataforma -SBW-, eles aparecerão aqui com status, equipe e check-in.";
+    const listClass = options.listClass || "";
+
+    if (!Array.isArray(participants) || participants.length === 0) {
       return `
         <div class="participant-empty-state">
           <div class="participant-empty-icon">
-            <i class="fa-solid fa-user-plus"></i>
+            <i class="fa-solid ${escapeHTML(options.emptyIcon || "fa-user-plus")}"></i>
           </div>
           <div>
-            <strong>${onlyCheckedIn ? "Nenhum check-in confirmado ainda" : "Nenhum participante publicado ainda"}</strong>
-            <p>${onlyCheckedIn
-              ? "Depois do fechamento do check-in, esta lista mostra apenas participantes que confirmaram presença."
-              : "Quando jogadores confirmarem inscrição pela plataforma -SBW-, eles aparecerão aqui com status, equipe e check-in."
-            }</p>
+            <strong>${escapeHTML(emptyTitle)}</strong>
+            <p>${escapeHTML(emptyText)}</p>
           </div>
         </div>
       `;
     }
 
     return `
-      <div class="participants-grid participants-grid--premium">
+      <div class="participants-grid participants-grid--premium ${escapeHTML(listClass)}">
         ${participants.map((participant, index) => {
           const checkIn = sbwGetCheckInStatusInfo(participant);
           const participantStatus = sbwGetParticipantStatusInfo(participant);
@@ -1451,23 +1533,24 @@ function getTournamentFormat(tournament) {
           const metaItems = sbwGetParticipantMetaItems(participant);
 
           return `
-            <article class="participant-card participant-card--premium ${escapeHTML(checkIn.className)}">
-              <div class="participant-rank-badge">${escapeHTML(seedLabel)}</div>
-
-              <div class="participant-card-top">
-                <div>
-                  <strong>${escapeHTML(getPlayerName(participant))}</strong>
-                  <span>${escapeHTML(getPlayerTeam(participant))}</span>
-                </div>
-
+            <article class="participant-card participant-card--premium ${escapeHTML(checkIn.className)} ${escapeHTML(participantStatus.className)}">
+              <div class="participant-card-headline">
+                <span class="participant-rank-badge">${escapeHTML(seedLabel)}</span>
                 <span class="participant-status-pill ${escapeHTML(participantStatus.className)}">
                   ${escapeHTML(participantStatus.label)}
                 </span>
               </div>
 
-              <div class="participant-meta-row">
-                ${metaItems.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}
+              <div class="participant-card-main">
+                <strong>${escapeHTML(getPlayerName(participant))}</strong>
+                <span>${escapeHTML(getPlayerTeam(participant))}</span>
               </div>
+
+              ${metaItems.length > 0 ? `
+                <div class="participant-meta-row">
+                  ${metaItems.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}
+                </div>
+              ` : ""}
 
               <div class="participant-checkin-row ${escapeHTML(checkIn.className)}">
                 <i class="fa-solid ${escapeHTML(checkIn.icon)}"></i>
@@ -1476,6 +1559,141 @@ function getTournamentFormat(tournament) {
             </article>
           `;
         }).join("")}
+      </div>
+    `;
+  }
+
+  function renderParticipants(tournament, options = {}) {
+    const onlyCheckedIn = Boolean(options.onlyCheckedIn);
+    const participants = sbwGetPublicParticipants(tournament, {
+      confirmedFirst: Boolean(options.confirmedFirst || onlyCheckedIn)
+    }).filter((participant) => {
+      if (onlyCheckedIn) {
+        return sbwIsParticipantCheckedIn(participant);
+      }
+
+      return true;
+    });
+
+    return renderParticipantsList(participants, {
+      emptyTitle: onlyCheckedIn ? "Nenhum check-in confirmado ainda" : "Nenhum participante publicado ainda",
+      emptyText: onlyCheckedIn
+        ? "Depois do fechamento do check-in, esta lista destaca os participantes que confirmaram presença."
+        : "Quando jogadores confirmarem inscrição pela plataforma -SBW-, eles aparecerão aqui com status, equipe e check-in.",
+      emptyIcon: onlyCheckedIn ? "fa-circle-check" : "fa-user-plus"
+    });
+  }
+
+  function renderParticipantSection(title, description, participants, options = {}) {
+    const count = Array.isArray(participants) ? participants.length : 0;
+
+    return `
+      <section class="participants-public-section ${escapeHTML(options.className || "")}">
+        <div class="participants-public-section-header">
+          <div>
+            <span>${escapeHTML(options.eyebrow || "Participantes")}</span>
+            <h4>${escapeHTML(title)}</h4>
+            <p>${escapeHTML(description)}</p>
+          </div>
+          <strong>${escapeHTML(count)}</strong>
+        </div>
+        ${renderParticipantsList(participants, {
+          emptyTitle: options.emptyTitle,
+          emptyText: options.emptyText,
+          emptyIcon: options.emptyIcon,
+          listClass: options.listClass
+        })}
+      </section>
+    `;
+  }
+
+  function renderParticipantsPublicPage(tournament, availability) {
+    const stats = sbwGetParticipantsPublicStats(tournament, availability);
+    const stage = sbwGetParticipantsStageInfo(stats);
+    const sortedActive = sbwGetPublicParticipants(tournament, { confirmedFirst: stats.checkInClosed || stats.checkInOpen });
+    const sortedPrimary = sortedActive.filter((participant) => sbwGetParticipantStatusInfo(participant).className !== "waitlist");
+    const pendingAfterClose = stats.pendingCheckIn.filter((participant) => {
+      return !sbwIsParticipantRemoved(participant) && sbwGetParticipantStatusInfo(participant).className !== "waitlist";
+    });
+
+    return `
+      <div class="participants-public-panel">
+        <div class="participants-stage-card ${escapeHTML(stage.className)}">
+          <div>
+            <span>${escapeHTML(stage.label)}</span>
+            <h4>${escapeHTML(stage.title)}</h4>
+            <p>${escapeHTML(stage.description)}</p>
+          </div>
+          <div class="participants-stage-metrics">
+            <b>${escapeHTML(stats.checkedIn.length)}</b>
+            <small>check-ins</small>
+          </div>
+        </div>
+
+        ${renderParticipantsOverview(tournament, availability)}
+
+        ${stats.checkInClosed ? `
+          ${renderParticipantSection(
+            "Confirmados para jogar",
+            "Participantes com check-in confirmado, priorizados após o encerramento do check-in.",
+            stats.checkedIn,
+            {
+              className: "confirmed",
+              eyebrow: "Lista principal",
+              emptyTitle: "Nenhum participante confirmou check-in",
+              emptyText: "Quando houver check-ins confirmados, eles aparecerão como lista principal do torneio.",
+              emptyIcon: "fa-circle-check"
+            }
+          )}
+
+          ${pendingAfterClose.length > 0 ? renderParticipantSection(
+            "Inscritos sem confirmação",
+            "Lista auxiliar para consulta. Esses participantes não entram como confirmados após o fechamento do check-in.",
+            pendingAfterClose,
+            {
+              className: "pending",
+              eyebrow: "Auditoria visual",
+              emptyIcon: "fa-clock"
+            }
+          ) : ""}
+        ` : `
+          ${renderParticipantSection(
+            "Todos os inscritos",
+            stats.checkInOpen
+              ? "Check-in aberto: todos os inscritos aparecem aqui, com confirmados em destaque."
+              : "Antes do fechamento do check-in, todos os inscritos reais aparecem nesta lista.",
+            sortedPrimary,
+            {
+              className: "all",
+              eyebrow: "Lista pública",
+              emptyTitle: "Nenhum participante inscrito ainda",
+              emptyText: "As inscrições reais feitas pela plataforma -SBW- aparecerão aqui.",
+              emptyIcon: "fa-user-plus"
+            }
+          )}
+        `}
+
+        ${stats.waitlist.length > 0 ? renderParticipantSection(
+          "Lista de espera",
+          "Participantes aguardando vaga, quando o torneio usa lista de espera.",
+          stats.waitlist,
+          {
+            className: "waitlist",
+            eyebrow: "Fila",
+            emptyIcon: "fa-hourglass-half"
+          }
+        ) : ""}
+
+        ${stats.removed.length > 0 ? renderParticipantSection(
+          "Removidos ou cancelados",
+          "Registros mantidos apenas para transparência visual quando existirem no histórico carregado.",
+          stats.removed,
+          {
+            className: "removed",
+            eyebrow: "Histórico",
+            emptyIcon: "fa-user-slash"
+          }
+        ) : ""}
       </div>
     `;
   }
@@ -3283,6 +3501,290 @@ function renderRegistrationNotice(registrationState) {
   `;
 }
 
+
+function sbwGetCheckInPublicState(tournament, registrationState) {
+  const startValue = sbwGetCheckInDateValue(tournament, "start") || tournament?.checkInTime || tournament?.checkin || "";
+  const endValue = sbwGetCheckInDateValue(tournament, "end") || "";
+  const startDate = sbwParseFlexibleDate(startValue, tournament);
+  const endDate = sbwParseFlexibleDate(endValue, tournament);
+  const now = Date.now();
+
+  if (!registrationState?.alreadyRegistered) {
+    return {
+      className: "waiting",
+      icon: "fa-user-plus",
+      label: "Disponível após inscrição",
+      description: "O check-in aparece para jogadores inscritos quando a janela configurada pelo organizador estiver aberta.",
+      meta: startValue || "Horário a definir"
+    };
+  }
+
+  if (endDate && now > endDate.getTime()) {
+    return {
+      className: "closed",
+      icon: "fa-lock",
+      label: "Check-in encerrado",
+      description: "A janela de confirmação foi encerrada. A lista pública prioriza participantes confirmados.",
+      meta: endValue || "Encerrado"
+    };
+  }
+
+  if (startDate && now < startDate.getTime()) {
+    return {
+      className: "waiting",
+      icon: "fa-clock",
+      label: "Check-in aguardando abertura",
+      description: "Sua inscrição está registrada. Volte no horário indicado para confirmar presença.",
+      meta: startValue || "A definir"
+    };
+  }
+
+  if (sbwIsCheckInOpen(tournament)) {
+    return {
+      className: "open",
+      icon: "fa-clipboard-check",
+      label: "Check-in aberto",
+      description: "Confirme sua presença para entrar na lista final usada na geração da estrutura.",
+      meta: endValue ? `Até ${endValue}` : (startValue || "Janela aberta")
+    };
+  }
+
+  return {
+    className: "draft",
+    icon: "fa-calendar-check",
+    label: "Check-in a definir",
+    description: "O organizador ainda pode publicar ou ajustar a janela de confirmação.",
+    meta: startValue || "A definir"
+  };
+}
+
+function sbwRenderRegistrationJourney(tournament, registrationState) {
+  const checkInState = sbwGetCheckInPublicState(tournament, registrationState);
+  const steps = [
+    {
+      key: "account",
+      icon: "fa-user-shield",
+      title: "Conta -SBW-",
+      description: registrationState.supabaseMode
+        ? (registrationState.requiresLogin ? "Entre para validar sua inscrição." : "Conta conectada.")
+        : "Modo demonstração local.",
+      state: registrationState.supabaseMode && !registrationState.requiresLogin ? "done" : (registrationState.requiresLogin ? "current" : "demo")
+    },
+    {
+      key: "registration",
+      icon: "fa-ticket",
+      title: "Inscrição",
+      description: registrationState.alreadyRegistered ? "Sua inscrição foi encontrada." : registrationState.availability.shortLabel,
+      state: registrationState.alreadyRegistered ? "done" : (registrationState.availability.open ? "current" : "locked")
+    },
+    {
+      key: "checkin",
+      icon: checkInState.icon,
+      title: "Check-in",
+      description: checkInState.label,
+      state: checkInState.className === "open" ? "current" : (checkInState.className === "closed" ? "done" : "locked")
+    },
+    {
+      key: "play",
+      icon: "fa-sitemap",
+      title: "Chaves e partidas",
+      description: "Acompanhe a estrutura e os resultados públicos.",
+      state: sbwIsCheckInClosed(tournament) ? "current" : "locked"
+    }
+  ];
+
+  return `
+    <div class="registration-journey-card">
+      <div class="registration-journey-head">
+        <span>Fluxo do participante</span>
+        <strong>Da inscrição até as partidas</strong>
+      </div>
+      <div class="registration-journey-steps">
+        ${steps.map((step, index) => `
+          <div class="registration-journey-step ${escapeHTML(step.state)}">
+            <span class="registration-journey-index">${index + 1}</span>
+            <i class="fa-solid ${escapeHTML(step.icon)}"></i>
+            <div>
+              <strong>${escapeHTML(step.title)}</strong>
+              <p>${escapeHTML(step.description)}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function sbwRenderCheckInStatusCard(tournament, registrationState) {
+  const checkInState = sbwGetCheckInPublicState(tournament, registrationState);
+
+  return `
+    <div class="registration-checkin-status-card ${escapeHTML(checkInState.className)}">
+      <div class="registration-checkin-status-icon">
+        <i class="fa-solid ${escapeHTML(checkInState.icon)}"></i>
+      </div>
+      <div>
+        <span>Check-in público</span>
+        <strong>${escapeHTML(checkInState.label)}</strong>
+        <p>${escapeHTML(checkInState.description)}</p>
+      </div>
+      <em>${escapeHTML(checkInState.meta)}</em>
+    </div>
+  `;
+}
+
+function sbwRenderRegistrationGuidance(tournament, registrationState) {
+  const alreadyRegistered = registrationState.alreadyRegistered;
+  const requiresLogin = registrationState.requiresLogin;
+  const checkInOpen = alreadyRegistered && sbwIsCheckInOpen(tournament);
+
+  let title = "Antes de se inscrever";
+  let description = "Confira o regulamento, formato, plataforma e horários publicados pelo organizador antes de confirmar participação.";
+  let icon = "fa-circle-info";
+
+  if (requiresLogin) {
+    title = "Login necessário";
+    description = "Entre com sua conta da plataforma -SBW- para salvar uma inscrição oficial vinculada ao seu perfil público.";
+    icon = "fa-right-to-bracket";
+  } else if (checkInOpen) {
+    title = "Confirme presença";
+    description = "A janela de check-in está aberta. Confirme presença para aparecer na lista final usada na estrutura do torneio.";
+    icon = "fa-clipboard-check";
+  } else if (alreadyRegistered) {
+    title = "Inscrição localizada";
+    description = "Acompanhe a janela de check-in, o cronograma, as chaves e os resultados públicos nesta página.";
+    icon = "fa-circle-check";
+  }
+
+  return `
+    <div class="registration-guidance-card">
+      <i class="fa-solid ${escapeHTML(icon)}"></i>
+      <div>
+        <strong>${escapeHTML(title)}</strong>
+        <p>${escapeHTML(description)}</p>
+      </div>
+    </div>
+  `;
+}
+
+function sbwGetTournamentRulesText(tournament) {
+  const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+  const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+  const candidates = [
+    tournament?.rules,
+    tournament?.ruleSet,
+    tournament?.rulesText,
+    tournament?.regulation,
+    tournament?.regulamento,
+    metadata.rules,
+    metadata.ruleSet,
+    metadata.rulesText,
+    metadata.regulation,
+    metadata.regulamento,
+    settings.rules,
+    settings.ruleSet,
+    settings.rulesText,
+    settings.regulation,
+    settings.regulamento
+  ];
+
+  return String(candidates.find((value) => value !== null && value !== undefined && String(value).trim()) || "").trim();
+}
+
+function sbwRenderRulesTextBlock(text) {
+  const lines = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim());
+
+  const blocks = [];
+  let bulletBuffer = [];
+  let paragraphBuffer = [];
+
+  function flushParagraph() {
+    if (!paragraphBuffer.length) {
+      return;
+    }
+
+    blocks.push(`<p>${paragraphBuffer.map(escapeHTML).join("<br>")}</p>`);
+    paragraphBuffer = [];
+  }
+
+  function flushBullets() {
+    if (!bulletBuffer.length) {
+      return;
+    }
+
+    blocks.push(`<ul>${bulletBuffer.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>`);
+    bulletBuffer = [];
+  }
+
+  lines.forEach((line) => {
+    if (!line) {
+      flushParagraph();
+      flushBullets();
+      return;
+    }
+
+    const bulletMatch = line.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
+
+    if (bulletMatch) {
+      flushParagraph();
+      bulletBuffer.push(bulletMatch[1]);
+      return;
+    }
+
+    flushBullets();
+    paragraphBuffer.push(line);
+  });
+
+  flushParagraph();
+  flushBullets();
+
+  return blocks.join("") || `<p>${escapeHTML("Regras ainda não publicadas pelo organizador.")}</p>`;
+}
+
+function sbwRenderRulesPublicPanel(tournament) {
+  const rulesText = sbwGetTournamentRulesText(tournament);
+  const hasRules = Boolean(rulesText);
+  const formatLabel = getFormatLabel(getTournamentFormat(tournament));
+  const organizerName = sbwGetTournamentOrganizerData(tournament).displayName || getOrganizer(tournament);
+
+  return `
+    <div class="rules-public-layout ${hasRules ? "has-rules" : "is-empty"}">
+      <article class="rules-public-main-card">
+        <div class="rules-public-card-head">
+          <span>${hasRules ? "Regulamento publicado" : "Regulamento pendente"}</span>
+          <strong>${hasRules ? "Regras do torneio" : "Regras ainda não publicadas"}</strong>
+          <p>${hasRules
+            ? "Leia as orientações oficiais antes de se inscrever ou disputar partidas."
+            : "Quando o organizador publicar o regulamento, ele aparecerá aqui em formato limpo para jogadores e visitantes."}</p>
+        </div>
+        <div class="rules-public-content">
+          ${hasRules ? sbwRenderRulesTextBlock(rulesText) : `
+            <div class="rules-empty-state">
+              <i class="fa-regular fa-file-lines"></i>
+              <strong>Sem regulamento público por enquanto</strong>
+              <p>Use as informações gerais do torneio como referência até o organizador publicar as regras completas.</p>
+            </div>
+          `}
+        </div>
+      </article>
+
+      <aside class="rules-public-side-card">
+        <span>Resumo competitivo</span>
+        <div class="rules-summary-list">
+          <div><small>Formato</small><strong>${escapeHTML(formatLabel)}</strong></div>
+          <div><small>Organizador</small><strong>${escapeHTML(organizerName)}</strong></div>
+          <div><small>Check-in</small><strong>${escapeHTML(tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir")}</strong></div>
+          <div><small>Premiação</small><strong>${escapeHTML(getPrize(tournament))}</strong></div>
+        </div>
+        ${renderTournamentOrganizerActionButton(tournament, "rules-organizer-button")}
+      </aside>
+    </div>
+  `;
+}
+
 function renderRegistrationPanel(tournament, registrationState, availability) {
   const maxLabel = availability.maxParticipants ? availability.maxParticipants : "∞";
   const checkInLabel = tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir";
@@ -3294,6 +3796,16 @@ function renderRegistrationPanel(tournament, registrationState, availability) {
 
   return `
     <div class="registration-panel">
+      <div class="registration-panel-intro">
+        <span>Participar do torneio</span>
+        <strong>${escapeHTML(registrationState.title)}</strong>
+        <p>${escapeHTML(registrationState.description)}</p>
+      </div>
+
+      ${sbwRenderRegistrationJourney(tournament, registrationState)}
+      ${sbwRenderRegistrationGuidance(tournament, registrationState)}
+      ${sbwRenderCheckInStatusCard(tournament, registrationState)}
+
       <div class="registration-status-card ${escapeHTML(availability.className)}">
         <div>
           <span>Status da inscrição</span>
@@ -3822,160 +4334,681 @@ function sbwRenderResultsDashboard(tournament) {
   `;
 }
 
-function renderTournamentOverviewCards(tournament, availability) {
-  const status = getStatusInfo(tournament.status);
-  const matches = sbwGetPublicMatches(tournament);
-  const completedMatches = matches.filter((match) => getMatchPublicStatus(match).className === "completed").slice(-3).reverse();
-  const pendingMatch = matches.find((match) => ["pending", "live"].includes(getMatchPublicStatus(match).className));
-  const description = getDescription(tournament);
-  const structure = getTournamentStructure(tournament);
-  const generatedAt = getStructureGeneratedAt(tournament);
+
+function sbwGetTournamentFieldValue(tournament, keys) {
+  const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+  const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+  const structure = getTournamentStructure(tournament) || {};
+  const sources = [tournament || {}, settings, metadata, structure];
+
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source?.[key];
+
+      if (value !== null && value !== undefined && String(value).trim()) {
+        return value;
+      }
+    }
+  }
+
+  return "";
+}
+
+function sbwComposeScheduleDateTime(dateValue, timeValue) {
+  const dateText = String(dateValue || "").trim();
+  const timeText = String(timeValue || "").trim();
+
+  if (!dateText) {
+    return timeText;
+  }
+
+  if (!timeText || dateText.includes("T") || dateText.includes(" ")) {
+    return dateText;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateText) && /^\d{1,2}:\d{2}/.test(timeText)) {
+    return `${dateText}T${timeText.length === 5 ? `${timeText}:00` : timeText}`;
+  }
+
+  return `${dateText} ${timeText}`;
+}
+
+function sbwGetScheduleDateLabel(value, fallback = "A definir") {
+  if (!value) {
+    return fallback;
+  }
+
+  const text = String(value).trim();
+
+  if (!text) {
+    return fallback;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return formatDate(text);
+  }
+
+  if (/^\d{1,2}:\d{2}/.test(text)) {
+    return text;
+  }
+
+  return formatDateTimeLabel(text);
+}
+
+function sbwGetScheduleRangeLabel(item) {
+  const startLabel = sbwGetScheduleDateLabel(item.startValue, "");
+  const endLabel = sbwGetScheduleDateLabel(item.endValue, "");
+  const dateLabel = sbwGetScheduleDateLabel(item.dateValue, "");
+
+  if (startLabel && endLabel) {
+    return `${startLabel} até ${endLabel}`;
+  }
+
+  if (startLabel) {
+    return startLabel;
+  }
+
+  if (endLabel) {
+    return `Até ${endLabel}`;
+  }
+
+  if (dateLabel) {
+    return dateLabel;
+  }
+
+  return item.fallbackLabel || "A definir";
+}
+
+function sbwGetScheduleItemState(item) {
+  const now = Date.now();
+  const startDate = sbwParseFlexibleDate(item.startValue || item.dateValue, item.tournament);
+  const endDate = sbwParseFlexibleDate(item.endValue, item.tournament);
+
+  if (startDate && endDate) {
+    if (now < startDate.getTime()) {
+      return "upcoming";
+    }
+
+    if (now <= endDate.getTime()) {
+      return "current";
+    }
+
+    return "completed";
+  }
+
+  if (item.mode === "period" && endDate) {
+    return now <= endDate.getTime() ? "current" : "completed";
+  }
+
+  if (item.mode === "period" && startDate) {
+    return now < startDate.getTime() ? "upcoming" : "current";
+  }
+
+  if (startDate) {
+    return now < startDate.getTime() ? "upcoming" : "completed";
+  }
+
+  if (endDate) {
+    return now <= endDate.getTime() ? "current" : "completed";
+  }
+
+  return item.fallbackState || "unknown";
+}
+
+function sbwGetScheduleStateMeta(state) {
+  const states = {
+    completed: {
+      label: "Concluído",
+      icon: "fa-circle-check"
+    },
+    current: {
+      label: "Em andamento",
+      icon: "fa-bolt"
+    },
+    upcoming: {
+      label: "Próximo",
+      icon: "fa-clock"
+    },
+    unknown: {
+      label: "A definir",
+      icon: "fa-circle-dot"
+    }
+  };
+
+  return states[state] || states.unknown;
+}
+
+function sbwBuildTournamentScheduleItems(tournament, availability) {
+  const matches = sbwSortPublicMatchesForResults(sbwGetPublicMatches(tournament));
+  const playableMatches = matches.filter((match) => sbwIsPublicMatchPlayable(match));
+  const firstMatchWithDate = playableMatches.find((match) => match?.scheduledAt || match?.scheduled_at || match?.date || match?.datetime || match?.startsAt || match?.starts_at);
+  const completedMatches = matches.filter((match) => getMatchPublicStatus(match).className === "completed");
+  const registrationStart = sbwGetTournamentFieldValue(tournament, [
+    "registrationStartsAt",
+    "registrationStartAt",
+    "registrationStart",
+    "registration_start_at",
+    "registration_start",
+    "registrationsOpenAt",
+    "registrations_open_at",
+    "inscriptionsOpenAt",
+    "inscricoesAbertasEm"
+  ]);
+  const registrationEnd = sbwGetTournamentFieldValue(tournament, [
+    "registrationEndsAt",
+    "registrationEndAt",
+    "registrationDeadline",
+    "registration_end_at",
+    "registration_deadline",
+    "registrationsCloseAt",
+    "registrations_close_at",
+    "inscriptionsCloseAt",
+    "inscricoesEncerramEm"
+  ]);
+  const checkInStart = sbwGetCheckInDateValue(tournament, "start");
+  const checkInEnd = sbwGetCheckInDateValue(tournament, "end");
+  const tournamentStart = sbwComposeScheduleDateTime(
+    tournament?.startDate || tournament?.start_date || sbwGetTournamentFieldValue(tournament, ["startsAt", "starts_at", "startAt"]),
+    tournament?.startTime || tournament?.start_time || ""
+  );
+  const tournamentEnd = sbwGetTournamentFieldValue(tournament, [
+    "endDate",
+    "end_date",
+    "endsAt",
+    "ends_at",
+    "finishedAt",
+    "finished_at",
+    "completedAt",
+    "completed_at"
+  ]);
+  const structureGeneratedAt = getStructureGeneratedAt(tournament);
+  const firstMatchDate = firstMatchWithDate
+    ? (firstMatchWithDate.scheduledAt || firstMatchWithDate.scheduled_at || firstMatchWithDate.date || firstMatchWithDate.datetime || firstMatchWithDate.startsAt || firstMatchWithDate.starts_at)
+    : "";
+  const resultsUpdatedAt = getResultsUpdatedAt(tournament);
+  const rawStatus = sbwGetTournamentStatusKey(tournament);
+  const registrationFallbackState = availability.open
+    ? "current"
+    : (["finished", "completed", "running", "in-progress", "structure-generated"].includes(rawStatus) ? "completed" : "upcoming");
+  const checkInFallbackState = sbwIsCheckInClosed(tournament)
+    ? "completed"
+    : (sbwIsCheckInOpen(tournament) ? "current" : "upcoming");
+
+  return [
+    {
+      key: "registration",
+      tournament,
+      mode: "period",
+      icon: "fa-ticket",
+      eyebrow: "Inscrições",
+      title: "Janela de inscrição",
+      description: availability.open
+        ? "As inscrições estão abertas para jogadores cadastrados na plataforma -SBW-."
+        : "Acompanhe o status público da inscrição e o limite de vagas definido pelo organizador.",
+      startValue: registrationStart,
+      endValue: registrationEnd,
+      fallbackLabel: availability.shortLabel || availability.label,
+      fallbackState: registrationFallbackState,
+      href: sbwBuildTournamentViewUrl(tournament, "inscricao"),
+      actionLabel: "Ver inscrição"
+    },
+    {
+      key: "checkin",
+      tournament,
+      mode: "period",
+      icon: "fa-clipboard-check",
+      eyebrow: "Check-in",
+      title: "Confirmação de presença",
+      description: "Quem estiver inscrito deve confirmar presença quando a janela de check-in estiver aberta.",
+      startValue: checkInStart,
+      endValue: checkInEnd,
+      fallbackLabel: tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir",
+      fallbackState: checkInFallbackState,
+      href: sbwBuildTournamentViewUrl(tournament, "inscricao"),
+      actionLabel: "Ver check-in"
+    },
+    {
+      key: "start",
+      tournament,
+      icon: "fa-flag-checkered",
+      eyebrow: "Início",
+      title: "Início do torneio",
+      description: "Data principal definida pelo organizador para início das atividades competitivas.",
+      dateValue: tournamentStart,
+      fallbackLabel: "Data a definir",
+      fallbackState: rawStatus === "draft" ? "upcoming" : "unknown"
+    },
+    {
+      key: "structure",
+      tournament,
+      icon: "fa-code-branch",
+      eyebrow: "Chaves",
+      title: "Estrutura competitiva",
+      description: hasGeneratedStructure(tournament)
+        ? "A estrutura pública já foi gerada e pode ser acompanhada na aba Chaves."
+        : "A estrutura será gerada pelo organizador após a etapa de inscrições/check-in.",
+      dateValue: structureGeneratedAt,
+      fallbackLabel: hasGeneratedStructure(tournament) ? "Estrutura publicada" : "Aguardando geração",
+      fallbackState: hasGeneratedStructure(tournament) ? "completed" : "upcoming",
+      href: sbwBuildTournamentViewUrl(tournament, "chaves"),
+      actionLabel: "Ver chaves"
+    },
+    {
+      key: "matches",
+      tournament,
+      icon: "fa-gamepad",
+      eyebrow: "Partidas",
+      title: "Primeiras partidas",
+      description: firstMatchWithDate
+        ? "Primeira partida pública encontrada na estrutura do torneio."
+        : "As partidas aparecerão quando a estrutura for gerada e os confrontos forem definidos.",
+      dateValue: firstMatchDate,
+      fallbackLabel: playableMatches.length > 0 ? `${playableMatches.length} partida${playableMatches.length === 1 ? "" : "s"} definida${playableMatches.length === 1 ? "" : "s"}` : "A definir",
+      fallbackState: playableMatches.length > 0 ? "current" : "upcoming",
+      href: sbwBuildTournamentViewUrl(tournament, "resultados"),
+      actionLabel: "Ver partidas"
+    },
+    {
+      key: "results",
+      tournament,
+      icon: "fa-trophy",
+      eyebrow: "Resultados",
+      title: "Resultados e encerramento",
+      description: completedMatches.length > 0
+        ? "Resultados públicos já foram encontrados na estrutura do torneio."
+        : "Os resultados finais serão exibidos quando o organizador lançar e finalizar as partidas.",
+      dateValue: tournamentEnd || resultsUpdatedAt,
+      fallbackLabel: completedMatches.length > 0 ? `${completedMatches.length} resultado${completedMatches.length === 1 ? "" : "s"}` : "Aguardando resultados",
+      fallbackState: ["finished", "completed"].includes(rawStatus) ? "completed" : (completedMatches.length > 0 ? "current" : "upcoming"),
+      href: sbwBuildTournamentViewUrl(tournament, "resultados"),
+      actionLabel: "Ver resultados"
+    }
+  ];
+}
+
+function sbwRenderScheduleItem(item, index) {
+  const state = sbwGetScheduleItemState(item);
+  const stateMeta = sbwGetScheduleStateMeta(state);
+  const rangeLabel = sbwGetScheduleRangeLabel(item);
 
   return `
-    <div class="detail-overview-grid">
-      <div class="detail-overview-main">
-        <div class="stats-grid">
-          <div class="info-mini-card">
-            <span>Organizador</span>
-            <strong>${escapeHTML(getOrganizer(tournament))}</strong>
-          </div>
-          <div class="info-mini-card">
-            <span>Formato</span>
-            <strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong>
-          </div>
-          <div class="info-mini-card">
-            <span>Jogo</span>
-            <strong>${escapeHTML(tournament.game || "A definir")}</strong>
-          </div>
-          <div class="info-mini-card">
-            <span>Plataforma</span>
-            <strong>${escapeHTML(tournament.platform || "A definir")}</strong>
-          </div>
-        </div>
+    <article class="schedule-step-card ${escapeHTML(state)}">
+      <div class="schedule-step-marker">
+        <i class="fa-solid ${escapeHTML(item.icon)}"></i>
+        <span>${String(index + 1).padStart(2, "0")}</span>
+      </div>
+      <div class="schedule-step-content">
+        <header>
+          <span>${escapeHTML(item.eyebrow)}</span>
+          <em class="schedule-state-pill ${escapeHTML(state)}"><i class="fa-solid ${escapeHTML(stateMeta.icon)}"></i>${escapeHTML(stateMeta.label)}</em>
+        </header>
+        <h4>${escapeHTML(item.title)}</h4>
+        <strong>${escapeHTML(rangeLabel)}</strong>
+        <p>${escapeHTML(item.description)}</p>
+        ${item.href ? `<a href="${escapeHTML(item.href)}">${escapeHTML(item.actionLabel || "Abrir")} <i class="fa-solid fa-arrow-right"></i></a>` : ""}
+      </div>
+    </article>
+  `;
+}
 
-        <div class="detail-card detail-overview-description">
-          <strong>Sobre o torneio</strong>
-          <p>${escapeHTML(description)}</p>
-          <a href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "regras"))}">Ver regras completas <i class="fa-solid fa-arrow-right"></i></a>
-        </div>
+function sbwRenderSchedulePublicPanel(tournament, availability) {
+  const items = sbwBuildTournamentScheduleItems(tournament, availability);
+  const status = getStatusInfo(tournament.status);
+  const currentItem = items.find((item) => sbwGetScheduleItemState(item) === "current");
+  const nextItem = items.find((item) => sbwGetScheduleItemState(item) === "upcoming") || currentItem || items[items.length - 1];
+  const completedCount = items.filter((item) => sbwGetScheduleItemState(item) === "completed").length;
+  const definedCount = items.filter((item) => sbwGetScheduleItemState(item) !== "unknown").length;
 
-        <div class="timeline-grid">
-          <div class="info-mini-card">
-            <span>Check-in</span>
-            <strong>${escapeHTML(tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir")}</strong>
-          </div>
-          <div class="info-mini-card">
-            <span>Data de início</span>
-            <strong>${escapeHTML(formatDate(tournament.startDate))}</strong>
-          </div>
-          <div class="info-mini-card">
-            <span>Horário de início</span>
-            <strong>${escapeHTML(tournament.startTime || "A definir")}</strong>
-          </div>
-          <div class="info-mini-card">
-            <span>Status</span>
-            <strong>${escapeHTML(status.label)}</strong>
-          </div>
+  return `
+    <div class="schedule-public-page">
+      <article class="schedule-public-hero-card">
+        <div>
+          <span>Agenda pública</span>
+          <h4>${escapeHTML(currentItem ? currentItem.title : "Cronograma do torneio")}</h4>
+          <p>${escapeHTML(currentItem ? currentItem.description : "Acompanhe as etapas principais do torneio na plataforma -SBW-.")}</p>
         </div>
+        <div class="schedule-public-status ${escapeHTML(status.className)}">
+          <small>Status atual</small>
+          <strong>${escapeHTML(status.label)}</strong>
+        </div>
+      </article>
+
+      <div class="schedule-public-metrics">
+        <div class="info-mini-card"><span>Etapas concluídas</span><strong>${String(completedCount)} / ${String(items.length)}</strong></div>
+        <div class="info-mini-card"><span>Etapas definidas</span><strong>${String(definedCount)} / ${String(items.length)}</strong></div>
+        <div class="info-mini-card"><span>Próxima etapa</span><strong>${escapeHTML(nextItem?.title || "A definir")}</strong></div>
+        <div class="info-mini-card"><span>Inscrição</span><strong>${escapeHTML(availability.shortLabel)}</strong></div>
       </div>
 
-      <aside class="detail-overview-side">
-        <div class="sbw-bracket-info-card">
-          <span>Informações do torneio</span>
-          <strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong>
-          <p>Participantes: ${escapeHTML(getParticipantsCount(tournament))} / ${escapeHTML(getMaxParticipants(tournament))}</p>
-          <p>Inscrição: ${escapeHTML(availability.shortLabel)}</p>
-        </div>
-
-        <div class="sbw-bracket-info-card">
-          <span>Datas</span>
-          <strong>${escapeHTML(formatDate(tournament.startDate))}</strong>
-          <p>Horário: ${escapeHTML(tournament.startTime || "A definir")}</p>
-          <p>Check-in: ${escapeHTML(tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir")}</p>
-        </div>
-
-        <div class="sbw-bracket-info-card">
-          <span>Legenda</span>
-          <div class="sbw-bracket-legend">
-            <b><i class="line win"></i> Vencedor/confirmado</b>
-            <b><i class="line pending"></i> Pendente</b>
-            <b><i class="badge-you">Você</i> usuário logado</b>
-            <b><i class="bo">BO</i> Melhor de (n)</b>
+      <div class="schedule-public-layout">
+        <article class="schedule-public-main-card">
+          <div class="schedule-public-card-head">
+            <span>Linha do tempo</span>
+            <strong>Etapas do torneio</strong>
+            <p>As datas aparecem conforme forem configuradas pelo organizador. Etapas sem horário definido continuam visíveis como pendentes.</p>
           </div>
-        </div>
+          <div class="schedule-track">
+            ${items.map((item, index) => sbwRenderScheduleItem(item, index)).join("")}
+          </div>
+        </article>
 
-        <div class="sbw-bracket-info-card">
-          <span>Próxima partida</span>
-          ${pendingMatch ? `
-            <strong>${escapeHTML(getPlayerName(getMatchPlayer(pendingMatch, "A")))} vs ${escapeHTML(getPlayerName(getMatchPlayer(pendingMatch, "B")))}</strong>
-            <p>${escapeHTML(pendingMatch.roundName || pendingMatch.roundLabel || pendingMatch.name || "Fase atual")}</p>
-          ` : `
-            <strong>A definir</strong>
-            <p>As próximas partidas aparecerão quando a estrutura avançar.</p>
-          `}
-        </div>
+        <aside class="schedule-public-side-card">
+          <span>Resumo rápido</span>
+          <div class="rules-summary-list schedule-summary-list">
+            <div><small>Organizador</small><strong>${escapeHTML(sbwGetTournamentOrganizerData(tournament).displayName || getOrganizer(tournament))}</strong></div>
+            <div><small>Formato</small><strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong></div>
+            <div><small>Início</small><strong>${escapeHTML(sbwGetScheduleDateLabel(sbwComposeScheduleDateTime(tournament.startDate || tournament.start_date, tournament.startTime || tournament.start_time || ""), "A definir"))}</strong></div>
+            <div><small>Check-in</small><strong>${escapeHTML(sbwGetScheduleRangeLabel({ startValue: sbwGetCheckInDateValue(tournament, "start"), endValue: sbwGetCheckInDateValue(tournament, "end"), fallbackLabel: tournament.checkInTime || tournament.checkin || "A definir" }))}</strong></div>
+          </div>
+          <div class="schedule-side-actions">
+            <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "inscricao"))}"><i class="fa-solid fa-ticket"></i> Inscrição</a>
+            <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "participantes"))}"><i class="fa-solid fa-users"></i> Participantes</a>
+            ${renderTournamentOrganizerActionButton(tournament, "schedule-organizer-button")}
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+}
 
-        <div class="sbw-bracket-info-card">
-          <span>Últimos resultados</span>
-          ${completedMatches.length > 0 ? `
-            <div class="sbw-bracket-results-list">
-              ${completedMatches.map((match) => `
-                <div>
-                  <strong>${escapeHTML(getPlayerName(getMatchPlayer(match, "A")))}</strong>
-                  <b>${escapeHTML(getMatchScore(match, "scoreA"))} - ${escapeHTML(getMatchScore(match, "scoreB"))}</b>
-                  <strong>${escapeHTML(getPlayerName(getMatchPlayer(match, "B")))}</strong>
-                </div>
-              `).join("")}
+function sbwRenderOverviewQuickActions(tournament) {
+  return `
+    <div class="overview-action-grid">
+      <a class="detail-btn" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "inscricao"))}">
+        <i class="fa-solid fa-ticket"></i>
+        Inscrição / check-in
+      </a>
+      <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "participantes"))}">
+        <i class="fa-solid fa-users"></i>
+        Participantes
+      </a>
+      <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "chaves"))}">
+        <i class="fa-solid fa-code-branch"></i>
+        Chaves
+      </a>
+      <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "resultados"))}">
+        <i class="fa-solid fa-chart-line"></i>
+        Resultados
+      </a>
+      ${renderTournamentOrganizerActionButton(tournament, "overview-organizer-button")}
+    </div>
+  `;
+}
+
+function sbwRenderOverviewMatchPreview(match) {
+  if (!match) {
+    return `
+      <article class="overview-match-preview is-empty">
+        <span>Próxima partida</span>
+        <strong>Partidas a definir</strong>
+        <p>Quando o organizador gerar a estrutura, a próxima partida aparecerá neste resumo.</p>
+        <a href="#" aria-disabled="true">Aguardando estrutura</a>
+      </article>
+    `;
+  }
+
+  const status = getMatchPublicStatus(match);
+  const playerA = getMatchPlayer(match, "A");
+  const playerB = getMatchPlayer(match, "B");
+  const winnerSide = getMatchWinnerSide(match);
+
+  return `
+    <article class="overview-match-preview ${escapeHTML(status.className)}">
+      <span>${status.className === "live" ? "Partida em andamento" : "Próxima partida"}</span>
+      <header>
+        <strong>${escapeHTML(sbwGetPublicMatchBracketLabel(match))}</strong>
+        <em class="league-match-status-pill ${escapeHTML(status.className)}">${escapeHTML(status.label)}</em>
+      </header>
+      <div class="overview-match-lines">
+        <div class="${winnerSide === "A" ? "is-winner" : ""}">
+          <b>${escapeHTML(getPlayerName(playerA))}</b>
+          <small>${escapeHTML(getPlayerTeam(playerA))}</small>
+          <strong>${escapeHTML(getMatchScore(match, "scoreA"))}</strong>
+        </div>
+        <div class="${winnerSide === "B" ? "is-winner" : ""}">
+          <b>${escapeHTML(getPlayerName(playerB))}</b>
+          <small>${escapeHTML(getPlayerTeam(playerB))}</small>
+          <strong>${escapeHTML(getMatchScore(match, "scoreB"))}</strong>
+        </div>
+      </div>
+      <footer>
+        <small>${escapeHTML(sbwGetPublicMatchRoundLabel(match))} • ${escapeHTML(sbwGetPublicMatchTimeLabel(match))}</small>
+        <a href="${escapeHTML(sbwBuildTournamentViewUrl(match.tournament || {}, "resultados"))}" data-overview-results-link>Ver resultados</a>
+      </footer>
+    </article>
+  `;
+}
+
+function sbwRenderOverviewLatestResults(tournament, completedMatches) {
+  if (!Array.isArray(completedMatches) || completedMatches.length === 0) {
+    return `
+      <article class="overview-result-card is-empty">
+        <span>Últimos resultados</span>
+        <strong>Nenhum resultado público ainda</strong>
+        <p>Os resultados aparecerão aqui conforme o organizador lançar as partidas.</p>
+      </article>
+    `;
+  }
+
+  return `
+    <article class="overview-result-card">
+      <span>Últimos resultados</span>
+      <div class="overview-result-list">
+        ${completedMatches.map((match) => `
+          <a href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "resultados"))}">
+            <small>${escapeHTML(sbwGetPublicMatchRoundLabel(match))}</small>
+            <div>
+              <b>${escapeHTML(getPlayerName(getMatchPlayer(match, "A")))}</b>
+              <strong>${escapeHTML(getMatchScore(match, "scoreA"))} - ${escapeHTML(getMatchScore(match, "scoreB"))}</strong>
+              <b>${escapeHTML(getPlayerName(getMatchPlayer(match, "B")))}</b>
             </div>
-          ` : `<p>Nenhum resultado público registrado ainda.</p>`}
+          </a>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function sbwRenderOverviewTimelineMini(tournament, availability) {
+  const items = sbwBuildTournamentScheduleItems(tournament, availability);
+
+  return `
+    <article class="overview-timeline-card">
+      <header>
+        <span>Datas principais</span>
+        <a href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "cronograma"))}">Ver cronograma <i class="fa-solid fa-arrow-right"></i></a>
+      </header>
+      <div class="overview-timeline-list">
+        ${items.slice(0, 6).map((item) => {
+          const state = sbwGetScheduleItemState(item);
+          const stateMeta = sbwGetScheduleStateMeta(state);
+          return `
+            <div class="overview-timeline-item ${escapeHTML(state)}">
+              <i class="fa-solid ${escapeHTML(item.icon)}"></i>
+              <div>
+                <small>${escapeHTML(item.eyebrow)}</small>
+                <strong>${escapeHTML(item.title)}</strong>
+                <span>${escapeHTML(sbwGetScheduleRangeLabel(item))}</span>
+              </div>
+              <em>${escapeHTML(stateMeta.label)}</em>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function sbwRenderOverviewLegendCard(tournament) {
+  const format = getTournamentFormat(tournament);
+  const isDouble = format === "double-elimination";
+
+  return `
+    <article class="overview-side-card">
+      <span>Legenda rápida</span>
+      <div class="overview-legend-list">
+        <b><i class="line win"></i> Vencedor / confirmado</b>
+        <b><i class="line pending"></i> Pendente</b>
+        <b><i class="badge-you">Você</i> usuário logado</b>
+        <b><i class="bo">BO</i> Melhor de (n)</b>
+        ${isDouble ? `<b><i class="fa-solid fa-code-branch"></i> Winners, Lower e Grand Final</b>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderTournamentOverviewCards(tournament, availability) {
+  const status = getStatusInfo(tournament.status);
+  const matches = sbwSortPublicMatchesForResults(sbwGetPublicMatches(tournament));
+  const completedMatches = matches.filter((match) => getMatchPublicStatus(match).className === "completed").slice(-3).reverse();
+  const liveMatches = matches.filter((match) => getMatchPublicStatus(match).className === "live");
+  const pendingMatches = matches.filter((match) => ["pending", "bye"].includes(getMatchPublicStatus(match).className));
+  const nextPlayableMatch = pendingMatches.find(sbwIsPublicMatchPlayable) || pendingMatches[0] || null;
+  const featuredMatch = liveMatches[0] || nextPlayableMatch || completedMatches[0] || null;
+  const description = getDescription(tournament);
+  const resultCounts = getResultCounts(tournament);
+  const participantsStats = sbwGetParticipantsPublicStats(tournament, availability);
+  const maxParticipantsLabel = participantsStats.maxParticipants || getMaxParticipants(tournament);
+  const structureReady = hasGeneratedStructure(tournament);
+  const generatedAt = getStructureGeneratedAt(tournament);
+  const checkInLabel = sbwGetScheduleRangeLabel({
+    startValue: sbwGetCheckInDateValue(tournament, "start"),
+    endValue: sbwGetCheckInDateValue(tournament, "end"),
+    fallbackLabel: tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir"
+  });
+  const currentScheduleItem = sbwBuildTournamentScheduleItems(tournament, availability).find((item) => sbwGetScheduleItemState(item) === "current");
+  const organizerName = sbwGetTournamentOrganizerData(tournament).displayName || getOrganizer(tournament);
+
+  return `
+    <div class="overview-final-page">
+      <section class="overview-hero-summary">
+        <div class="overview-hero-copy">
+          <span>Resumo competitivo</span>
+          <h4>${escapeHTML(tournament.name || tournament.title || "Torneio")}</h4>
+          <p>${escapeHTML(description)}</p>
+        </div>
+        <div class="overview-status-panel ${escapeHTML(status.className)}">
+          <small>Status atual</small>
+          <strong>${escapeHTML(status.label)}</strong>
+          <em>${escapeHTML(currentScheduleItem ? `Etapa: ${currentScheduleItem.title}` : availability.label)}</em>
+        </div>
+      </section>
+
+      <section class="overview-metric-grid">
+        <article class="overview-metric-card ${escapeHTML(availability.className)}">
+          <span>Inscrição</span>
+          <strong>${escapeHTML(availability.shortLabel)}</strong>
+          <small>${escapeHTML(availability.reason || availability.label)}</small>
+        </article>
+        <article class="overview-metric-card">
+          <span>Participantes</span>
+          <strong>${escapeHTML(participantsStats.active.length)} / ${escapeHTML(maxParticipantsLabel)}</strong>
+          <small>${participantsStats.checkInClosed ? `${escapeHTML(participantsStats.checkedIn.length)} confirmados` : "Inscritos reais carregados"}</small>
+        </article>
+        <article class="overview-metric-card ${structureReady ? "running" : "draft"}">
+          <span>Chaves</span>
+          <strong>${structureReady ? "Publicada" : "Aguardando"}</strong>
+          <small>${structureReady ? `Gerada em ${escapeHTML(formatDateTimeLabel(generatedAt))}` : "A estrutura será exibida na aba Chaves"}</small>
+        </article>
+        <article class="overview-metric-card ${resultCounts.completed > 0 ? "open" : "draft"}">
+          <span>Resultados</span>
+          <strong>${escapeHTML(resultCounts.completed)} / ${escapeHTML(resultCounts.total)}</strong>
+          <small>${resultCounts.total > 0 ? "Partidas públicas encontradas" : "Aguardando partidas"}</small>
+        </article>
+      </section>
+
+      <section class="overview-content-grid">
+        <div class="overview-main-stack">
+          ${renderFinalResultsSummary(tournament)}
+
+          <article class="overview-about-card">
+            <div>
+              <span>Sobre o torneio</span>
+              <h4>Informações principais</h4>
+              <p>${escapeHTML(description)}</p>
+            </div>
+            <div class="overview-about-facts">
+              <div><small>Organizador</small><strong>${escapeHTML(organizerName)}</strong></div>
+              <div><small>Formato</small><strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong></div>
+              <div><small>Jogo</small><strong>${escapeHTML(tournament.game || "A definir")}</strong></div>
+              <div><small>Plataforma</small><strong>${escapeHTML(tournament.platform || "A definir")}</strong></div>
+            </div>
+            ${sbwRenderOverviewQuickActions(tournament)}
+          </article>
+
+          <div class="overview-match-grid">
+            ${sbwRenderOverviewMatchPreview(featuredMatch ? { ...featuredMatch, tournament } : null)}
+            ${sbwRenderOverviewLatestResults(tournament, completedMatches)}
+          </div>
+
+          ${sbwRenderOverviewTimelineMini(tournament, availability)}
         </div>
 
-        <div class="sbw-bracket-info-card">
-          <span>Estrutura</span>
-          <strong>${structure ? "Publicada" : "Aguardando geração"}</strong>
-          <p>${structure ? `Gerada em: ${escapeHTML(formatDateTimeLabel(generatedAt))}` : "A bracket aparecerá na página Chaves quando o organizador gerar a estrutura."}</p>
-        </div>
-      </aside>
+        <aside class="overview-side-stack">
+          <article class="overview-side-card overview-side-card--highlight">
+            <span>Próxima etapa</span>
+            <strong>${escapeHTML(currentScheduleItem ? currentScheduleItem.title : "Acompanhar inscrição")}</strong>
+            <p>${escapeHTML(currentScheduleItem ? currentScheduleItem.description : availability.reason)}</p>
+            <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, currentScheduleItem?.key === "registration" ? "inscricao" : "cronograma"))}">
+              <i class="fa-solid fa-arrow-right"></i>
+              Abrir etapa
+            </a>
+          </article>
+
+          <article class="overview-side-card">
+            <span>Datas</span>
+            <div class="rules-summary-list overview-summary-list">
+              <div><small>Início</small><strong>${escapeHTML(sbwGetScheduleDateLabel(sbwComposeScheduleDateTime(tournament.startDate || tournament.start_date, tournament.startTime || tournament.start_time || ""), "A definir"))}</strong></div>
+              <div><small>Check-in</small><strong>${escapeHTML(checkInLabel)}</strong></div>
+              <div><small>Premiação</small><strong>${escapeHTML(getPrize(tournament))}</strong></div>
+              <div><small>Organizador</small><strong>${escapeHTML(organizerName)}</strong></div>
+            </div>
+          </article>
+
+          ${sbwRenderOverviewLegendCard(tournament)}
+
+          <article class="overview-side-card">
+            <span>Acesso rápido</span>
+            <div class="overview-side-actions">
+              <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "regras"))}"><i class="fa-solid fa-scroll"></i> Regras</a>
+              <a class="detail-btn secondary" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, "cronograma"))}"><i class="fa-solid fa-calendar-days"></i> Cronograma</a>
+              ${renderTournamentOrganizerActionButton(tournament, "overview-side-organizer-button")}
+            </div>
+          </article>
+        </aside>
+      </section>
     </div>
   `;
 }
 
 function renderTournamentViewContent(tournament, activeView, registrationState, registrationAvailability) {
-  const status = getStatusInfo(tournament.status);
-
   if (activeView === "cronograma") {
     return `
       <section class="detail-section detail-section-page" id="cronograma">
         <div class="detail-section-header">
           <span>Cronograma</span>
-          <h3>Datas e horários do torneio</h3>
-          <p>Agenda pública do torneio dentro da plataforma -SBW-.</p>
+          <h3>Agenda pública do torneio</h3>
+          <p>Linha do tempo com inscrições, check-in, início, chaves, partidas e resultados do torneio.</p>
         </div>
-        <div class="timeline-grid">
-          <div class="info-mini-card"><span>Check-in</span><strong>${escapeHTML(tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir")}</strong></div>
-          <div class="info-mini-card"><span>Data de início</span><strong>${escapeHTML(formatDate(tournament.startDate))}</strong></div>
-          <div class="info-mini-card"><span>Horário de início</span><strong>${escapeHTML(tournament.startTime || "A definir")}</strong></div>
-          <div class="info-mini-card"><span>Status</span><strong>${escapeHTML(status.label)}</strong></div>
-        </div>
+        ${sbwRenderSchedulePublicPanel(tournament, registrationAvailability)}
       </section>
     `;
   }
 
   if (activeView === "participantes") {
-    const onlyCheckedIn = sbwIsCheckInClosed(tournament);
+    const stats = sbwGetParticipantsPublicStats(tournament, registrationAvailability);
 
     return `
       <section class="detail-section detail-section-page" id="participantes">
         <div class="detail-section-header">
           <span>Participantes</span>
-          <h3>${onlyCheckedIn ? "Participantes confirmados no check-in" : "Todos os inscritos"}</h3>
-          <p>${onlyCheckedIn
-            ? "Após o fechamento do check-in, a página mostra os jogadores que confirmaram presença."
-            : "Antes do fechamento do check-in, a página mostra todos os jogadores inscritos no torneio."
+          <h3>${stats.checkInClosed ? "Participantes confirmados e auditoria" : "Inscritos do torneio"}</h3>
+          <p>${stats.checkInClosed
+            ? "Depois do fechamento do check-in, os confirmados ficam em destaque e os demais registros aparecem separados quando existirem."
+            : "Antes do fechamento do check-in, a página mostra todos os jogadores inscritos no torneio pela plataforma -SBW-."
           }</p>
         </div>
-        ${renderParticipantsOverview(tournament, registrationAvailability)}
-        ${renderParticipants(tournament, { onlyCheckedIn })}
+        ${renderParticipantsPublicPage(tournament, registrationAvailability)}
       </section>
     `;
   }
@@ -4011,12 +5044,10 @@ function renderTournamentViewContent(tournament, activeView, registrationState, 
       <section class="detail-section detail-section-page" id="regras">
         <div class="detail-section-header">
           <span>Regras</span>
-          <h3>Regulamento do torneio</h3>
-          <p>Regras publicadas pelo organizador responsável.</p>
+          <h3>Regulamento público do torneio</h3>
+          <p>Área dedicada às regras publicadas pelo organizador, com resumo competitivo e acesso rápido ao organizador.</p>
         </div>
-        <div class="detail-card detail-rules-card">
-          <p>${escapeHTML(getRules(tournament))}</p>
-        </div>
+        ${sbwRenderRulesPublicPanel(tournament)}
       </section>
     `;
   }
