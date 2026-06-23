@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
   <link rel="stylesheet" href="../css/torneios.css" />
-  <link rel="stylesheet" href="../css/organizers/organizer-profile.css" />
+  <link rel="stylesheet" href="../css/organizers/organizer-profile.css?v=1.6.69.10" />
   <link rel="stylesheet" href="../css/core/sbw-page-state.css" />
   <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
 </head>
@@ -50,6 +50,16 @@
 
     <section class="sbw-organizer-tab-panel is-active" id="organizerTabOverview" data-organizer-panel="overview">
       <div class="sbw-organizer-overview-layout sbw-organizer-overview-layout--tournaments-first">
+        <article class="sbw-organizer-section-card sbw-organizer-section-card--overview-highlights">
+          <div class="sbw-organizer-section-head">
+            <div>
+              <span class="sbw-organizer-eyebrow">Central do organizador</span>
+              <h2>Resumo rápido</h2>
+            </div>
+          </div>
+          <div class="sbw-organizer-overview-highlights" id="organizerOverviewHighlights"></div>
+        </article>
+
         <article class="sbw-organizer-section-card sbw-organizer-section-card--overview-tournaments">
           <div class="sbw-organizer-section-head">
             <div>
@@ -61,15 +71,6 @@
           <div class="sbw-organizer-overview-tournament-grid" id="organizerOverviewTournaments"></div>
         </article>
 
-        <article class="sbw-organizer-section-card sbw-organizer-section-card--overview-rankings">
-          <div class="sbw-organizer-section-head">
-            <div>
-              <span class="sbw-organizer-eyebrow">Classificação</span>
-              <h2>Rankings</h2>
-            </div>
-          </div>
-          <div class="sbw-organizer-ranking-layout sbw-organizer-ranking-layout--overview" id="organizerOverviewRankingGrid"></div>
-        </article>
       </div>
 
       <section class="sbw-organizer-lower-metrics" aria-label="Resumo inferior do organizador">
@@ -95,6 +96,7 @@
             </select>
           </div>
         </div>
+        <div class="sbw-organizer-tournaments-summary" id="organizerTournamentsSummary" aria-label="Resumo dos torneios do organizador"></div>
         <div class="sbw-organizer-tournament-grid" id="organizerTournamentsGrid"></div>
       </article>
     </section>
@@ -150,7 +152,8 @@
   <script src="../js/tournaments/tournaments-utils.js"></script>
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournaments-storage.js"></script>
-  <script src="../js/tournaments/tournament-organizer-page.js?v=1.6.57.5"></script>
+  <script src="../js/rankings/rankings-storage.js?v=1.6.69.10"></script>
+  <script src="../js/tournaments/tournament-organizer-page.js?v=1.6.69.10"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>

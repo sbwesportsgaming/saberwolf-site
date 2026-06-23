@@ -22,6 +22,9 @@ const sbwOrganizerSeasonName = document.getElementById("organizerSeasonName");
 const sbwOrganizerSeasonStart = document.getElementById("organizerSeasonStart");
 const sbwOrganizerSeasonEnd = document.getElementById("organizerSeasonEnd");
 const sbwOrganizerSeasonMessage = document.getElementById("organizerSeasonMessage");
+const sbwOrganizerSeasonGuard = document.getElementById("organizerSeasonGuard");
+const sbwOrganizerSeasonTournamentsManager = document.getElementById("organizerSeasonTournamentsManager");
+const sbwOrganizerSeasonAudit = document.getElementById("organizerSeasonAudit");
 const sbwOrganizerEditorRankingPlayers = document.getElementById("organizerEditorRankingPlayers");
 const sbwOrganizerEditorRankingTeams = document.getElementById("organizerEditorRankingTeams");
 const sbwOrganizerTournamentEditForm = document.getElementById("organizerTournamentEditForm");
@@ -65,6 +68,8 @@ let sbwOrganizerEditorTournamentsCache = [];
 let sbwOrganizerEditorEditingTournament = null;
 let sbwOrganizerEditorManagingTournament = null;
 let sbwOrganizerEditorParticipantsCache = [];
+let sbwOrganizerSeasonTournamentFilter = "all";
+let sbwOrganizerSeasonTournamentSearch = "";
 
 const sbwOrganizerEditorAssetConfig = {
   bucket: "sbw-team-assets",
@@ -1950,6 +1955,8 @@ async function sbwOrganizerEditorLoadTournaments() {
 
     const list = Array.isArray(tournaments) ? tournaments : [];
     sbwOrganizerEditorTournamentsCache = list;
+    sbwOrganizerEditorRenderSeasonGuard(sbwOrganizerEditorCurrent);
+    sbwOrganizerEditorRenderSeasonTournamentsManager(sbwOrganizerEditorCurrent);
 
     if (!list.length) {
       sbwOrganizerEditorTournamentsList.innerHTML = `
@@ -2014,6 +2021,9 @@ function sbwOrganizerEditorHydrateSeasonForm(organizer = sbwOrganizerEditorCurre
   if (sbwOrganizerSeasonName) sbwOrganizerSeasonName.value = season.name || season.title || "";
   if (sbwOrganizerSeasonStart) sbwOrganizerSeasonStart.value = String(season.startDate || season.start_date || "").slice(0, 10);
   if (sbwOrganizerSeasonEnd) sbwOrganizerSeasonEnd.value = String(season.endDate || season.end_date || "").slice(0, 10);
+  sbwOrganizerEditorRenderSeasonGuard(organizer);
+  sbwOrganizerEditorRenderSeasonTournamentsManager(organizer);
+  sbwOrganizerEditorRenderSeasonAudit(organizer);
 }
 
 function sbwOrganizerEditorSetSeasonMessage(message, type = "") {
@@ -2021,6 +2031,665 @@ function sbwOrganizerEditorSetSeasonMessage(message, type = "") {
   sbwOrganizerSeasonMessage.textContent = message || "";
   sbwOrganizerSeasonMessage.classList.remove("is-error", "is-success", "is-loading");
   if (type) sbwOrganizerSeasonMessage.classList.add(`is-${type}`);
+}
+
+function sbwOrganizerEditorParseSeasonDate(value) {
+  if (!value) return null;
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function sbwOrganizerEditorGetSeasonDurationDays(startDate, endDate) {
+  const start = sbwOrganizerEditorParseSeasonDate(startDate);
+  const end = sbwOrganizerEditorParseSeasonDate(endDate);
+  if (!start || !end) return 0;
+  return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function sbwOrganizerEditorNormalizeSeasonKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function sbwOrganizerEditorGetTournamentSeasonLabel(tournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const season = sbwOrganizerEditorAsObject(tournament?.season || metadata.season || settings.season);
+
+  return String(
+    tournament?.seasonName ||
+    tournament?.season_name ||
+    tournament?.seasonTitle ||
+    tournament?.season_title ||
+    settings.seasonName ||
+    settings.season_name ||
+    settings.seasonTitle ||
+    settings.season_title ||
+    metadata.seasonName ||
+    metadata.season_name ||
+    metadata.seasonTitle ||
+    metadata.season_title ||
+    season.name ||
+    season.title ||
+    ""
+  ).trim();
+}
+
+
+function sbwOrganizerEditorGetTournamentSeasonSlug(tournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const season = sbwOrganizerEditorAsObject(tournament?.season || metadata.season || settings.season);
+  return sbwOrganizerEditorNormalizeSeasonKey(
+    tournament?.seasonSlug ||
+    tournament?.season_slug ||
+    settings.seasonSlug ||
+    settings.season_slug ||
+    metadata.seasonSlug ||
+    metadata.season_slug ||
+    season.slug ||
+    season.key ||
+    sbwOrganizerEditorGetTournamentSeasonLabel(tournament)
+  );
+}
+
+function sbwOrganizerEditorIsTournamentExplicitlyLinkedToSeason(tournament, season) {
+  const seasonKey = sbwOrganizerEditorNormalizeSeasonKey(season?.slug || season?.key || season?.name || season?.title || "");
+  const tournamentSeasonKey = sbwOrganizerEditorGetTournamentSeasonSlug(tournament);
+  return Boolean(seasonKey && tournamentSeasonKey && seasonKey === tournamentSeasonKey);
+}
+
+function sbwOrganizerEditorIsTournamentInsideSeasonPeriod(tournament, season) {
+  const start = sbwOrganizerEditorParseSeasonDate(season?.startDate || season?.start_date);
+  const end = sbwOrganizerEditorParseSeasonDate(season?.endDate || season?.end_date);
+  const tournamentDate = sbwOrganizerEditorGetTournamentDateObject(tournament);
+  if (!start || !end || !tournamentDate) return false;
+  return tournamentDate >= start && tournamentDate <= end;
+}
+
+function sbwOrganizerEditorIsTournamentPointableForOrganizer(tournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const finalData = sbwOrganizerEditorAsObject(settings.finalResults || settings.final_results || metadata.finalResults || metadata.final_results);
+  return Boolean(
+    tournament?.countsForOrganizerRanking ||
+    tournament?.counts_for_organizer_ranking ||
+    tournament?.rankingEnabled ||
+    tournament?.ranking_enabled ||
+    settings.countsForOrganizerRanking ||
+    settings.counts_for_organizer_ranking ||
+    settings.rankingEnabled ||
+    settings.ranking_enabled ||
+    metadata.countsForOrganizerRanking ||
+    metadata.counts_for_organizer_ranking ||
+    metadata.rankingEnabled ||
+    metadata.ranking_enabled ||
+    finalData.rankingApplied ||
+    finalData.ranking_applied
+  );
+}
+
+function sbwOrganizerEditorGetTournamentRawDate(tournament) {
+  return tournament?.startsAt ||
+    tournament?.starts_at ||
+    tournament?.startDate ||
+    tournament?.start_date ||
+    tournament?.date ||
+    tournament?.created_at ||
+    tournament?.createdAt ||
+    "";
+}
+
+function sbwOrganizerEditorGetTournamentDateObject(tournament) {
+  return sbwOrganizerEditorParseSeasonDate(sbwOrganizerEditorGetTournamentRawDate(tournament));
+}
+
+function sbwOrganizerEditorIsTournamentLinkedToSeason(tournament, season) {
+  const seasonName = String(season?.name || season?.title || "").trim();
+  const seasonKey = sbwOrganizerEditorNormalizeSeasonKey(seasonName);
+  const tournamentSeason = sbwOrganizerEditorGetTournamentSeasonLabel(tournament);
+  const tournamentSeasonKey = sbwOrganizerEditorNormalizeSeasonKey(tournamentSeason);
+
+  if (seasonKey && tournamentSeasonKey) {
+    return seasonKey === tournamentSeasonKey;
+  }
+
+  const start = sbwOrganizerEditorParseSeasonDate(season?.startDate || season?.start_date);
+  const end = sbwOrganizerEditorParseSeasonDate(season?.endDate || season?.end_date);
+  const tournamentDate = sbwOrganizerEditorGetTournamentDateObject(tournament);
+
+  if (start && end && tournamentDate) {
+    return tournamentDate >= start && tournamentDate <= end;
+  }
+
+  return false;
+}
+
+function sbwOrganizerEditorGetSeasonLinkedTournaments(season = sbwOrganizerEditorGetCurrentSeason()) {
+  const list = Array.isArray(sbwOrganizerEditorTournamentsCache) ? sbwOrganizerEditorTournamentsCache : [];
+  return list.filter((tournament) => sbwOrganizerEditorIsTournamentLinkedToSeason(tournament, season));
+}
+
+function sbwOrganizerEditorValidateSeasonPayload(seasonPayload) {
+  const errors = [];
+  const startDate = seasonPayload?.startDate || "";
+  const endDate = seasonPayload?.endDate || "";
+  const start = sbwOrganizerEditorParseSeasonDate(startDate);
+  const end = sbwOrganizerEditorParseSeasonDate(endDate);
+
+  if (start && end && start > end) {
+    errors.push("A data final não pode ser anterior à data de início.");
+  }
+
+  const durationDays = sbwOrganizerEditorGetSeasonDurationDays(startDate, endDate);
+  if (durationDays > 366) {
+    errors.push("A temporada não pode passar de 1 ano.");
+  }
+
+  const currentSeason = sbwOrganizerEditorGetCurrentSeason();
+  const currentEnd = sbwOrganizerEditorParseSeasonDate(currentSeason.endDate || currentSeason.end_date);
+  const newEnd = sbwOrganizerEditorParseSeasonDate(endDate);
+
+  if (currentEnd && newEnd && newEnd < currentEnd) {
+    const linkedAfterNewEnd = sbwOrganizerEditorGetSeasonLinkedTournaments(currentSeason).filter((tournament) => {
+      const tournamentDate = sbwOrganizerEditorGetTournamentDateObject(tournament);
+      return tournamentDate && tournamentDate > newEnd;
+    });
+
+    if (linkedAfterNewEnd.length) {
+      const names = linkedAfterNewEnd
+        .slice(0, 3)
+        .map((tournament) => sbwOrganizerEditorGetTournamentTitle(tournament))
+        .join(", ");
+      const suffix = linkedAfterNewEnd.length > 3 ? ` e mais ${linkedAfterNewEnd.length - 3}` : "";
+      errors.push(`Não é possível encurtar a temporada porque há torneios vinculados depois da nova data final: ${names}${suffix}.`);
+    }
+  }
+
+  return errors;
+}
+
+
+function sbwOrganizerEditorGetSeasonTimelineStatus(season) {
+  const start = sbwOrganizerEditorParseSeasonDate(season?.startDate || season?.start_date);
+  const end = sbwOrganizerEditorParseSeasonDate(season?.endDate || season?.end_date);
+  const today = sbwOrganizerEditorParseSeasonDate(new Date().toISOString().slice(0, 10));
+
+  if (!start || !end) {
+    return {
+      label: "Planejada",
+      className: "draft",
+      action: "Defina início e fim para liberar vínculos e pontuação com segurança."
+    };
+  }
+
+  if (start > end) {
+    return {
+      label: "Datas inválidas",
+      className: "danger",
+      action: "Corrija o período antes de salvar a temporada."
+    };
+  }
+
+  if (today && today < start) {
+    return {
+      label: "Programada",
+      className: "scheduled",
+      action: "Vincule torneios elegíveis e revise quais serão pontuáveis antes do início."
+    };
+  }
+
+  if (today && today > end) {
+    return {
+      label: "Encerrada",
+      className: "finished",
+      action: "Revise resultados finalizados e use a auditoria antes de fechar o ranking da temporada."
+    };
+  }
+
+  return {
+    label: "Ativa",
+    className: "active",
+    action: "Acompanhe torneios vinculados, check-ins e pontuação do ranking do organizador."
+  };
+}
+
+function sbwOrganizerEditorRenderSeasonGuard(organizer = sbwOrganizerEditorCurrent) {
+  if (!sbwOrganizerSeasonGuard) return;
+
+  const season = sbwOrganizerEditorGetCurrentSeason(organizer);
+  const name = String(season.name || season.title || "Temporada atual").trim() || "Temporada atual";
+  const startDate = String(season.startDate || season.start_date || "").slice(0, 10);
+  const endDate = String(season.endDate || season.end_date || "").slice(0, 10);
+  const durationDays = sbwOrganizerEditorGetSeasonDurationDays(startDate, endDate);
+  const linked = sbwOrganizerEditorGetSeasonLinkedTournaments(season);
+  const pointable = linked.filter((tournament) => sbwOrganizerEditorIsTournamentPointableForOrganizer(tournament)).length;
+  const timelineStatus = sbwOrganizerEditorGetSeasonTimelineStatus(season);
+  const durationState = durationDays > 366 ? "danger" : timelineStatus.className || (durationDays > 0 ? "ok" : "draft");
+  const durationLabel = durationDays > 0 ? `${durationDays} dia${durationDays === 1 ? "" : "s"}` : "Datas a definir";
+
+  sbwOrganizerSeasonGuard.innerHTML = `
+    <section class="organizer-admin-season-panel organizer-admin-season-panel--${sbwOrganizerEditorEscape(durationState)}">
+      <div class="organizer-admin-season-panel-head">
+        <div>
+          <span class="organizer-admin-eyebrow">Controle da temporada</span>
+          <strong>${sbwOrganizerEditorEscape(name)}</strong>
+          <small>${sbwOrganizerEditorEscape(startDate || "Início a definir")} — ${sbwOrganizerEditorEscape(endDate || "Fim a definir")}</small>
+        </div>
+        <div class="organizer-admin-season-head-badges">
+          <span class="organizer-admin-season-status organizer-admin-season-status--${sbwOrganizerEditorEscape(timelineStatus.className)}">${sbwOrganizerEditorEscape(timelineStatus.label)}</span>
+          <span class="organizer-admin-season-duration">${sbwOrganizerEditorEscape(durationLabel)}</span>
+        </div>
+      </div>
+      <div class="organizer-admin-season-next-action">
+        <strong>Próxima ação</strong>
+        <span>${sbwOrganizerEditorEscape(timelineStatus.action)}</span>
+      </div>
+      <div class="organizer-admin-season-metrics">
+        <span><strong>${sbwOrganizerEditorEscape(linked.length)}</strong> torneio${linked.length === 1 ? "" : "s"} vinculado${linked.length === 1 ? "" : "s"}</span>
+        <span><strong>${sbwOrganizerEditorEscape(pointable)}</strong> pontuável${pointable === 1 ? "" : "eis"}</span>
+        <span><strong>1 ano</strong> limite máximo</span>
+      </div>
+      ${linked.length ? `
+        <div class="organizer-admin-season-linked-list">
+          ${linked.slice(0, 5).map((tournament) => `
+            <article>
+              <strong>${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentTitle(tournament))}</strong>
+              <small>${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentGame(tournament))} · ${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentDate(tournament))}</small>
+            </article>
+          `).join("")}
+          ${linked.length > 5 ? `<p>+ ${sbwOrganizerEditorEscape(linked.length - 5)} torneio${linked.length - 5 === 1 ? "" : "s"} vinculado${linked.length - 5 === 1 ? "" : "s"}</p>` : ""}
+        </div>
+      ` : `
+        <div class="organizer-admin-season-empty-note">
+          Nenhum torneio vinculado a esta temporada ainda. Torneios com o mesmo nome de temporada ou dentro do período aparecerão aqui.
+        </div>
+      `}
+    </section>
+  `;
+}
+
+
+function sbwOrganizerEditorGetSeasonCandidateTournaments(season = sbwOrganizerEditorGetCurrentSeason()) {
+  const list = Array.isArray(sbwOrganizerEditorTournamentsCache) ? sbwOrganizerEditorTournamentsCache : [];
+  return list.slice().sort((a, b) => {
+    const aDate = sbwOrganizerEditorGetTournamentDateObject(a)?.getTime() || 0;
+    const bDate = sbwOrganizerEditorGetTournamentDateObject(b)?.getTime() || 0;
+    return bDate - aDate;
+  });
+}
+
+function sbwOrganizerEditorGetTournamentSeasonStatus(tournament, season) {
+  const explicitLinked = sbwOrganizerEditorIsTournamentExplicitlyLinkedToSeason(tournament, season);
+  const legacyLinked = sbwOrganizerEditorIsTournamentLinkedToSeason(tournament, season);
+  const insidePeriod = sbwOrganizerEditorIsTournamentInsideSeasonPeriod(tournament, season);
+  const pointable = sbwOrganizerEditorIsTournamentPointableForOrganizer(tournament);
+  const tournamentDate = sbwOrganizerEditorGetTournamentDateObject(tournament);
+  const hasSeason = Boolean(season?.name || season?.title || season?.slug);
+
+  return {
+    hasSeason,
+    explicitLinked,
+    legacyLinked,
+    insidePeriod,
+    linked: explicitLinked || legacyLinked,
+    pointable,
+    dateLabel: tournamentDate ? sbwOrganizerEditorGetTournamentDate(tournament) : "Data a definir"
+  };
+}
+
+
+function sbwOrganizerEditorGetSeasonAuditEntries(organizer = sbwOrganizerEditorCurrent) {
+  const metadata = sbwOrganizerEditorAsObject(organizer?.metadata);
+  const season = sbwOrganizerEditorGetCurrentSeason(organizer);
+  const seasonKey = sbwOrganizerEditorNormalizeSeasonKey(season.slug || season.key || season.name || season.title || "");
+  const rawEntries = [
+    metadata.seasonAuditLog,
+    metadata.season_audit_log,
+    sbwOrganizerEditorAsObject(metadata.seasons).auditLog,
+    sbwOrganizerEditorAsObject(metadata.seasons).audit_log
+  ].find((value) => Array.isArray(value)) || [];
+
+  const explicitEntries = rawEntries.slice(-5).map((entry) => ({
+    type: entry?.type || entry?.action || "Atualização",
+    title: entry?.title || entry?.label || "Temporada atualizada",
+    detail: entry?.detail || entry?.description || entry?.message || "Alteração registrada na temporada.",
+    date: entry?.date || entry?.createdAt || entry?.created_at || entry?.updatedAt || entry?.updated_at || ""
+  }));
+
+  const tournamentEntries = (Array.isArray(sbwOrganizerEditorTournamentsCache) ? sbwOrganizerEditorTournamentsCache : [])
+    .filter((tournament) => {
+      const state = sbwOrganizerEditorGetTournamentSeasonStatus(tournament, season);
+      if (!state.linked && !state.pointable) return false;
+      if (!seasonKey) return state.linked || state.pointable;
+      const tournamentSeasonKey = sbwOrganizerEditorGetTournamentSeasonSlug(tournament);
+      return !tournamentSeasonKey || tournamentSeasonKey === seasonKey || state.linked;
+    })
+    .map((tournament) => {
+      const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+      const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+      const state = sbwOrganizerEditorGetTournamentSeasonStatus(tournament, season);
+      const title = sbwOrganizerEditorGetTournamentTitle(tournament);
+      const updatedAt = metadata.seasonUpdatedAt || metadata.season_updated_at || settings.seasonUpdatedAt || settings.season_updated_at || tournament?.updatedAt || tournament?.updated_at || "";
+      return {
+        type: state.pointable ? "Pontuação" : "Vínculo",
+        title: state.pointable ? `Pontuação ativa — ${title}` : `Torneio vinculado — ${title}`,
+        detail: state.pointable
+          ? "Este torneio conta para o ranking do organizador nesta temporada."
+          : "Este torneio está vinculado à temporada, mas ainda não pontua.",
+        date: updatedAt
+      };
+    });
+
+  const entries = explicitEntries.concat(tournamentEntries).sort((first, second) => {
+    const firstTime = first.date ? new Date(first.date).getTime() : 0;
+    const secondTime = second.date ? new Date(second.date).getTime() : 0;
+    return secondTime - firstTime;
+  });
+
+  return entries.slice(0, 6);
+}
+
+function sbwOrganizerEditorFormatAuditDate(value) {
+  if (!value) return "Data não registrada";
+  if (typeof sbwFormatDate === "function") return sbwFormatDate(value);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10) || "Data não registrada";
+  return date.toLocaleDateString("pt-BR");
+}
+
+function sbwOrganizerEditorRenderSeasonAudit(organizer = sbwOrganizerEditorCurrent) {
+  if (!sbwOrganizerSeasonAudit) return;
+  const entries = sbwOrganizerEditorGetSeasonAuditEntries(organizer);
+
+  sbwOrganizerSeasonAudit.innerHTML = `
+    <section class="organizer-admin-season-audit-panel">
+      <div class="organizer-admin-season-audit-head">
+        <div>
+          <span class="organizer-admin-eyebrow">Auditoria da temporada</span>
+          <strong>Alterações recentes</strong>
+          <p>Resumo visual dos vínculos e torneios pontuáveis da temporada atual.</p>
+        </div>
+        <span>${sbwOrganizerEditorEscape(entries.length)} registro${entries.length === 1 ? "" : "s"}</span>
+      </div>
+      ${entries.length ? `
+        <div class="organizer-admin-season-audit-list">
+          ${entries.map((entry) => `
+            <article class="organizer-admin-season-audit-item">
+              <span>${sbwOrganizerEditorEscape(entry.type)}</span>
+              <strong>${sbwOrganizerEditorEscape(entry.title)}</strong>
+              <small>${sbwOrganizerEditorEscape(entry.detail)} · ${sbwOrganizerEditorEscape(sbwOrganizerEditorFormatAuditDate(entry.date))}</small>
+            </article>
+          `).join("")}
+        </div>
+      ` : `
+        <div class="organizer-admin-season-empty-note">
+          Nenhuma alteração recente registrada. Quando torneios forem vinculados ou marcados como pontuáveis, o resumo aparecerá aqui.
+        </div>
+      `}
+    </section>
+  `;
+}
+
+function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganizerEditorCurrent) {
+  if (!sbwOrganizerSeasonTournamentsManager) return;
+  const season = sbwOrganizerEditorGetCurrentSeason(organizer);
+  const seasonName = String(season.name || season.title || "").trim();
+  const seasonKey = sbwOrganizerEditorNormalizeSeasonKey(season.slug || season.key || seasonName);
+  const startDate = String(season.startDate || season.start_date || "").slice(0, 10);
+  const endDate = String(season.endDate || season.end_date || "").slice(0, 10);
+  const candidates = sbwOrganizerEditorGetSeasonCandidateTournaments(season);
+
+  if (!seasonName || !startDate || !endDate) {
+    sbwOrganizerSeasonTournamentsManager.innerHTML = `
+      <section class="organizer-admin-season-tournaments-panel">
+        <div class="organizer-admin-season-tournaments-head">
+          <div>
+            <span class="organizer-admin-eyebrow">Torneios da temporada</span>
+            <strong>Crie uma temporada para vincular torneios</strong>
+            <p>Defina nome, início e fim da temporada antes de escolher quais torneios contam para o ranking do organizador.</p>
+          </div>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const decoratedCandidates = candidates.map((tournament) => {
+    const state = sbwOrganizerEditorGetTournamentSeasonStatus(tournament, season);
+    const title = sbwOrganizerEditorGetTournamentTitle(tournament);
+    const game = sbwOrganizerEditorGetTournamentGame(tournament);
+    const searchableText = `${title} ${game} ${state.dateLabel}`.toLowerCase();
+    return { tournament, state, title, game, searchableText };
+  });
+
+  const linkedCount = decoratedCandidates.filter((item) => item.state.linked).length;
+  const pointableCount = decoratedCandidates.filter((item) => item.state.pointable).length;
+  const eligibleCount = decoratedCandidates.filter((item) => item.state.insidePeriod && !item.state.linked).length;
+  const outsideLinkedCount = decoratedCandidates.filter((item) => item.state.linked && !item.state.insidePeriod).length;
+  const outsideCount = decoratedCandidates.filter((item) => !item.state.insidePeriod).length;
+  const search = String(sbwOrganizerSeasonTournamentSearch || "").trim().toLowerCase();
+
+  const searchedCandidates = decoratedCandidates.filter((item) => !search || item.searchableText.includes(search));
+  const visibleCandidates = searchedCandidates.filter((item) => {
+    if (sbwOrganizerSeasonTournamentFilter === "linked") return item.state.linked;
+    if (sbwOrganizerSeasonTournamentFilter === "pointable") return item.state.pointable;
+    if (sbwOrganizerSeasonTournamentFilter === "eligible") return item.state.insidePeriod && !item.state.linked;
+    if (sbwOrganizerSeasonTournamentFilter === "outside") return !item.state.insidePeriod;
+    return true;
+  });
+
+  const filterButtons = [
+    ["all", "Todos", candidates.length],
+    ["linked", "Vinculados", linkedCount],
+    ["pointable", "Pontuáveis", pointableCount],
+    ["eligible", "Aptos", eligibleCount],
+    ["outside", "Fora do período", outsideCount]
+  ];
+
+  sbwOrganizerSeasonTournamentsManager.innerHTML = `
+    <section class="organizer-admin-season-tournaments-panel" data-season-key="${sbwOrganizerEditorEscape(seasonKey)}">
+      <div class="organizer-admin-season-tournaments-head">
+        <div>
+          <span class="organizer-admin-eyebrow">Torneios da temporada</span>
+          <strong>Vínculo e pontuação</strong>
+          <p>Escolha quais torneios entram na temporada e quais contam para o ranking do organizador.</p>
+        </div>
+        <div class="organizer-admin-season-tournaments-summary">
+          <span><strong>${sbwOrganizerEditorEscape(linkedCount)}</strong> vinculados</span>
+          <span><strong>${sbwOrganizerEditorEscape(pointableCount)}</strong> pontuáveis</span>
+          ${outsideLinkedCount ? `<span class="is-warning"><strong>${sbwOrganizerEditorEscape(outsideLinkedCount)}</strong> fora do período</span>` : ""}
+        </div>
+      </div>
+      ${candidates.length ? `
+        <div class="organizer-admin-season-toolbar">
+          <label class="organizer-admin-season-search">
+            <span>Buscar torneio</span>
+            <input type="search" data-season-search placeholder="Nome, jogo ou data" value="${sbwOrganizerEditorEscape(sbwOrganizerSeasonTournamentSearch)}">
+          </label>
+          <div class="organizer-admin-season-filter-list" aria-label="Filtrar torneios da temporada">
+            ${filterButtons.map(([key, label, count]) => `
+              <button type="button" data-season-filter="${sbwOrganizerEditorEscape(key)}" class="${sbwOrganizerSeasonTournamentFilter === key ? "is-active" : ""}">
+                ${sbwOrganizerEditorEscape(label)} <strong>${sbwOrganizerEditorEscape(count)}</strong>
+              </button>
+            `).join("")}
+          </div>
+          <small>${sbwOrganizerEditorEscape(visibleCandidates.length)} de ${sbwOrganizerEditorEscape(candidates.length)} torneio${candidates.length === 1 ? "" : "s"} exibido${visibleCandidates.length === 1 ? "" : "s"}</small>
+        </div>
+        ${visibleCandidates.length ? `
+          <div class="organizer-admin-season-tournament-list">
+            ${visibleCandidates.map(({ tournament, state, title, game }) => {
+              const key = sbwOrganizerEditorGetTournamentKey(tournament);
+              const canLink = state.insidePeriod || state.explicitLinked;
+              const statusLabel = state.explicitLinked
+                ? "Vinculado"
+                : state.legacyLinked
+                  ? "Elegível por período"
+                  : state.insidePeriod
+                    ? "Dentro do período"
+                    : "Fora do período";
+              const statusClass = state.explicitLinked || state.legacyLinked
+                ? "is-linked"
+                : state.insidePeriod
+                  ? "is-eligible"
+                  : "is-outside";
+              return `
+                <article class="organizer-admin-season-tournament-item ${statusClass}">
+                  <div class="organizer-admin-season-tournament-main">
+                    <span class="organizer-admin-season-tournament-status">${sbwOrganizerEditorEscape(statusLabel)}</span>
+                    <strong>${sbwOrganizerEditorEscape(title)}</strong>
+                    <small>${sbwOrganizerEditorEscape(game)} · ${sbwOrganizerEditorEscape(state.dateLabel)}</small>
+                  </div>
+                  <div class="organizer-admin-season-tournament-flags">
+                    <span class="${state.pointable ? "is-on" : ""}">${state.pointable ? "Pontuável" : "Não pontua"}</span>
+                    ${!state.insidePeriod ? `<span class="is-warning">fora do período</span>` : ""}
+                  </div>
+                  <div class="organizer-admin-season-tournament-actions">
+                    ${state.explicitLinked ? `
+                      <button type="button" class="organizer-admin-small-link organizer-admin-small-link--button" data-season-unlink-tournament="${sbwOrganizerEditorEscape(key)}">Desvincular</button>
+                    ` : `
+                      <button type="button" class="organizer-admin-small-link organizer-admin-small-link--button" data-season-link-tournament="${sbwOrganizerEditorEscape(key)}" ${canLink ? "" : "disabled"}>Vincular</button>
+                    `}
+                    <button type="button" class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--primary" data-season-toggle-ranking="${sbwOrganizerEditorEscape(key)}" ${state.linked && state.insidePeriod ? "" : "disabled"}>
+                      ${state.pointable ? "Remover pontuação" : "Marcar pontuável"}
+                    </button>
+                  </div>
+                </article>
+              `;
+            }).join("")}
+          </div>
+        ` : `
+          <div class="organizer-admin-season-empty-note">Nenhum torneio encontrado com o filtro atual.</div>
+        `}
+      ` : `
+        <div class="organizer-admin-season-empty-note">Nenhum torneio carregado para este organizador.</div>
+      `}
+    </section>
+  `;
+}
+
+async function sbwOrganizerEditorUpdateTournamentSeason(tournamentKey, options = {}) {
+  const tournament = sbwOrganizerEditorTournamentsCache.find((item) => sbwOrganizerEditorGetTournamentKey(item) === tournamentKey);
+  if (!tournament) throw new Error("Torneio não encontrado na lista carregada.");
+  if (typeof sbwUpdateTournamentForOrganizerAsync !== "function") {
+    throw new Error("Função de edição do torneio não carregada.");
+  }
+
+  const season = sbwOrganizerEditorGetCurrentSeason();
+  const seasonName = String(season.name || season.title || "Temporada atual").trim() || "Temporada atual";
+  const seasonSlug = sbwOrganizerEditorNormalizeSeasonKey(season.slug || season.key || seasonName);
+  const link = options.link !== false;
+  const pointable = Boolean(options.pointable);
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const seasonPayload = link ? {
+    name: seasonName,
+    title: seasonName,
+    slug: seasonSlug,
+    startDate: season.startDate || season.start_date || "",
+    endDate: season.endDate || season.end_date || "",
+    linkedAt: new Date().toISOString()
+  } : null;
+
+  const payload = {
+    seasonName: link ? seasonName : "",
+    season_name: link ? seasonName : "",
+    seasonSlug: link ? seasonSlug : "",
+    season_slug: link ? seasonSlug : "",
+    countsForOrganizerRanking: link && pointable,
+    counts_for_organizer_ranking: link && pointable,
+    rankingEnabled: link && pointable,
+    ranking_enabled: link && pointable,
+    metadata: {
+      ...metadata,
+      season: seasonPayload,
+      seasonName: link ? seasonName : "",
+      seasonSlug: link ? seasonSlug : "",
+      countsForOrganizerRanking: link && pointable,
+      rankingEnabled: link && pointable,
+      seasonUpdatedAt: new Date().toISOString()
+    },
+    settings: {
+      ...settings,
+      season: seasonPayload,
+      seasonName: link ? seasonName : "",
+      seasonSlug: link ? seasonSlug : "",
+      countsForOrganizerRanking: link && pointable,
+      rankingEnabled: link && pointable
+    }
+  };
+
+  const result = await sbwUpdateTournamentForOrganizerAsync({
+    organizer: sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorCurrent?.id || sbwOrganizerEditorSlug,
+    tournamentId: tournamentKey,
+    payload
+  });
+
+  return result?.tournament || result?.data || result?.row || result || tournament;
+}
+
+function sbwOrganizerEditorBindSeasonTournamentActions() {
+  if (!sbwOrganizerSeasonTournamentsManager || sbwOrganizerSeasonTournamentsManager.dataset.bound === "true") return;
+  sbwOrganizerSeasonTournamentsManager.dataset.bound = "true";
+  sbwOrganizerSeasonTournamentsManager.addEventListener("click", async (event) => {
+    const filterButton = event.target.closest("[data-season-filter]");
+    if (filterButton) {
+      sbwOrganizerSeasonTournamentFilter = filterButton.dataset.seasonFilter || "all";
+      sbwOrganizerEditorRenderSeasonTournamentsManager(sbwOrganizerEditorCurrent);
+      return;
+    }
+
+    const button = event.target.closest("[data-season-link-tournament], [data-season-unlink-tournament], [data-season-toggle-ranking]");
+    if (!button) return;
+    const key = button.dataset.seasonLinkTournament || button.dataset.seasonUnlinkTournament || button.dataset.seasonToggleRanking || "";
+    if (!key) return;
+    const tournament = sbwOrganizerEditorTournamentsCache.find((item) => sbwOrganizerEditorGetTournamentKey(item) === key);
+    if (!tournament) {
+      sbwOrganizerEditorSetSeasonMessage("Torneio não encontrado na lista carregada.", "error");
+      return;
+    }
+
+    const state = sbwOrganizerEditorGetTournamentSeasonStatus(tournament, sbwOrganizerEditorGetCurrentSeason());
+    const isUnlink = Boolean(button.dataset.seasonUnlinkTournament);
+    const isToggleRanking = Boolean(button.dataset.seasonToggleRanking);
+    const nextPointable = isToggleRanking ? !state.pointable : state.pointable;
+    const shouldLink = isUnlink ? false : true;
+
+    if (isUnlink && state.pointable && !window.confirm("Este torneio está pontuando para a temporada. Deseja desvincular e remover a pontuação do ranking do organizador?")) {
+      return;
+    }
+
+    try {
+      button.disabled = true;
+      sbwOrganizerEditorSetSeasonMessage("Atualizando vínculo do torneio...", "loading");
+      await sbwOrganizerEditorUpdateTournamentSeason(key, {
+        link: shouldLink,
+        pointable: shouldLink && nextPointable
+      });
+      await sbwOrganizerEditorLoadTournaments();
+      sbwOrganizerEditorSetSeasonMessage("Torneio atualizado na temporada.", "success");
+    } catch (error) {
+      console.error("[SBW Organizadores] Erro ao atualizar torneio da temporada:", error);
+      sbwOrganizerEditorSetSeasonMessage(error?.message || "Não foi possível atualizar o torneio na temporada.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  sbwOrganizerSeasonTournamentsManager.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-season-search]");
+    if (!input) return;
+    sbwOrganizerSeasonTournamentSearch = input.value || "";
+    window.clearTimeout(sbwOrganizerSeasonTournamentsManager._sbwSearchTimer);
+    sbwOrganizerSeasonTournamentsManager._sbwSearchTimer = window.setTimeout(() => {
+      sbwOrganizerEditorRenderSeasonTournamentsManager(sbwOrganizerEditorCurrent);
+    }, 120);
+  });
 }
 
 function sbwOrganizerEditorBindSeasonForm() {
@@ -2033,8 +2702,15 @@ function sbwOrganizerEditorBindSeasonForm() {
     const startDate = sbwOrganizerSeasonStart?.value || "";
     const endDate = sbwOrganizerSeasonEnd?.value || "";
 
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-      sbwOrganizerEditorSetSeasonMessage("A data final não pode ser anterior à data de início.", "error");
+    const seasonPayloadPreview = {
+      name: sbwOrganizerSeasonName?.value || "Temporada atual",
+      startDate,
+      endDate
+    };
+    const validationErrors = sbwOrganizerEditorValidateSeasonPayload(seasonPayloadPreview);
+
+    if (validationErrors.length) {
+      sbwOrganizerEditorSetSeasonMessage(validationErrors[0], "error");
       return;
     }
 
@@ -2046,9 +2722,11 @@ function sbwOrganizerEditorBindSeasonForm() {
     try {
       sbwOrganizerEditorSetSeasonMessage("Salvando temporada...", "loading");
       const seasonPayload = {
-        name: sbwOrganizerSeasonName?.value || "Temporada atual",
-        startDate,
-        endDate,
+        ...seasonPayloadPreview,
+        slug: sbwOrganizerEditorNormalizeSeasonKey(seasonPayloadPreview.name || "temporada-atual"),
+        status: "active",
+        maxDurationDays: 366,
+        linkedTournamentsCount: sbwOrganizerEditorGetSeasonLinkedTournaments(sbwOrganizerEditorGetCurrentSeason()).length,
         updatedAt: new Date().toISOString()
       };
       const currentMetadata = sbwOrganizerEditorAsObject(sbwOrganizerEditorCurrent?.metadata);
@@ -2498,6 +3176,7 @@ async function sbwOrganizerEditorLoad() {
     sbwOrganizerEditorBindReset();
     sbwOrganizerEditorBindStaff();
     sbwOrganizerEditorBindSeasonForm();
+  sbwOrganizerEditorBindSeasonTournamentActions();
     sbwOrganizerEditorRenderPreview();
     sbwOrganizerEditorHydrateSeasonForm(sbwOrganizerEditorCurrent);
     sbwOrganizerEditorRenderRankings();
@@ -2570,6 +3249,7 @@ async function sbwOrganizerEditorLoad() {
   sbwOrganizerEditorBindReset();
   sbwOrganizerEditorBindStaff();
   sbwOrganizerEditorBindSeasonForm();
+  sbwOrganizerEditorBindSeasonTournamentActions();
   sbwOrganizerEditorRenderPreview();
   sbwOrganizerEditorHydrateSeasonForm(sbwOrganizerEditorCurrent);
   sbwOrganizerEditorRenderRankings();

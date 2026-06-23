@@ -9,7 +9,8 @@
     selectedOrganizer: "all",
     selectedTournament: "",
     search: "",
-    isLoading: false
+    isLoading: false,
+    initialParams: new URLSearchParams(window.location.search)
   };
 
   function escapeHtml(value) {
@@ -37,6 +38,34 @@
 
   function normalizeKey(value) {
     return normalizeText(value).replace(/\s+/g, "-");
+  }
+
+  function getInitialParam(names) {
+    const keys = Array.isArray(names) ? names : [names];
+
+    for (const key of keys) {
+      const value = state.initialParams.get(key);
+      if (value && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+
+    return "";
+  }
+
+  function valuesMatch(value, candidate) {
+    if (!value || !candidate) return false;
+    return String(value) === String(candidate) || normalizeKey(value) === normalizeKey(candidate);
+  }
+
+  function findOptionValueByParam(options, param) {
+    if (!param) return "";
+
+    const found = asArray(options).find(function (option) {
+      return valuesMatch(option.value, param) || valuesMatch(option.label, param);
+    });
+
+    return found?.value || param;
   }
 
   function wait(ms) {
@@ -414,21 +443,66 @@
     if (!select) return;
 
     const current = selectedValue || select.value || "";
+    const safeValues = asArray(values);
+    const hasCurrent = safeValues.some(function (value) {
+      return String(value.value) === String(current);
+    });
+    const customCurrentOption = current && !hasCurrent
+      ? `<option value="${escapeHtml(current)}">${escapeHtml(current)} · filtro ativo</option>`
+      : "";
 
     select.innerHTML = `
       <option value="">${escapeHtml(placeholder)}</option>
-      ${asArray(values).map(function (value) {
+      ${customCurrentOption}
+      ${safeValues.map(function (value) {
         return `<option value="${escapeHtml(value.value)}">${escapeHtml(value.label)}</option>`;
       }).join("")}
     `;
 
-    select.value = asArray(values).some(function (value) { return value.value === current; }) ? current : "";
+    select.value = current && (hasCurrent || customCurrentOption) ? current : "";
   }
 
   function getOrganizerOptions() {
-    return asArray(state.snapshot?.options?.organizers).map(function (organizer) {
-      return { value: organizer, label: organizer };
+    const map = new Map();
+
+    asArray(state.snapshot?.records).forEach(function (record) {
+      const label = record.organizerName || record.organizerSlug || record.organizerId || "Organizador";
+      const primaryValue = record.organizerSlug || record.organizerName || record.organizerId || "";
+
+      if (primaryValue && !map.has(primaryValue)) {
+        map.set(primaryValue, { value: primaryValue, label });
+      }
+
+      if (record.organizerName && !map.has(record.organizerName)) {
+        map.set(record.organizerName, { value: record.organizerName, label: record.organizerName });
+      }
     });
+
+    asArray(state.snapshot?.options?.organizers).forEach(function (organizer) {
+      if (!map.has(organizer)) {
+        map.set(organizer, { value: organizer, label: organizer });
+      }
+    });
+
+    return Array.from(map.values()).sort(function (a, b) {
+      return String(a.label).localeCompare(String(b.label), "pt-BR");
+    });
+  }
+
+  function getOrganizerDisplayLabel(value) {
+    if (!value) return "Organizador";
+
+    const option = getOrganizerOptions().find(function (candidate) {
+      return String(candidate.value) === String(value);
+    });
+
+    if (option?.label) return option.label;
+
+    const record = asArray(state.snapshot?.records).find(function (item) {
+      return valuesMatch(item.organizerSlug, value) || valuesMatch(item.organizerName, value) || valuesMatch(item.organizerId, value);
+    });
+
+    return record?.organizerName || value;
   }
 
   function getTournamentOptions() {
@@ -481,6 +555,130 @@
     });
   }
 
+
+
+  function buildOrganizerTournamentAuditRows(snapshot) {
+    const map = new Map();
+
+    asArray(snapshot?.records).forEach(function (record) {
+      const key = record.tournamentSlug || record.tournamentId || record.tournamentName;
+      if (!key) return;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          tournamentSlug: record.tournamentSlug || record.tournamentId || record.tournamentName || "",
+          tournamentName: record.tournamentName || "Torneio",
+          gameName: record.gameName || "Jogo não informado",
+          completedAt: record.completedAt || "",
+          circuitName: record.circuitName || "",
+          season: record.season || "",
+          totalPlayerPoints: 0,
+          totalTeamPoints: 0,
+          entries: 0,
+          teams: new Set(),
+          champion: ""
+        });
+      }
+
+      const row = map.get(key);
+      row.entries += 1;
+      row.totalPlayerPoints += Number(record.playerPoints || 0);
+      row.totalTeamPoints += Number(record.teamPoints || 0);
+      if (record.teamName) row.teams.add(record.teamName);
+      if (Number(record.placement || 0) === 1 && !row.champion) {
+        row.champion = record.name || record.nickname || "Campeão";
+      }
+    });
+
+    return Array.from(map.values()).map(function (row) {
+      return {
+        ...row,
+        teams: Array.from(row.teams)
+      };
+    }).sort(function (a, b) {
+      return String(b.completedAt || "").localeCompare(String(a.completedAt || ""));
+    });
+  }
+
+  function renderOrganizerTournamentAudit(snapshot) {
+    const rows = buildOrganizerTournamentAuditRows(snapshot).slice(0, 8);
+
+    if (!rows.length) {
+      return `
+        <section class="sbw-organizer-rank-audit">
+          <div class="sbw-organizer-rank-audit__head">
+            <div>
+              <span>Base do ranking</span>
+              <h4>Torneios pontuáveis</h4>
+            </div>
+          </div>
+          <div class="sbw-ranking-empty">Nenhum torneio pontuável encontrado para este organizador.</div>
+        </section>
+      `;
+    }
+
+    return `
+      <section class="sbw-organizer-rank-audit">
+        <div class="sbw-organizer-rank-audit__head">
+          <div>
+            <span>Base do ranking</span>
+            <h4>Torneios pontuáveis recentes</h4>
+          </div>
+          <small>${escapeHtml(rows.length)} exibido${rows.length === 1 ? "" : "s"}</small>
+        </div>
+
+        <div class="sbw-organizer-rank-audit__list">
+          ${rows.map(function (row) {
+            const url = getTournamentUrl(row.tournamentSlug || row.key);
+            const pointsLabel = `${Number(row.totalPlayerPoints || 0)} pts jogadores • ${Number(row.totalTeamPoints || 0)} pts equipes`;
+            return `
+              <article class="sbw-organizer-rank-audit__row">
+                <div>
+                  <strong>${escapeHtml(row.tournamentName)}</strong>
+                  <span>${escapeHtml([row.gameName, formatDate(row.completedAt), row.season ? "Temporada " + row.season : ""].filter(Boolean).join(" • "))}</span>
+                  ${row.champion ? `<em>Campeão: ${escapeHtml(row.champion)}</em>` : ""}
+                </div>
+                <div class="sbw-organizer-rank-audit__meta">
+                  <span>${escapeHtml(pointsLabel)}</span>
+                  <small>${escapeHtml(row.entries)} resultado${row.entries === 1 ? "" : "s"}</small>
+                  <a href="${escapeHtml(url)}">Ver torneio</a>
+                </div>
+              </article>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderOrganizerScoringSummary(snapshot) {
+    const scoring = snapshot?.scoring || {};
+    const playerTiers = asArray(scoring.playerTiers).slice(0, 7);
+    const teamPoints = scoring.teamPoints || {};
+    const teamRows = Object.keys(teamPoints).slice(0, 8).map(function (placement) {
+      return `${placement}º ${teamPoints[placement]} pts`;
+    });
+
+    return `
+      <section class="sbw-organizer-rank-rules">
+        <article>
+          <span>Jogadores</span>
+          <strong>${escapeHtml(scoring.playerPreset || "Pontuação por colocação")}</strong>
+          <p>${escapeHtml(playerTiers.map(function (tier) {
+            return `${tier.label}: ${tier.points} pts`;
+          }).join(" • ") || "A pontuação será exibida quando houver regra carregada.")}</p>
+        </article>
+        <article>
+          <span>Equipes</span>
+          <strong>${escapeHtml(scoring.teamPreset || "Pontuação por equipe")}</strong>
+          <p>${escapeHtml(teamRows.join(" • ") || "Ranking de equipes será exibido quando houver pontuação.")}</p>
+          <small>${escapeHtml(scoring.teamRule || "Somente o melhor colocado da equipe conta por torneio.")}</small>
+        </article>
+      </section>
+    `;
+  }
+
   async function updateOrganizerBlock() {
     const root = document.querySelector("[data-ranking-organizer-body]");
 
@@ -505,7 +703,7 @@
         <div class="sbw-organizer-rank-header">
           <div>
             <span>Organizador selecionado</span>
-            <h3>${escapeHtml(state.selectedOrganizer)}</h3>
+            <h3>${escapeHtml(getOrganizerDisplayLabel(state.selectedOrganizer))}</h3>
             <p>${escapeHtml(summary.completedTournaments || 0)} torneios pontuando neste recorte.</p>
           </div>
           <div class="sbw-organizer-rank-badge">Ranking do organizador</div>
@@ -530,6 +728,9 @@
             })}
           </section>
         </div>
+
+        ${renderOrganizerTournamentAudit(snapshot)}
+        ${renderOrganizerScoringSummary(snapshot)}
       `;
     } catch (error) {
       console.error("[SBW Rankings] Erro ao atualizar ranking do organizador:", error);
@@ -836,19 +1037,30 @@
   }
 
   function chooseDefaultOrganizer() {
-    const organizers = asArray(state.snapshot?.options?.organizers);
+    const options = getOrganizerOptions();
+    const organizerParam = getInitialParam(["organizer", "organizador", "organizerSlug", "organizer_slug"]);
 
-    if (!organizers.length) return "";
+    if (organizerParam) {
+      return findOptionValueByParam(options, organizerParam);
+    }
 
-    const preferred = organizers.find(function (organizer) {
-      return normalizeText(organizer).includes("sbw") || normalizeText(organizer).includes("saberwolf");
+    if (!options.length) return "";
+
+    const preferred = options.find(function (organizer) {
+      return normalizeText(organizer.label).includes("sbw") || normalizeText(organizer.label).includes("saberwolf");
     });
 
-    return preferred || organizers[0] || "";
+    return preferred?.value || options[0]?.value || "";
   }
 
   function chooseDefaultTournament() {
     const tournaments = getTournamentOptions();
+    const tournamentParam = getInitialParam(["tournament", "torneio", "event", "evento"]);
+
+    if (tournamentParam) {
+      return findOptionValueByParam(tournaments, tournamentParam);
+    }
+
     return tournaments[0]?.value || "";
   }
 
@@ -886,6 +1098,12 @@
 
       state.selectedOrganizer = chooseDefaultOrganizer();
       state.selectedTournament = chooseDefaultTournament();
+      state.search = getInitialParam(["search", "busca", "q"]);
+
+      const searchInput = document.querySelector("[data-ranking-search]");
+      if (searchInput && state.search) {
+        searchInput.value = state.search;
+      }
 
       renderMetricCards();
       renderGlobalBlocks();

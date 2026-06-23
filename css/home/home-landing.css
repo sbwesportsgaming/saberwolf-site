@@ -32,7 +32,7 @@ body.sbw-home-page {
   min-height: 720px;
   display: flex;
   align-items: center;
-  padding: 72px clamp(22px, 5vw, 78px);
+  padding: 72px clamp(22px, 6vw, 78px);
   overflow: hidden;
   isolation: isolate;
   border-bottom: 1px solid rgba(76, 202, 255, 0.12);
@@ -143,7 +143,6 @@ body.sbw-home-page {
 
 .sbw-home-hero h1 strong {
   display: block;
-  width: fit-content;
   padding-bottom: 6px;
   color: transparent;
   background: linear-gradient(180deg, #6ee5ff 0%, #00aaff 58%, #1267ff 100%);
@@ -222,7 +221,7 @@ body.sbw-home-page {
 }
 
 .sbw-section {
-  padding: 74px clamp(22px, 5vw, 78px);
+  padding: 74px clamp(22px, 6vw, 78px);
 }
 
 .sbw-section-heading {

@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
   <link rel="stylesheet" href="../css/torneios.css" />
-  <link rel="stylesheet" href="../css/tournaments/tournament-organizer-admin.css" />
+  <link rel="stylesheet" href="../css/tournaments/tournament-organizer-admin.css?v=1.6.69.5" />
   <link rel="stylesheet" href="../css/core/sbw-page-state.css" />
   <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
   <link
@@ -309,10 +309,13 @@
         </article>
 
         <article id="organizerEditorSeasons" class="organizer-admin-card organizer-admin-card--full" data-organizer-admin-panel="seasons" hidden>
-          <div class="organizer-admin-card-head">
+          <div class="organizer-admin-card-head organizer-admin-card-head--season">
             <div>
               <span class="organizer-admin-eyebrow">Temporadas</span>
               <h2>Temporada atual</h2>
+              <p class="organizer-admin-card-subtitle">
+                Defina a temporada ativa do organizador. A plataforma -SBW- limita temporadas a até 1 ano e protege torneios já vinculados.
+              </p>
             </div>
           </div>
           <form id="organizerSeasonForm" class="organizer-admin-season-form">
@@ -334,6 +337,9 @@
             </button>
           </form>
           <div id="organizerSeasonMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+          <div id="organizerSeasonGuard" class="organizer-admin-season-guard" aria-live="polite"></div>
+          <div id="organizerSeasonTournamentsManager" class="organizer-admin-season-tournaments" aria-live="polite"></div>
+          <div id="organizerSeasonAudit" class="organizer-admin-season-audit" aria-live="polite"></div>
         </article>
 
         <article class="organizer-admin-quick-card" data-organizer-admin-panel="overview">
@@ -692,7 +698,7 @@
   <script src="../js/tournaments/tournaments-utils.js"></script>
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournaments-storage.js"></script>
-  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.64"></script>
+  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.69.5"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>

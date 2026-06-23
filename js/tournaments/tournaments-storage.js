@@ -56,6 +56,44 @@ function sbwGetTournamentParticipantsTableName() {
   return "tournament_participants";
 }
 
+function sbwGetTeamsTableName() {
+  const config = window.SBWSupabaseConfig || {};
+
+  if (config.tables && config.tables.teams) {
+    return config.tables.teams;
+  }
+
+  return "teams";
+}
+
+function sbwGetTeamMembersTableName() {
+  const config = window.SBWSupabaseConfig || {};
+
+  if (config.tables && config.tables.teamMembers) {
+    return config.tables.teamMembers;
+  }
+
+  return "team_members";
+}
+
+const SBW_TOURNAMENT_PARTICIPANT_SELECT_COLUMNS = [
+  "id",
+  "tournament_id",
+  "tournament_slug",
+  "tournament_name",
+  "auth_user_id",
+  "profile_id",
+  "player_name",
+  "player_slug",
+  "team_name",
+  "status",
+  "check_in_status",
+  "seed",
+  "metadata",
+  "created_at",
+  "updated_at"
+].join(",");
+
 
 const SBW_TOURNAMENT_ORGANIZER_OVERRIDES_KEY = "sbw_tournament_organizer_overrides_v1_5_7_5";
 
@@ -1376,6 +1414,285 @@ function sbwGetTournamentName(tournament) {
   return String(tournament?.name || tournament?.title || "Torneio");
 }
 
+function sbwAsCleanString(value) {
+  return String(value || "").trim();
+}
+
+function sbwNormalizeParticipantLookupValue(value) {
+  return sbwAsCleanString(value).toLowerCase();
+}
+
+function sbwGetSupabaseParticipantProfileKeys(row = {}) {
+  const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+  return [
+    row.profile_id,
+    row.profile_slug,
+    row.player_slug,
+    row.username,
+    row.slug,
+    metadata.profileId,
+    metadata.profile_id,
+    metadata.profileSlug,
+    metadata.profile_slug,
+    metadata.playerSlug,
+    metadata.player_slug
+  ]
+    .map(sbwAsCleanString)
+    .filter(Boolean);
+}
+
+function sbwGetSupabaseParticipantAuthKey(row = {}) {
+  const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+  return sbwAsCleanString(row.auth_user_id || row.user_id || metadata.authUserId || metadata.auth_user_id || metadata.userId || metadata.user_id);
+}
+
+function sbwGetSupabaseTeamTag(team = {}, member = {}) {
+  const teamMeta = team.metadata && typeof team.metadata === "object" ? team.metadata : {};
+  const memberMeta = member.metadata && typeof member.metadata === "object" ? member.metadata : {};
+
+  return sbwAsCleanString(
+    team.tag ||
+    team.team_tag ||
+    team.teamTag ||
+    team.acronym ||
+    team.short_name ||
+    team.shortName ||
+    team.abbr ||
+    team.code ||
+    teamMeta.tag ||
+    teamMeta.teamTag ||
+    teamMeta.team_tag ||
+    member.team_tag ||
+    member.teamTag ||
+    member.team_acronym ||
+    member.teamAcronym ||
+    memberMeta.teamTag ||
+    memberMeta.team_tag
+  );
+}
+
+function sbwGetSupabaseTeamName(team = {}, member = {}) {
+  const teamMeta = team.metadata && typeof team.metadata === "object" ? team.metadata : {};
+  const memberMeta = member.metadata && typeof member.metadata === "object" ? member.metadata : {};
+
+  return sbwAsCleanString(
+    team.name ||
+    team.display_name ||
+    team.displayName ||
+    team.team_name ||
+    team.teamName ||
+    team.title ||
+    teamMeta.name ||
+    teamMeta.teamName ||
+    teamMeta.team_name ||
+    member.team_name ||
+    member.teamName ||
+    memberMeta.teamName ||
+    memberMeta.team_name
+  );
+}
+
+function sbwMapActiveTeamMember(member = {}, teamsMap = new Map()) {
+  const teamSlug = sbwAsCleanString(member.team_slug || member.teamSlug || member.team_id || member.teamId);
+  const team = teamsMap.get(teamSlug) || {};
+  const tag = sbwGetSupabaseTeamTag(team, member);
+  const name = sbwGetSupabaseTeamName(team, member);
+
+  return {
+    member,
+    team,
+    teamSlug,
+    tag,
+    name
+  };
+}
+
+function sbwIndexTeamMemberForParticipant(index, member = {}, teamInfo) {
+  const metadata = member.metadata && typeof member.metadata === "object" ? member.metadata : {};
+  const keys = [
+    member.auth_user_id,
+    member.user_id,
+    member.profile_slug,
+    member.profile_id,
+    member.user_slug,
+    member.player_slug,
+    metadata.authUserId,
+    metadata.auth_user_id,
+    metadata.profileSlug,
+    metadata.profile_slug,
+    metadata.profileId,
+    metadata.profile_id
+  ];
+
+  keys
+    .map(sbwNormalizeParticipantLookupValue)
+    .filter(Boolean)
+    .forEach((key) => {
+      if (!index.has(key)) {
+        index.set(key, teamInfo);
+      }
+    });
+}
+
+async function sbwSelectActiveTournamentTeamMembers(column, values) {
+  const cleanValues = Array.from(new Set((values || []).map(sbwAsCleanString).filter(Boolean)));
+
+  if (!cleanValues.length || !sbwIsSupabaseEnabled()) {
+    return [];
+  }
+
+  try {
+    const result = await window.SBWSupabase.client
+      .from(sbwGetTeamMembersTableName())
+      .select("*")
+      .in(column, cleanValues)
+      .eq("status", "active")
+      .order("joined_at", { ascending: false });
+
+    if (result.error) {
+      console.warn(`[SaberWolf Supabase] Não foi possível buscar team_members por ${column}:`, result.error);
+      return [];
+    }
+
+    return Array.isArray(result.data) ? result.data : [];
+  } catch (error) {
+    console.warn(`[SaberWolf Supabase] Falha inesperada ao buscar team_members por ${column}:`, error);
+    return [];
+  }
+}
+
+async function sbwEnrichTournamentParticipantsWithTeamTags(rows) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+
+  if (!safeRows.length || !sbwIsSupabaseEnabled()) {
+    return safeRows;
+  }
+
+  const authKeys = [];
+  const profileKeys = [];
+
+  safeRows.forEach((row) => {
+    const authKey = sbwGetSupabaseParticipantAuthKey(row);
+
+    if (authKey) {
+      authKeys.push(authKey);
+    }
+
+    profileKeys.push(...sbwGetSupabaseParticipantProfileKeys(row));
+  });
+
+  if (!authKeys.length && !profileKeys.length) {
+    return safeRows;
+  }
+
+  const memberRows = [];
+  const seenMembers = new Set();
+
+  const appendMembers = (rowsToAppend) => {
+    (Array.isArray(rowsToAppend) ? rowsToAppend : []).forEach((member) => {
+      const key = sbwAsCleanString(member.id || `${member.auth_user_id || ""}:${member.profile_slug || ""}:${member.team_slug || ""}`);
+
+      if (!key || seenMembers.has(key)) {
+        return;
+      }
+
+      seenMembers.add(key);
+      memberRows.push(member);
+    });
+  };
+
+  appendMembers(await sbwSelectActiveTournamentTeamMembers("auth_user_id", authKeys));
+  appendMembers(await sbwSelectActiveTournamentTeamMembers("profile_slug", profileKeys));
+
+  if (!memberRows.length) {
+    return safeRows;
+  }
+
+  const teamSlugs = Array.from(
+    new Set(
+      memberRows
+        .map((member) => sbwAsCleanString(member.team_slug || member.teamSlug || member.team_id || member.teamId))
+        .filter(Boolean)
+    )
+  );
+
+  const teamsMap = new Map();
+
+  if (teamSlugs.length) {
+    try {
+      const teamsResult = await window.SBWSupabase.client
+        .from(sbwGetTeamsTableName())
+        .select("*")
+        .in("slug", teamSlugs);
+
+      if (teamsResult.error) {
+        console.warn("[SaberWolf Supabase] Não foi possível buscar teams para exibir tag dos participantes:", teamsResult.error);
+      } else if (Array.isArray(teamsResult.data)) {
+        teamsResult.data.forEach((team) => {
+          const key = sbwAsCleanString(team.slug || team.id);
+
+          if (key) {
+            teamsMap.set(key, team);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn("[SaberWolf Supabase] Falha inesperada ao buscar teams dos participantes:", error);
+    }
+  }
+
+  const teamIndex = new Map();
+
+  memberRows.forEach((member) => {
+    const teamInfo = sbwMapActiveTeamMember(member, teamsMap);
+
+    if (!teamInfo.tag && !teamInfo.name) {
+      return;
+    }
+
+    sbwIndexTeamMemberForParticipant(teamIndex, member, teamInfo);
+  });
+
+  if (!teamIndex.size) {
+    return safeRows;
+  }
+
+  return safeRows.map((row) => {
+    const lookupKeys = [
+      sbwGetSupabaseParticipantAuthKey(row),
+      ...sbwGetSupabaseParticipantProfileKeys(row)
+    ]
+      .map(sbwNormalizeParticipantLookupValue)
+      .filter(Boolean);
+
+    const teamInfo = lookupKeys.map((key) => teamIndex.get(key)).find(Boolean);
+
+    if (!teamInfo) {
+      return row;
+    }
+
+    const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+    const teamName = teamInfo.name || row.team_name || metadata.teamName || metadata.team_name || "";
+    const teamTag = teamInfo.tag || row.team_tag || metadata.teamTag || metadata.team_tag || "";
+
+    return Object.assign({}, row, {
+      team_name: teamName || row.team_name,
+      team_tag: teamTag || row.team_tag,
+      team: Object.assign({}, teamInfo.team || {}, {
+        slug: teamInfo.teamSlug || teamInfo.team?.slug || "",
+        name: teamName || teamInfo.team?.name || "",
+        tag: teamTag || teamInfo.team?.tag || ""
+      }),
+      metadata: Object.assign({}, metadata, {
+        teamName: teamName || metadata.teamName || metadata.team_name || "",
+        team_name: teamName || metadata.team_name || metadata.teamName || "",
+        teamTag: teamTag || metadata.teamTag || metadata.team_tag || "",
+        team_tag: teamTag || metadata.team_tag || metadata.teamTag || ""
+      })
+    });
+  });
+}
+
 function sbwNormalizeSupabaseTournamentParticipant(row = {}) {
   const profile = row.profile && typeof row.profile === "object"
     ? row.profile
@@ -1396,6 +1713,9 @@ function sbwNormalizeSupabaseTournamentParticipant(row = {}) {
     metadata.displayName ||
     "Jogador";
 
+  const teamTag = row.team_tag || row.teamTag || metadata.teamTag || metadata.team_tag || profile.team_tag || "";
+  const teamName = row.team_name || metadata.teamName || metadata.team_name || profile.team_name || "Sem equipe";
+
   return {
     id: String(row.id || row.profile_id || row.auth_user_id || name),
     participantId: row.id || "",
@@ -1407,7 +1727,10 @@ function sbwNormalizeSupabaseTournamentParticipant(row = {}) {
     displayName: name,
     playerName: name,
     playerSlug: row.player_slug || profile.slug || profile.username || "",
-    team: row.team_name || metadata.teamName || profile.team_name || "Sem equipe",
+    team: teamName,
+    teamName,
+    teamTag,
+    team_tag: teamTag,
     status: row.status || "registered",
     checkedIn: ["checked_in", "checked-in", "confirmed"].includes(String(row.check_in_status || row.checked_in || "").toLowerCase()),
     checkInStatus: row.check_in_status || "pending",
@@ -1471,7 +1794,7 @@ async function sbwGetSupabaseTournamentParticipants(tournament) {
     for (const key of lookupKeys) {
       const byTournamentId = await window.SBWSupabase.client
         .from(tableName)
-        .select("id,tournament_id,tournament_slug,tournament_name,profile_id,player_name,player_slug,team_name,status,check_in_status,seed,metadata,created_at,updated_at")
+        .select(SBW_TOURNAMENT_PARTICIPANT_SELECT_COLUMNS)
         .eq("tournament_id", key)
         .in("status", ["registered", "waitlist"])
         .order("created_at", { ascending: true });
@@ -1484,7 +1807,7 @@ async function sbwGetSupabaseTournamentParticipants(tournament) {
 
       const byTournamentSlug = await window.SBWSupabase.client
         .from(tableName)
-        .select("id,tournament_id,tournament_slug,tournament_name,profile_id,player_name,player_slug,team_name,status,check_in_status,seed,metadata,created_at,updated_at")
+        .select(SBW_TOURNAMENT_PARTICIPANT_SELECT_COLUMNS)
         .eq("tournament_slug", key)
         .in("status", ["registered", "waitlist"])
         .order("created_at", { ascending: true });
@@ -1496,8 +1819,10 @@ async function sbwGetSupabaseTournamentParticipants(tournament) {
       }
     }
 
-    return sbwDeduplicateSupabaseParticipants(allRows)
-      .map(sbwNormalizeSupabaseTournamentParticipant);
+    const deduplicatedRows = sbwDeduplicateSupabaseParticipants(allRows);
+    const enrichedRows = await sbwEnrichTournamentParticipantsWithTeamTags(deduplicatedRows);
+
+    return enrichedRows.map(sbwNormalizeSupabaseTournamentParticipant);
   } catch (error) {
     console.warn("[SaberWolf Supabase] Falha inesperada ao buscar participantes:", error);
     return [];

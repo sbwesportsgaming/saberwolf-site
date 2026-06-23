@@ -895,3 +895,158 @@ body.sbw-rankings-body > header {
     justify-self: start;
   }
 }
+
+
+.sbw-organizer-rank-header a,
+.sbw-tournament-rank-header a {
+  white-space: nowrap;
+}
+
+.sbw-ranking-select-field select option[value=""] {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* v1.6.68.3 — Auditoria do ranking por organizador */
+.sbw-organizer-rank-audit,
+.sbw-organizer-rank-rules {
+  margin-top: 18px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(55, 212, 255, 0.10), transparent 18rem),
+    rgba(3, 9, 20, 0.42);
+  overflow: hidden;
+}
+
+.sbw-organizer-rank-audit__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid rgba(76, 202, 255, 0.10);
+}
+
+.sbw-organizer-rank-audit__head span,
+.sbw-organizer-rank-rules article > span {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--sbw-cyan);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sbw-organizer-rank-audit__head h4 {
+  margin: 0;
+  color: var(--sbw-text);
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.sbw-organizer-rank-audit__head small {
+  color: var(--sbw-soft);
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sbw-organizer-rank-audit__list {
+  display: grid;
+  gap: 1px;
+  background: rgba(76, 202, 255, 0.08);
+}
+
+.sbw-organizer-rank-audit__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 15px 18px;
+  background: rgba(3, 9, 20, 0.72);
+}
+
+.sbw-organizer-rank-audit__row strong {
+  display: block;
+  color: var(--sbw-text);
+  font-size: 0.95rem;
+}
+
+.sbw-organizer-rank-audit__row span,
+.sbw-organizer-rank-audit__row em,
+.sbw-organizer-rank-audit__meta small {
+  display: block;
+  margin-top: 4px;
+  color: var(--sbw-muted);
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.sbw-organizer-rank-audit__row em {
+  color: rgba(244, 248, 255, 0.78);
+}
+
+.sbw-organizer-rank-audit__meta {
+  min-width: 190px;
+  text-align: right;
+}
+
+.sbw-organizer-rank-audit__meta > span {
+  color: var(--sbw-text);
+  font-weight: 900;
+}
+
+.sbw-organizer-rank-audit__meta a {
+  display: inline-flex;
+  margin-top: 8px;
+  border: 1px solid rgba(76, 202, 255, 0.20);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--sbw-cyan);
+  background: rgba(55, 212, 255, 0.08);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sbw-organizer-rank-rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: rgba(76, 202, 255, 0.08);
+}
+
+.sbw-organizer-rank-rules article {
+  padding: 18px;
+  background: rgba(3, 9, 20, 0.72);
+}
+
+.sbw-organizer-rank-rules strong {
+  display: block;
+  color: var(--sbw-text);
+  font-size: 0.96rem;
+}
+
+.sbw-organizer-rank-rules p,
+.sbw-organizer-rank-rules small {
+  display: block;
+  margin: 8px 0 0;
+  color: var(--sbw-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 780px) {
+  .sbw-organizer-rank-audit__row,
+  .sbw-organizer-rank-rules {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-organizer-rank-audit__meta {
+    min-width: 0;
+    text-align: left;
+  }
+}
