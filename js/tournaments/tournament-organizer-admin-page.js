@@ -293,10 +293,10 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
     { label: "Rodadas", value: "Round-robin", detail: "Gerar confrontos da divisão única e acompanhar resultados." }
   ];
   const releaseChecks = [
-    "Formato ainda bloqueado para criação real.",
+    "Formato em beta controlado para criação do MVP básico.",
     "Primeira liberação deve usar somente divisão única.",
-    "Modo com várias divisões fica reservado para etapa avançada.",
-    "Inscrição, check-in e resultados reais entram apenas após validação controlada."
+    "Playoffs básicos seguem a escada SFL: Top 4, FT50/FT70, sem partida extra.",
+    "Modo com várias divisões fica reservado para etapa avançada com Top 3 por divisão."
   ];
   const visualBoard = helper && typeof helper.buildTeamBattleLeagueVisualPreviewBoard === "function"
     ? helper.buildTeamBattleLeagueVisualPreviewBoard(tournament || {}, { leagueMode: "basic_single_division" })
@@ -317,6 +317,9 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const setupCards = Array.isArray(setupPreview?.cards) ? setupPreview.cards.slice(0, 4) : [];
   const boardStandings = Array.isArray(visualBoard?.standings) ? visualBoard.standings.slice(0, 4) : [];
   const boardMatches = Array.isArray(visualBoard?.matches) ? visualBoard.matches.slice(0, 2) : [];
+  const playoffPreview = visualBoard?.playoffPreview || null;
+  const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 3) : [];
+  const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
 
   return `
     <section class="organizer-admin-team-battle-preview" aria-label="Prévia administrativa Team Battle League 4v4">
@@ -463,6 +466,38 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
         </div>
       ` : ""}
 
+      ${playoffPreview ? `
+        <div class="organizer-admin-team-battle-playoffs" aria-label="Playoffs SFL do Team Battle League 4v4">
+          <div class="organizer-admin-team-battle-playoffs__head">
+            <div>
+              <small>${sbwOrganizerEditorEscape(playoffPreview.rulesetLabel || "SFL Capcom")}</small>
+              <strong>${sbwOrganizerEditorEscape(playoffPreview.title || "Playoffs SFL")}</strong>
+              <p>${sbwOrganizerEditorEscape(playoffPreview.description || "Fase final calculada a partir da classificação real.")}</p>
+            </div>
+            <span>${sbwOrganizerEditorEscape(playoffPreview.statusLabel || "Aguardando classificação")}</span>
+          </div>
+          <div class="organizer-admin-team-battle-playoffs__grid">
+            ${playoffMatches.length ? playoffMatches.map((match) => `
+              <article>
+                <small>${sbwOrganizerEditorEscape(match.stageLabel || "Playoff")}</small>
+                <strong>${sbwOrganizerEditorEscape(match.firstToLabel || "FT")}</strong>
+                <div><span>${sbwOrganizerEditorEscape(match.homeTeamLabel || "Classificado")}</span><em>vs</em><span>${sbwOrganizerEditorEscape(match.awayTeamLabel || "Classificado")}</span></div>
+                <p>${sbwOrganizerEditorEscape(match.statusLabel || "Aguardando")} · ${sbwOrganizerEditorEscape(match.noExtraMatch ? "sem partida extra" : "com partida extra")}</p>
+              </article>
+            `).join("") : `
+              <article>
+                <small>${sbwOrganizerEditorEscape(playoffPreview.emptyState?.title || "Aguardando Top 4")}</small>
+                <strong>3º x 4º → 2º → 1º</strong>
+                <p>${sbwOrganizerEditorEscape(playoffPreview.emptyState?.description || "Os playoffs aparecem quando a classificação da Divisão Única estiver pronta.")}</p>
+              </article>
+            `}
+          </div>
+          <div class="organizer-admin-team-battle-playoffs__rules">
+            ${(playoffRules.length ? playoffRules : ["Quartas/Semifinal FT50", "Grande Final FT70", "Sem partida extra", "Escalação com uso obrigatório do elenco"]).map((rule) => `<span>${sbwOrganizerEditorEscape(rule)}</span>`).join("")}
+          </div>
+        </div>
+      ` : ""}
+
       ${testGates.length ? `
         <div class="organizer-admin-team-battle-test-gates" aria-label="Etapas do teste controlado Team Battle League 4v4">
           <div class="organizer-admin-team-battle-test-gates__head">
@@ -488,7 +523,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
         ${releaseChecks.map((item) => `<span>${sbwOrganizerEditorEscape(item)}</span>`).join("")}
       </div>
 
-      <p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(model?.lockedMessage || "Formato ainda em preparação. A configuração deve aparecer na criação; depois de criado, o torneio mostra a Divisão Única vazia até o check-in confirmar equipes reais.")}</p>
+      <p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(model?.lockedMessage || "Beta controlado. A configuração aparece na criação; depois de criado, o torneio mostra a Divisão Única vazia até o check-in confirmar equipes reais. Os playoffs SFL ficam aguardando a classificação real.")}</p>
     </section>
   `;
 }

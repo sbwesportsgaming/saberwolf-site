@@ -5,6 +5,11 @@
   const FORMAT_KEY = "team-battle-league-4v4";
   const SCHEMA_VERSION = "tbleague4v4.v1";
 
+  const PLAYOFF_RULESET_TYPES = Object.freeze({
+    SFL_CAPCOM_BASIC_STEPLADDER: "sfl_capcom_basic_stepladder",
+    SFL_CAPCOM_DIVISIONAL_TOP3: "sfl_capcom_divisional_top3"
+  });
+
   const DEFAULT_CONFIG = Object.freeze({
     teamSize: 4,
     startersPerTeamMatch: 3,
@@ -19,6 +24,16 @@
     defaultDivisionName: "Divisão Única",
     maxDivisions: 1,
     playoffsEnabled: true,
+    playoffRuleset: PLAYOFF_RULESET_TYPES.SFL_CAPCOM_BASIC_STEPLADDER,
+    basicPlayoffQualifiers: 4,
+    advancedPlayoffQualifiersPerDivision: 3,
+    playoffFirstToQuarterFinal: 50,
+    playoffFirstToSemiFinal: 50,
+    playoffFirstToDivisionFinal: 70,
+    playoffFirstToGrandFinal: 70,
+    playoffFirstToAdvancedGrandFinal: 90,
+    playoffExtraMatchOnDraw: false,
+    playoffRequireEveryPlayerEveryTwoSets: true,
     mainMatchPointsBySlot: [10, 10, 20],
     defaultMainMatchPoints: 10,
     defaultExtraMatchPoints: 10,
@@ -45,6 +60,7 @@
   });
 
   const PLAYOFF_STAGE_TYPES = Object.freeze({
+    QUARTER_FINAL: "quarter_final",
     DIVISION_SEMIFINAL: "division_semifinal",
     DIVISION_FINAL: "division_final",
     LEAGUE_SEMIFINAL: "league_semifinal",
@@ -166,6 +182,16 @@
         ? clampNumber(source.maxDivisions || source.max_divisions, 1, 32, 32)
         : 1,
       playoffsEnabled: source.playoffsEnabled !== false,
+      playoffRuleset: cleanText(source.playoffRuleset || source.playoff_ruleset || source.playoffRuleSet || source.playoff_rule_set, isAdvancedLeagueMode(source.leagueMode || source.league_mode || source.mode || source.divisionMode || source.division_mode) ? PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3 : PLAYOFF_RULESET_TYPES.SFL_CAPCOM_BASIC_STEPLADDER),
+      basicPlayoffQualifiers: clampNumber(source.basicPlayoffQualifiers || source.basic_playoff_qualifiers, 2, 16, DEFAULT_CONFIG.basicPlayoffQualifiers),
+      advancedPlayoffQualifiersPerDivision: clampNumber(source.advancedPlayoffQualifiersPerDivision || source.advanced_playoff_qualifiers_per_division || source.qualifiersPerDivision || source.qualifiers_per_division, 2, 16, DEFAULT_CONFIG.advancedPlayoffQualifiersPerDivision),
+      playoffFirstToQuarterFinal: clampNumber(source.playoffFirstToQuarterFinal || source.playoff_first_to_quarter_final, 10, 300, DEFAULT_CONFIG.playoffFirstToQuarterFinal),
+      playoffFirstToSemiFinal: clampNumber(source.playoffFirstToSemiFinal || source.playoff_first_to_semi_final, 10, 300, DEFAULT_CONFIG.playoffFirstToSemiFinal),
+      playoffFirstToDivisionFinal: clampNumber(source.playoffFirstToDivisionFinal || source.playoff_first_to_division_final, 10, 300, DEFAULT_CONFIG.playoffFirstToDivisionFinal),
+      playoffFirstToGrandFinal: clampNumber(source.playoffFirstToGrandFinal || source.playoff_first_to_grand_final, 10, 300, DEFAULT_CONFIG.playoffFirstToGrandFinal),
+      playoffFirstToAdvancedGrandFinal: clampNumber(source.playoffFirstToAdvancedGrandFinal || source.playoff_first_to_advanced_grand_final, 10, 300, DEFAULT_CONFIG.playoffFirstToAdvancedGrandFinal),
+      playoffExtraMatchOnDraw: source.playoffExtraMatchOnDraw === true,
+      playoffRequireEveryPlayerEveryTwoSets: source.playoffRequireEveryPlayerEveryTwoSets !== false,
       defaultWinCondition: cleanText(source.defaultWinCondition, DEFAULT_CONFIG.defaultWinCondition),
       status: cleanText(source.status, DEFAULT_CONFIG.status)
     };
@@ -1000,44 +1026,424 @@
     };
   }
 
-  function createPlayoffMatch(options = {}, config = {}) {
-    const source = asObject(options);
-    const home = asObject(source.homeTeam);
-    const away = asObject(source.awayTeam);
-    const stageType = cleanText(source.stageType || source.stage, PLAYOFF_STAGE_TYPES.DIVISION_FINAL);
-    const label = cleanText(source.label, "Playoff");
-    const match = createTeamMatchSeed({
-      id: cleanText(source.id, cleanKey(`${source.divisionId || "league"}-${label}`)),
-      round: clampNumber(source.round, 1, 99, 1),
-      divisionId: cleanText(source.divisionId),
-      homeTeamId: cleanText(home.teamId || home.id),
-      awayTeamId: cleanText(away.teamId || away.id),
-      status: TEAM_MATCH_STATUS.DRAFT,
-      metadata: {
-        stageType,
-        label,
-        homeTeamName: cleanText(home.teamName || home.name, "Mandante"),
-        awayTeamName: cleanText(away.teamName || away.name, "Visitante"),
-        homeSeed: home.seed || null,
-        awaySeed: away.seed || null,
-        source: "team-battle-playoffs",
-        ...asObject(source.metadata)
-      }
-    }, config);
+  function createPlayoffPlaceholder(label = "Vencedor", seed = 1, sourceMatchId = "") {
+    const safeLabel = cleanText(label, "Vencedor");
+    const safeSeed = clampNumber(seed, 1, 999, 1);
+    const id = cleanText(sourceMatchId) ? `winner:${sourceMatchId}` : cleanKey(safeLabel, `winner-${safeSeed}`);
 
     return {
-      ...match,
-      playoff: {
-        stageType,
-        label,
-        order: clampNumber(source.order, 1, 99, 1),
-        winnerFeedsTo: cleanText(source.winnerFeedsTo),
-        loserFeedsTo: cleanText(source.loserFeedsTo)
+      id,
+      teamId: id,
+      name: safeLabel,
+      teamName: safeLabel,
+      tag: "",
+      seed: safeSeed,
+      label: safeLabel,
+      sourceMatchId: cleanText(sourceMatchId),
+      placeholder: true
+    };
+  }
+
+  function getSflCapcomPlayoffRuleset(config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+    const raw = cleanText(normalizedConfig.playoffRuleset || normalizedConfig.playoffRuleSet || normalizedConfig.playoff_rule_set);
+
+    if (raw === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3 || cleanKey(raw).includes("division")) {
+      return PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3;
+    }
+
+    return isAdvancedLeagueMode(normalizedConfig.leagueMode)
+      ? PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
+      : PLAYOFF_RULESET_TYPES.SFL_CAPCOM_BASIC_STEPLADDER;
+  }
+
+  function getSflCapcomPlayoffRulesetLabel(config = {}) {
+    return getSflCapcomPlayoffRuleset(config) === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
+      ? "SFL Capcom · Top 3 por divisão"
+      : "SFL Capcom · escada Top 4";
+  }
+
+  function getSflCapcomPlayoffStageLabel(stageType, fallback = "Playoff") {
+    const key = cleanText(stageType);
+
+    if (key === PLAYOFF_STAGE_TYPES.QUARTER_FINAL) return "Quartas SFL";
+    if (key === PLAYOFF_STAGE_TYPES.DIVISION_SEMIFINAL) return "Semifinal da divisão";
+    if (key === PLAYOFF_STAGE_TYPES.DIVISION_FINAL) return "Final da divisão";
+    if (key === PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL) return "Semifinal SFL";
+    if (key === PLAYOFF_STAGE_TYPES.GRAND_FINAL) return "Grande Final";
+    if (key === PLAYOFF_STAGE_TYPES.THIRD_PLACE) return "Disputa de 3º lugar";
+
+    return fallback;
+  }
+
+  function getSflCapcomPlayoffTargetPoints(stageType, config = {}, options = {}) {
+    const normalizedConfig = normalizeConfig(config);
+    const source = asObject(options);
+    const explicit = clampNumber(source.targetPoints || source.target_points, 0, 999, 0);
+    if (explicit > 0) return explicit;
+
+    if (stageType === PLAYOFF_STAGE_TYPES.QUARTER_FINAL) return normalizedConfig.playoffFirstToQuarterFinal;
+    if (stageType === PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL) return normalizedConfig.playoffFirstToSemiFinal;
+    if (stageType === PLAYOFF_STAGE_TYPES.DIVISION_SEMIFINAL) return normalizedConfig.playoffFirstToSemiFinal;
+    if (stageType === PLAYOFF_STAGE_TYPES.DIVISION_FINAL) return normalizedConfig.playoffFirstToDivisionFinal;
+
+    if (stageType === PLAYOFF_STAGE_TYPES.GRAND_FINAL) {
+      return source.advancedGrandFinal === true || source.advanced_grand_final === true
+        ? normalizedConfig.playoffFirstToAdvancedGrandFinal
+        : normalizedConfig.playoffFirstToGrandFinal;
+    }
+
+    return normalizedConfig.playoffFirstToSemiFinal;
+  }
+
+  function getSflCapcomMinimumSets(targetPoints = 50, config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+    const maxPointsPerSet = asArray(normalizedConfig.mainMatchPointsBySlot).reduce((total, value) => total + (Number(value) || 0), 0) || 40;
+    return Math.max(2, Math.ceil(clampNumber(targetPoints, 10, 999, 50) / maxPointsPerSet));
+  }
+
+  function createSflCapcomPlayoffSet(setNumber = 1, options = {}, config = {}) {
+    const source = asObject(options);
+    const normalizedConfig = normalizeConfig({ ...config, extraMatchOnDraw: false, playoffExtraMatchOnDraw: false });
+    const safeSet = clampNumber(setNumber, 1, 99, 1);
+    const stageType = cleanText(source.stageType || source.stage, PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL);
+    const stageLabel = cleanText(source.stageLabel || source.label, getSflCapcomPlayoffStageLabel(stageType));
+    const homeTurn = source.homeTurn || source.home_turn || (safeSet % 2 === 1 ? "higher_seed" : "lower_seed");
+
+    return {
+      id: cleanText(source.id, `${cleanKey(stageLabel, "sfl-playoff")}-set-${safeSet}`),
+      setNumber: safeSet,
+      label: cleanText(source.setLabel || source.set_label, `Set ${safeSet}`),
+      stageType,
+      stageLabel,
+      homeTurn,
+      homeTurnLabel: homeTurn === "lower_seed" ? "Mandante alternado" : "Mandante melhor seed",
+      matches: Array.from({ length: normalizedConfig.mainMatches }, (_, index) => createMatchSlot(index + 1, MATCH_SLOT_TYPES.MAIN, {
+        ...asObject(asArray(source.matches)[index]),
+        label: index === 0 ? "Partida 1" : index === 1 ? "Partida 2" : "Partida 3",
+        metadata: {
+          ...asObject(asObject(asArray(source.matches)[index]).metadata),
+          playoffSet: safeSet,
+          playoffStage: stageType,
+          bestOf: index === 2 ? "Bo5" : "Bo3",
+          noExtraMatch: true
+        }
+      }, normalizedConfig)),
+      status: cleanText(source.status, TEAM_MATCH_STATUS.DRAFT),
+      metadata: {
+        source: "sfl-capcom-playoff-set",
+        switchHomeAwayAfterSet: true,
+        extraMatchEnabled: false,
+        ...asObject(source.metadata)
       }
     };
   }
 
-  function buildDivisionPlayoffBracket(division = {}, options = {}) {
+  function calculateSflCapcomPlayoffSeriesScore(series = {}, config = {}) {
+    const normalizedConfig = normalizeConfig(config);
+    const source = asObject(series);
+    const targetPoints = clampNumber(source.targetPoints || source.target_points || source.playoff?.targetPoints, 10, 999, normalizedConfig.playoffFirstToSemiFinal);
+    const result = {
+      homePoints: 0,
+      awayPoints: 0,
+      homeWins: 0,
+      awayWins: 0,
+      playedSlots: 0,
+      targetPoints,
+      winnerSide: "",
+      finalized: false,
+      needsMoreSets: false
+    };
+
+    asArray(source.sets).forEach((set) => {
+      asArray(asObject(set).matches).forEach((slot) => {
+        const match = asObject(slot);
+        const winnerSide = normalizeWinnerSide(match.winnerSide);
+        if (!winnerSide) return;
+
+        const points = clampNumber(match.points, 1, 99, getDefaultSlotPoints(match.slot, MATCH_SLOT_TYPES.MAIN, normalizedConfig));
+        result.playedSlots += 1;
+
+        if (winnerSide === "home") {
+          result.homeWins += 1;
+          result.homePoints += points;
+        } else {
+          result.awayWins += 1;
+          result.awayPoints += points;
+        }
+      });
+    });
+
+    if ((result.homePoints >= targetPoints || result.awayPoints >= targetPoints) && result.homePoints !== result.awayPoints) {
+      result.winnerSide = result.homePoints > result.awayPoints ? "home" : "away";
+      result.finalized = true;
+    } else if (result.playedSlots > 0) {
+      result.needsMoreSets = result.homePoints === result.awayPoints || result.homePoints < targetPoints && result.awayPoints < targetPoints;
+    }
+
+    return result;
+  }
+
+  function createSflCapcomPlayoffSeries(options = {}, config = {}) {
+    const source = asObject(options);
+    const normalizedConfig = normalizeConfig({ ...config, extraMatchOnDraw: false, playoffExtraMatchOnDraw: false });
+    const stageType = cleanText(source.stageType || source.stage, PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL);
+    const label = cleanText(source.label, getSflCapcomPlayoffStageLabel(stageType));
+    const targetPoints = getSflCapcomPlayoffTargetPoints(stageType, normalizedConfig, source);
+    const minimumSets = clampNumber(source.minimumSets || source.minimum_sets, 1, 99, getSflCapcomMinimumSets(targetPoints, normalizedConfig));
+    const home = asObject(source.homeTeam);
+    const away = asObject(source.awayTeam);
+    const id = cleanText(source.id, cleanKey(`${source.divisionId || "league"}-${label}`));
+    const sets = asArray(source.sets).length
+      ? asArray(source.sets).map((set, index) => createSflCapcomPlayoffSet(index + 1, {
+          ...asObject(set),
+          stageType,
+          stageLabel: label,
+          id: cleanText(asObject(set).id, `${id}-set-${index + 1}`)
+        }, normalizedConfig))
+      : Array.from({ length: minimumSets }, (_, index) => createSflCapcomPlayoffSet(index + 1, {
+          stageType,
+          stageLabel: label,
+          id: `${id}-set-${index + 1}`,
+          homeTurn: asArray(source.homeTurns)[index] || (index % 2 === 0 ? "higher_seed" : "lower_seed")
+        }, normalizedConfig));
+    const result = calculateSflCapcomPlayoffSeriesScore({ ...source, targetPoints, sets }, normalizedConfig);
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.sfl-playoff-series.v1`,
+      id,
+      divisionId: cleanText(source.divisionId),
+      round: clampNumber(source.round, 1, 99, 1),
+      order: clampNumber(source.order, 1, 99, 1),
+      stageType,
+      stageLabel: label,
+      label,
+      seriesType: "first_to_points",
+      targetPoints,
+      firstToLabel: `FT${targetPoints}`,
+      homeTeamId: cleanText(home.teamId || home.id),
+      awayTeamId: cleanText(away.teamId || away.id),
+      homeTeam: {
+        ...home,
+        teamId: cleanText(home.teamId || home.id),
+        teamName: cleanText(home.teamName || home.name, "Mandante")
+      },
+      awayTeam: {
+        ...away,
+        teamId: cleanText(away.teamId || away.id),
+        teamName: cleanText(away.teamName || away.name, "Visitante")
+      },
+      status: result.finalized ? TEAM_MATCH_STATUS.FINISHED : result.playedSlots > 0 ? TEAM_MATCH_STATUS.LIVE : cleanText(source.status, TEAM_MATCH_STATUS.DRAFT),
+      sets,
+      matches: asArray(sets[0]?.matches),
+      extraMatch: null,
+      result,
+      playoff: {
+        stageType,
+        label,
+        order: clampNumber(source.order, 1, 99, 1),
+        targetPoints,
+        firstToLabel: `FT${targetPoints}`,
+        noExtraMatch: true,
+        setRotation: cleanText(source.setRotation || source.set_rotation, "switch_after_each_set"),
+        winnerFeedsTo: cleanText(source.winnerFeedsTo),
+        loserFeedsTo: cleanText(source.loserFeedsTo),
+        requiresEveryPlayerEveryTwoSets: normalizedConfig.playoffRequireEveryPlayerEveryTwoSets === true
+      },
+      metadata: {
+        source: "sfl-capcom-playoffs",
+        homeTeamName: cleanText(home.teamName || home.name, "Mandante"),
+        awayTeamName: cleanText(away.teamName || away.name, "Visitante"),
+        homeSeed: home.seed || null,
+        awaySeed: away.seed || null,
+        ruleset: getSflCapcomPlayoffRulesetLabel(normalizedConfig),
+        extraMatchEnabled: false,
+        pointsModel: "10/10/20 por set até atingir a meta",
+        playerUsageWindow: normalizedConfig.playoffRequireEveryPlayerEveryTwoSets ? "Todos os jogadores precisam jogar ao menos uma vez a cada dois sets." : "Controle de escalação livre pelo organizador.",
+        ...asObject(source.metadata)
+      }
+    };
+  }
+
+  function buildPlayoffSeriesPublicSummary(series = {}) {
+    const source = asObject(series);
+    const result = asObject(source.result);
+    const home = asObject(source.homeTeam);
+    const away = asObject(source.awayTeam);
+    const targetPoints = clampNumber(source.targetPoints || source.playoff?.targetPoints, 10, 999, 50);
+
+    return {
+      id: cleanText(source.id),
+      stageType: cleanText(source.stageType || source.playoff?.stageType),
+      stageLabel: cleanText(source.stageLabel || source.label || source.playoff?.label, "Playoff"),
+      firstToLabel: cleanText(source.firstToLabel || source.playoff?.firstToLabel, `FT${targetPoints}`),
+      targetPoints,
+      homeTeamLabel: getTeamDisplayLabel(home, cleanText(source.metadata?.homeTeamName, "Mandante")),
+      awayTeamLabel: getTeamDisplayLabel(away, cleanText(source.metadata?.awayTeamName, "Visitante")),
+      scoreLabel: `${result.homePoints || 0} x ${result.awayPoints || 0}`,
+      winnerSide: cleanText(result.winnerSide),
+      winnerLabel: result.winnerSide === "home" ? getTeamDisplayLabel(home, "Mandante") : result.winnerSide === "away" ? getTeamDisplayLabel(away, "Visitante") : "A definir",
+      statusLabel: result.finalized ? "Finalizado" : result.playedSlots > 0 ? "Em andamento" : "Aguardando fase classificatória",
+      setCount: asArray(source.sets).length,
+      noExtraMatch: source.playoff?.noExtraMatch !== false,
+      playerUsageLabel: cleanText(source.metadata?.playerUsageWindow, "Todos os jogadores precisam jogar ao menos uma vez a cada dois sets."),
+      metadata: asObject(source.metadata)
+    };
+  }
+
+  function createPlayoffMatch(options = {}, config = {}) {
+    const source = asObject(options);
+    const normalizedConfig = normalizeConfig({ ...config, extraMatchOnDraw: false, playoffExtraMatchOnDraw: false });
+
+    return createSflCapcomPlayoffSeries({
+      ...source,
+      stageType: cleanText(source.stageType || source.stage, PLAYOFF_STAGE_TYPES.DIVISION_FINAL),
+      label: cleanText(source.label, "Playoff")
+    }, normalizedConfig);
+  }
+
+  function buildSflCapcomSingleDivisionPlayoffBracket(division = {}, options = {}) {
+    const source = asObject(division);
+    const config = normalizeConfig({ ...options.config, ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const standings = asArray(options.standings).length
+      ? asArray(options.standings)
+      : asArray(source.standings).length
+        ? asArray(source.standings)
+        : calculateDivisionStandings(source);
+    const qualifierLimit = clampNumber(options.qualifiers || options.qualifierLimit || config.basicPlayoffQualifiers, 2, 16, DEFAULT_CONFIG.basicPlayoffQualifiers);
+    const qualified = getQualifiedTeamsFromStandings(standings, qualifierLimit);
+    const divisionId = cleanText(source.id || source.divisionId, "division-unica");
+    const divisionName = cleanText(source.name || source.label, "Divisão Única");
+    const stages = [];
+
+    if (qualified.length < qualifierLimit) {
+      return {
+        divisionId,
+        divisionName,
+        bracketType: PLAYOFF_RULESET_TYPES.SFL_CAPCOM_BASIC_STEPLADDER,
+        rulesetLabel: getSflCapcomPlayoffRulesetLabel(config),
+        qualifiedTeams: qualified,
+        requiredQualifiedTeams: qualifierLimit,
+        stages,
+        championSlot: null,
+        status: "waiting_top_4",
+        emptyState: {
+          title: "Playoffs aguardando Top 4",
+          description: "No padrão SFL em escada, os playoffs começam com 3º x 4º; depois o vencedor enfrenta o 2º, e a Grande Final é contra o 1º colocado.",
+          hint: "A fase final não usa partida extra: cada série soma 10/10/20 por set até bater a meta de pontos."
+        }
+      };
+    }
+
+    const seed1 = createPlayoffTeamReference(qualified[0], 1);
+    const seed2 = createPlayoffTeamReference(qualified[1], 2);
+    const seed3 = createPlayoffTeamReference(qualified[2], 3);
+    const seed4 = createPlayoffTeamReference(qualified[3], 4);
+    const quarterId = `${divisionId}-sfl-quarter-3v4`;
+    const semiId = `${divisionId}-sfl-semi-2v-wqf`;
+    const grandId = `${divisionId}-sfl-grand-1v-wsf`;
+
+    const quarterFinal = createPlayoffMatch({
+      id: quarterId,
+      divisionId,
+      round: 1,
+      order: 1,
+      stageType: PLAYOFF_STAGE_TYPES.QUARTER_FINAL,
+      label: `${divisionName} — Quartas SFL`,
+      targetPoints: config.playoffFirstToQuarterFinal,
+      homeTeam: seed3,
+      awayTeam: seed4,
+      winnerFeedsTo: semiId,
+      metadata: {
+        capcomSeedRule: "3º colocado enfrenta 4º colocado.",
+        homeAwayRule: "Melhor seed inicia como mandante; após cada set, alterna mandante/visitante."
+      }
+    }, config);
+
+    const semiFinal = createPlayoffMatch({
+      id: semiId,
+      divisionId,
+      round: 2,
+      order: 1,
+      stageType: PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL,
+      label: `${divisionName} — Semifinal SFL`,
+      targetPoints: config.playoffFirstToSemiFinal,
+      homeTeam: seed2,
+      awayTeam: createPlayoffPlaceholder("Vencedor 3º x 4º", 3, quarterId),
+      winnerFeedsTo: grandId,
+      metadata: {
+        capcomSeedRule: "2º colocado enfrenta o vencedor de 3º x 4º.",
+        homeAwayRule: "Melhor seed inicia como mandante; após cada set, alterna mandante/visitante."
+      }
+    }, config);
+
+    const grandFinal = createPlayoffMatch({
+      id: grandId,
+      divisionId,
+      round: 3,
+      order: 1,
+      stageType: PLAYOFF_STAGE_TYPES.GRAND_FINAL,
+      label: `${divisionName} — Grande Final SFL`,
+      targetPoints: config.playoffFirstToGrandFinal,
+      homeTeam: seed1,
+      awayTeam: createPlayoffPlaceholder("Vencedor da Semifinal SFL", 2, semiId),
+      metadata: {
+        capcomSeedRule: "1º colocado entra direto na Grande Final.",
+        homeAwayRule: "1º set: melhor campanha; 2º set: vencedor da semifinal; 3º set: melhor campanha."
+      }
+    }, config);
+
+    stages.push({
+      id: `${divisionId}-sfl-quarter-stage`,
+      type: PLAYOFF_STAGE_TYPES.QUARTER_FINAL,
+      label: "Quartas SFL",
+      targetPoints: config.playoffFirstToQuarterFinal,
+      matches: [quarterFinal]
+    });
+    stages.push({
+      id: `${divisionId}-sfl-semi-stage`,
+      type: PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL,
+      label: "Semifinal SFL",
+      targetPoints: config.playoffFirstToSemiFinal,
+      matches: [semiFinal]
+    });
+    stages.push({
+      id: `${divisionId}-sfl-grand-stage`,
+      type: PLAYOFF_STAGE_TYPES.GRAND_FINAL,
+      label: "Grande Final SFL",
+      targetPoints: config.playoffFirstToGrandFinal,
+      matches: [grandFinal]
+    });
+
+    return {
+      divisionId,
+      divisionName,
+      bracketType: PLAYOFF_RULESET_TYPES.SFL_CAPCOM_BASIC_STEPLADDER,
+      rulesetLabel: getSflCapcomPlayoffRulesetLabel(config),
+      qualifiedTeams: qualified,
+      requiredQualifiedTeams: qualifierLimit,
+      stages,
+      championSlot: {
+        id: `winner:${grandId}`,
+        teamId: `winner:${grandId}`,
+        name: `Campeão ${divisionName}`,
+        teamName: `Campeão ${divisionName}`,
+        seed: 1,
+        sourceMatchId: grandId
+      },
+      rules: [
+        "Top 4 da Divisão Única avançam para a escada SFL.",
+        "Quartas e Semifinal em FT50; Grande Final em FT70.",
+        "Sem partida extra nos playoffs; a série continua por sets 10/10/20 até atingir a meta.",
+        "Todos os jogadores devem aparecer ao menos uma vez a cada dois sets."
+      ],
+      status: "ready"
+    };
+  }
+
+  function buildSflCapcomDivisionTop3PlayoffBracket(division = {}, options = {}) {
+
     const source = asObject(division);
     const config = normalizeConfig(options.config || options);
     const standings = asArray(options.standings).length
@@ -1075,18 +1481,12 @@
         order: 1,
         stageType: PLAYOFF_STAGE_TYPES.DIVISION_SEMIFINAL,
         label: `${divisionName} — Semifinal`,
+        targetPoints: config.playoffFirstToDivisionFinal,
         homeTeam: seed2,
         awayTeam: seed3,
         winnerFeedsTo: finalMatchId
       }, config);
-      const semifinalWinner = {
-        id: `winner:${semifinalId}`,
-        teamId: `winner:${semifinalId}`,
-        name: `Vencedor ${semifinal.metadata.label}`,
-        teamName: `Vencedor ${semifinal.metadata.label}`,
-        seed: 2,
-        label: "Vencedor da semifinal"
-      };
+      const semifinalWinner = createPlayoffPlaceholder(`Vencedor ${semifinal.label || semifinal.stageLabel || "da semifinal"}`, 2, semifinalId);
       const final = createPlayoffMatch({
         id: finalMatchId,
         divisionId,
@@ -1094,6 +1494,7 @@
         order: 1,
         stageType: PLAYOFF_STAGE_TYPES.DIVISION_FINAL,
         label: `${divisionName} — Final`,
+        targetPoints: config.playoffFirstToDivisionFinal,
         homeTeam: seed1,
         awayTeam: semifinalWinner
       }, config);
@@ -1118,6 +1519,7 @@
         order: 1,
         stageType: PLAYOFF_STAGE_TYPES.DIVISION_FINAL,
         label: `${divisionName} — Final`,
+        targetPoints: config.playoffFirstToDivisionFinal,
         homeTeam: seed1,
         awayTeam: seed2
       }, config);
@@ -1133,7 +1535,10 @@
     return {
       divisionId,
       divisionName,
+      bracketType: PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3,
+      rulesetLabel: getSflCapcomPlayoffRulesetLabel({ ...config, leagueMode: LEAGUE_MODE_TYPES.ADVANCED_MULTI_DIVISION }),
       qualifiedTeams: qualified,
+      requiredQualifiedTeams: clampNumber(options.qualifiersPerDivision || config.advancedPlayoffQualifiersPerDivision, 2, 16, DEFAULT_CONFIG.advancedPlayoffQualifiersPerDivision),
       stages,
       championSlot: {
         id: `winner:${finalMatchId}`,
@@ -1143,18 +1548,36 @@
         seed: 1,
         sourceMatchId: finalMatchId
       },
+      rules: [
+        "Top 3 de cada divisão avançam para os playoffs da própria divisão.",
+        "2º x 3º jogam a semifinal; o vencedor enfrenta o 1º colocado na final da divisão.",
+        "As séries de divisão seguem o modelo First to 70 sem partida extra.",
+        "Os campeões de divisão avançam para a Grande Final entre divisões."
+      ],
       status: "ready"
     };
   }
 
+  function buildDivisionPlayoffBracket(division = {}, options = {}) {
+    const config = normalizeConfig(options.config || options);
+
+    if (getSflCapcomPlayoffRuleset(config) === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_BASIC_STEPLADDER) {
+      return buildSflCapcomSingleDivisionPlayoffBracket(division, { ...options, config });
+    }
+
+    return buildSflCapcomDivisionTop3PlayoffBracket(division, { ...options, config });
+  }
+
   function buildLeaguePlayoffPlan(divisions = [], options = {}) {
     const config = normalizeConfig(options.config || options);
-    const brackets = asArray(divisions).map((division, index) => {
+    const ruleset = getSflCapcomPlayoffRuleset(config);
+    const sourceDivisions = asArray(divisions);
+    const brackets = sourceDivisions.map((division, index) => {
       return buildDivisionPlayoffBracket(division, {
         ...options,
         config,
         standings: asArray(asObject(division).standings),
-        qualifiersPerDivision: options.qualifiersPerDivision || 3,
+        qualifiersPerDivision: config.advancedPlayoffQualifiersPerDivision,
         divisionIndex: index + 1
       });
     });
@@ -1164,44 +1587,116 @@
     }).filter(Boolean);
     const finalStages = [];
 
-    if (championSlots.length >= 2) {
+    if (ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3 && championSlots.length >= 2) {
       const grandFinal = createPlayoffMatch({
-        id: "team-battle-grand-final",
+        id: "team-battle-grand-final-division-champions",
         round: 99,
         order: 1,
         stageType: PLAYOFF_STAGE_TYPES.GRAND_FINAL,
-        label: "Grande Final",
+        label: "Grande Final entre campeões de divisão",
+        targetPoints: config.playoffFirstToAdvancedGrandFinal,
+        advancedGrandFinal: true,
         homeTeam: championSlots[0],
         awayTeam: championSlots[1],
         metadata: {
           sourceDivisionChampionA: championSlots[0].sourceMatchId || "",
-          sourceDivisionChampionB: championSlots[1].sourceMatchId || ""
+          sourceDivisionChampionB: championSlots[1].sourceMatchId || "",
+          capcomSeedRule: "Campeões de divisão disputam a Grande Final no padrão FT90."
         }
       }, config);
 
       finalStages.push({
         id: "team-battle-grand-final-stage",
         type: PLAYOFF_STAGE_TYPES.GRAND_FINAL,
-        label: "Grande Final",
+        label: "Grande Final entre divisões",
+        targetPoints: config.playoffFirstToAdvancedGrandFinal,
         matches: [grandFinal]
       });
     }
 
     return {
       formatKey: FORMAT_KEY,
-      schemaVersion: `${SCHEMA_VERSION}.playoffs.v1`,
+      schemaVersion: `${SCHEMA_VERSION}.playoffs.sfl-capcom.v1`,
       status: brackets.some((bracket) => bracket.status === "ready") ? "ready" : "waiting_qualified_teams",
-      qualifiersPerDivision: clampNumber(options.qualifiersPerDivision || 3, 1, 16, 3),
+      ruleset,
+      rulesetLabel: getSflCapcomPlayoffRulesetLabel(config),
+      qualifiersPerDivision: ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
+        ? config.advancedPlayoffQualifiersPerDivision
+        : config.basicPlayoffQualifiers,
       divisionBrackets: brackets,
       finalStages,
+      publicRules: ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3 ? [
+        "Top 3 por divisão: 2º x 3º, vencedor enfrenta o 1º.",
+        "Séries de divisão em FT70.",
+        "Campeões de divisão avançam para a Grande Final FT90.",
+        "Sem partida extra nos playoffs."
+      ] : [
+        "Top 4 da Divisão Única avançam para a escada SFL.",
+        "3º x 4º; vencedor enfrenta o 2º; vencedor enfrenta o 1º na Grande Final.",
+        "Quartas e Semifinal em FT50; Grande Final em FT70.",
+        "Sem partida extra nos playoffs."
+      ],
       metadata: {
         generatedAt: new Date().toISOString(),
         divisionCount: brackets.length,
-        finalistCount: championSlots.length
+        finalistCount: championSlots.length,
+        source: "sfl-capcom-playoff-plan"
       }
     };
   }
 
+
+  function buildTeamBattleLeaguePlayoffPreview(playoffPlan = {}, options = {}) {
+    const source = asObject(playoffPlan);
+    const divisionBrackets = asArray(source.divisionBrackets);
+    const finalStages = asArray(source.finalStages);
+    const firstBracket = asObject(divisionBrackets[0]);
+    const allStages = [
+      ...divisionBrackets.flatMap((bracket) => asArray(asObject(bracket).stages)),
+      ...finalStages
+    ];
+    const matches = allStages.flatMap((stage) => asArray(asObject(stage).matches).map((match) => ({
+      ...buildPlayoffSeriesPublicSummary(match),
+      stageGroupLabel: cleanText(asObject(stage).label, "Playoff")
+    })));
+    const qualifiedTeams = asArray(firstBracket.qualifiedTeams).map((team, index) => ({
+      seed: team.seed || index + 1,
+      name: team.teamName || team.name || `Equipe ${index + 1}`,
+      tag: team.tag || "",
+      label: team.qualifierLabel || `${team.seed || index + 1}º colocado`
+    }));
+    const rules = asArray(source.publicRules).length ? asArray(source.publicRules) : asArray(firstBracket.rules);
+    const emptyState = asObject(firstBracket.emptyState);
+
+    return {
+      schemaVersion: `${SCHEMA_VERSION}.playoff-preview.v1`,
+      ruleset: cleanText(source.ruleset),
+      rulesetLabel: cleanText(source.rulesetLabel, "SFL Capcom"),
+      status: cleanText(source.status, "waiting_qualified_teams"),
+      statusLabel: source.status === "ready" ? "Playoffs prontos" : cleanText(emptyState.title, "Playoffs aguardando classificação"),
+      title: source.ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
+        ? "Playoffs SFL por divisão"
+        : "Playoffs SFL em escada",
+      description: source.ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
+        ? "Top 3 por divisão, final de divisão e Grande Final entre campeões."
+        : "Top 4 da Divisão Única: 3º x 4º, vencedor pega o 2º e a Grande Final é contra o 1º.",
+      qualifiedTeams,
+      requiredQualifiedTeams: Number(firstBracket.requiredQualifiedTeams || source.qualifiersPerDivision || 0),
+      matches,
+      rules,
+      emptyState: Object.keys(emptyState).length ? emptyState : {
+        title: "Playoffs aguardando fase classificatória",
+        description: "A fase final será montada automaticamente a partir da classificação real.",
+        hint: "Sem equipes demo/fake nos playoffs."
+      },
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        matchCount: matches.length,
+        source: "team-battle-playoff-preview",
+        ...asObject(options.metadata)
+      }
+    };
+  }
 
   function findTeamReference(teams = [], teamId = "") {
     const key = cleanText(teamId);
@@ -2665,13 +3160,32 @@
         { slot: 3, label: "Partida 3", points: normalizedConfig.mainMatchPointsBySlot[2] || 20 },
         { slot: 4, label: "Partida extra", points: normalizedConfig.defaultExtraMatchPoints, conditional: true }
       ],
+      playoffModel: {
+        ruleset: getSflCapcomPlayoffRuleset(normalizedConfig),
+        label: getSflCapcomPlayoffRulesetLabel(normalizedConfig),
+        basic: {
+          qualifiers: normalizedConfig.basicPlayoffQualifiers,
+          quarterFinal: `FT${normalizedConfig.playoffFirstToQuarterFinal}`,
+          semiFinal: `FT${normalizedConfig.playoffFirstToSemiFinal}`,
+          grandFinal: `FT${normalizedConfig.playoffFirstToGrandFinal}`,
+          extraMatch: false
+        },
+        advanced: {
+          qualifiersPerDivision: normalizedConfig.advancedPlayoffQualifiersPerDivision,
+          divisionSeries: `FT${normalizedConfig.playoffFirstToDivisionFinal}`,
+          grandFinal: `FT${normalizedConfig.playoffFirstToAdvancedGrandFinal}`,
+          extraMatch: false
+        }
+      },
       rules: [
         "Cada equipe possui elenco de 4 jogadores.",
         "Cada confronto entre equipes usa 3 partidas principais.",
         "A equipe escala 3 titulares e mantém 1 reserva.",
         "A terceira partida principal vale mais pontos para aumentar o peso estratégico do confronto.",
         "Se houver empate após as partidas principais, a partida extra decide o confronto.",
-        "O modo básico usa divisão única; o modo avançado usa várias divisões."
+        "O modo básico usa divisão única; o modo avançado usa várias divisões.",
+        "Nos playoffs SFL, não há partida extra: a série continua por sets 10/10/20 até atingir a meta.",
+        "No MVP básico, o Top 4 entra em escada: 3º x 4º, vencedor contra 2º, vencedor contra 1º."
       ]
     };
   }
@@ -3135,6 +3649,7 @@
         teams,
         standings: [],
         matches: [],
+        playoffPlan: buildLeaguePlayoffPlan([{ id: "division-unica", name: config.defaultDivisionName || "Divisão Única", teams: [], standings: [] }], { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION }),
         summaryLabel: checkinClosed
           ? "Aguardando pelo menos 2 equipes reais com check-in confirmado."
           : "As equipes aparecem após o encerramento do check-in.",
@@ -3162,6 +3677,15 @@
     };
     const matches = flattenDivisionMatches(hydratedDivision);
     const finished = matches.filter((match) => asObject(match).result?.finalized === true || asObject(match).status === TEAM_MATCH_STATUS.FINISHED).length;
+    const playoffPlan = buildLeaguePlayoffPlan([hydratedDivision], { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    if (!(finished >= matches.length && matches.length > 0)) {
+      playoffPlan.status = "waiting_regular_season";
+      playoffPlan.publicRules = [
+        "Playoffs SFL ficam travados até finalizar a fase classificatória da Divisão Única.",
+        "Depois da classificação final, o Top 4 entra na escada SFL.",
+        "Sem equipes demo/fake nos playoffs."
+      ];
+    }
 
     return {
       ready: true,
@@ -3170,6 +3694,8 @@
       division: hydratedDivision,
       standings: asArray(hydratedDivision.standings).map((row, index) => normalizeStandingRow(row, index + 1)),
       matches,
+      playoffPlan,
+      playoffPreview: buildTeamBattleLeaguePlayoffPreview(playoffPlan),
       finishedMatches: finished,
       totalMatches: matches.length,
       summaryLabel: `${teams.length} equipe${teams.length === 1 ? "" : "s"} confirmada${teams.length === 1 ? "" : "s"} · ${finished}/${matches.length} confronto${matches.length === 1 ? "" : "s"} finalizado${matches.length === 1 ? "" : "s"}`,
@@ -3237,6 +3763,10 @@
       description: "As equipes reais confirmadas aparecerão nesta divisão após o encerramento do check-in. A plataforma -SBW- não usa equipes demo para preencher a tabela.",
       tableHint: "Posição, equipe, pontos, vitórias e saldo serão calculados somente com equipes reais."
     };
+    const playoffPlan = operational.playoffPlan || buildLeaguePlayoffPlan([{ ...division, teams, standings }], { ...options, config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const playoffPreview = buildTeamBattleLeaguePlayoffPreview(playoffPlan, {
+      metadata: { boardReady: hasRealTeams }
+    });
 
     return {
       formatKey: FORMAT_KEY,
@@ -3252,11 +3782,13 @@
       emptyState,
       standings: standings.slice(0, 12),
       matches,
+      playoffPreview,
       statusCards: [
         { label: "Modo", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Básico" : "Avançado", detail: getLeagueModeLabel(mode) },
         { label: "Divisões", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "1" : String(Math.max(2, publicOverview.divisionCount || 2)), detail: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Múltiplas divisões" },
         { label: "Equipes", value: hasRealTeams ? String(teams.length) : "Após check-in", detail: hasRealTeams ? "Equipes reais confirmadas" : "Sem equipes demo" },
-        { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Confrontos da divisão única" : "Após equipes reais" }
+        { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Confrontos da divisão única" : "Após equipes reais" },
+        { label: "Playoffs", value: hasRealTeams ? playoffPreview.statusLabel : "Após tabela", detail: playoffPreview.rulesetLabel }
       ],
       notes: hasRealTeams ? [
         "A Divisão Única foi montada com equipes reais confirmadas no check-in.",
@@ -4099,12 +4631,12 @@
         "Partida extra em caso de empate",
         "Pontuação 10/10/20/10",
         "Classificação da divisão única",
-        "Playoffs simples quando aplicável",
+        "Playoffs SFL Capcom em escada quando aplicável",
         "Resumo público de confrontos e tabela"
       ],
       deferred: [
         "Várias divisões",
-        "Playoffs entre campeões de divisão",
+        "Playoffs avançados Top 3 por divisão e Grande Final FT90",
         "Regras avançadas por conferência",
         "Automação completa de temporadas longas",
         "Integração pública completa de páginas dedicadas da liga"
@@ -4625,6 +5157,7 @@
     TEAM_MATCH_STATUS,
     LINEUP_ROLE_TYPES,
     PLAYOFF_STAGE_TYPES,
+    PLAYOFF_RULESET_TYPES,
     LEAGUE_MODE_TYPES,
     TEAM_REGISTRATION_STATUS,
     TEAM_CHECKIN_STATUS,
@@ -4751,9 +5284,22 @@
     normalizeStandingRow,
     getQualifiedTeamsFromStandings,
     createPlayoffTeamReference,
+    createPlayoffPlaceholder,
+    getSflCapcomPlayoffRuleset,
+    getSflCapcomPlayoffRulesetLabel,
+    getSflCapcomPlayoffStageLabel,
+    getSflCapcomPlayoffTargetPoints,
+    getSflCapcomMinimumSets,
+    createSflCapcomPlayoffSet,
+    calculateSflCapcomPlayoffSeriesScore,
+    createSflCapcomPlayoffSeries,
+    buildPlayoffSeriesPublicSummary,
     createPlayoffMatch,
+    buildSflCapcomSingleDivisionPlayoffBracket,
+    buildSflCapcomDivisionTop3PlayoffBracket,
     buildDivisionPlayoffBracket,
     buildLeaguePlayoffPlan,
+    buildTeamBattleLeaguePlayoffPreview,
     findTeamReference,
     getTeamDisplayLabel,
     buildMatchSlotPublicSummary,

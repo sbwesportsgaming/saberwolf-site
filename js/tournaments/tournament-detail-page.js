@@ -789,6 +789,10 @@ function getTournamentFormat(tournament) {
       : null;
     const standings = Array.isArray(board?.standings) ? board.standings : [];
     const matches = Array.isArray(board?.matches) ? board.matches : [];
+    const playoffPreview = board?.playoffPreview || null;
+    const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 4) : [];
+    const playoffTeams = Array.isArray(playoffPreview?.qualifiedTeams) ? playoffPreview.qualifiedTeams.slice(0, 4) : [];
+    const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
     const emptyState = board?.emptyState || {
       title: "Aguardando check-in das equipes",
       description: "As equipes reais confirmadas aparecerão nesta divisão após o encerramento do check-in.",
@@ -798,7 +802,8 @@ function getTournamentFormat(tournament) {
       { label: "1", title: "Criação do torneio", text: "O organizador escolhe o Team Battle League 4v4 básico e revisa as regras principais." },
       { label: "2", title: "Molde da Divisão Única", text: "Depois de criado, o torneio mostra a tabela vazia e a estrutura de pontuação." },
       { label: "3", title: "Check-in de equipes", text: "Somente equipes reais confirmadas entram no grupo e nos confrontos." },
-      { label: "4", title: "Rodadas e resultados", text: "Confrontos, pontos e classificação serão calculados na etapa funcional do formato." }
+      { label: "4", title: "Rodadas e resultados", text: "Confrontos, pontos e classificação alimentam a fase final." },
+      { label: "5", title: "Playoffs SFL", text: "Top 4 da Divisão Única entra na escada SFL: 3º x 4º, vencedor contra 2º e Grande Final contra 1º." }
     ];
 
     return `
@@ -897,6 +902,51 @@ function getTournamentFormat(tournament) {
                 <p>${escapeHTML(match.statusLabel || "Aguardando equipes")}</p>
               </article>
             `).join("")}
+          </div>
+        ` : ""}
+
+        ${playoffPreview ? `
+          <div class="overview-team-battle-playoff-preview" aria-label="Playoffs Team Battle League 4v4 no padrão SFL Capcom">
+            <div class="overview-team-battle-playoff-preview__head">
+              <div>
+                <small>${escapeHTML(playoffPreview.rulesetLabel || "SFL Capcom")}</small>
+                <strong>${escapeHTML(playoffPreview.title || "Playoffs SFL")}</strong>
+                <p>${escapeHTML(playoffPreview.description || "Fase final montada pela classificação real da liga.")}</p>
+              </div>
+              <span>${escapeHTML(playoffPreview.statusLabel || "Aguardando classificação")}</span>
+            </div>
+
+            <div class="overview-team-battle-playoff-preview__teams">
+              ${playoffTeams.length ? playoffTeams.map((team) => `
+                <span><small>${escapeHTML(team.label || `${team.seed || ""}º colocado`)}</small>${escapeHTML(team.name || "Equipe classificada")}</span>
+              `).join("") : `
+                <span><small>Top 4</small>${escapeHTML(playoffPreview.emptyState?.description || "Aguardando finalização da fase classificatória.")}</span>
+              `}
+            </div>
+
+            <div class="overview-team-battle-playoff-preview__bracket">
+              ${playoffMatches.length ? playoffMatches.map((match) => `
+                <article>
+                  <small>${escapeHTML(match.stageLabel || "Playoff")}</small>
+                  <strong>${escapeHTML(match.firstToLabel || "FT")}</strong>
+                  <div><span>${escapeHTML(match.homeTeamLabel || "Classificado")}</span><em>vs</em><span>${escapeHTML(match.awayTeamLabel || "Classificado")}</span></div>
+                  <p>${escapeHTML(match.statusLabel || "Aguardando")} · ${escapeHTML(match.noExtraMatch ? "sem partida extra" : "partida extra se necessário")}</p>
+                </article>
+              `).join("") : `
+                <article>
+                  <small>${escapeHTML(playoffPreview.emptyState?.title || "Playoffs aguardando")}</small>
+                  <strong>FT50 / FT70</strong>
+                  <div><span>3º x 4º</span><em>→</em><span>2º → 1º</span></div>
+                  <p>${escapeHTML(playoffPreview.emptyState?.hint || "A fase final não usa equipes demo/fake.")}</p>
+                </article>
+              `}
+            </div>
+
+            ${playoffRules.length ? `
+              <div class="overview-team-battle-playoff-preview__rules">
+                ${playoffRules.map((rule) => `<span>${escapeHTML(rule)}</span>`).join("")}
+              </div>
+            ` : ""}
           </div>
         ` : ""}
 

@@ -898,6 +898,7 @@ async function initAccessControl() {
         ? helper.buildTeamBattleLeagueBasicMvpSetupPreview({}, { leagueMode: "basic_single_division" })
         : null);
       const board = flow?.board || null;
+      const playoffPreview = board?.playoffPreview || null;
       const setupCards = Array.isArray(setupPreview?.cards) ? setupPreview.cards.slice(0, 4) : [];
       const setupFields = Array.isArray(setupPreview?.fields) ? setupPreview.fields.slice(0, 8) : [];
       const flowSteps = Array.isArray(flow?.steps) ? flow.steps : [
@@ -965,6 +966,7 @@ async function initAccessControl() {
           </div>
 
           <div class="format-box__notice">MVP básico liberado para criação controlada. A tabela pública nasce vazia e só será preenchida por equipes reais confirmadas após o check-in.</div>
+          <div class="format-box__notice">Playoffs programados no padrão SFL Capcom: Top 4 em escada, Quartas/Semifinal FT50, Grande Final FT70 e sem partida extra. ${escapeHTML(playoffPreview?.statusLabel || "Aguardando classificação real.")}</div>
         </div>
       `;
     }
