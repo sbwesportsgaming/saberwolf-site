@@ -340,6 +340,106 @@
       line-height: 1.45;
     }
 
+
+
+    .format-box__team-battle-preview {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 13px;
+      border-radius: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      background: rgba(2, 6, 23, 0.38);
+    }
+
+    .format-box__team-battle-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .format-box__team-battle-head span {
+      display: inline-flex;
+      width: fit-content;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(250, 204, 21, 0.2);
+      background: rgba(250, 204, 21, 0.08);
+      color: #fde68a;
+      font-size: 0.68rem;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .format-box__team-battle-modes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .format-box__team-battle-mode {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .format-box__team-battle-mode.is-recommended {
+      border-color: rgba(56, 189, 248, 0.24);
+      background: rgba(56, 189, 248, 0.07);
+    }
+
+    .format-box__team-battle-mode small {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .format-box__team-battle-mode p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+
+    .format-box__team-battle-mode div,
+    .format-box__team-battle-score {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 9px;
+    }
+
+    .format-box__team-battle-mode div span,
+    .format-box__team-battle-score span {
+      display: inline-flex;
+      width: fit-content;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(226, 232, 240, 0.92);
+      font-size: 0.7rem;
+      font-weight: 750;
+    }
+
+    .format-box__team-battle-score strong {
+      color: #7dd3fc;
+    }
+
+    @media (max-width: 720px) {
+      .format-box__team-battle-modes {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .math-hint {
       margin-top: -6px;
       margin-bottom: 16px;
@@ -2233,7 +2333,8 @@ Torneio criado.
 <script src="../../js/tournaments/tournaments-demo-data.js"></script>
 <script src="../../js/tournaments/tournaments-utils.js"></script>
 <script src="../../js/tournaments/tournaments-models.js"></script>
-<script src="../../js/tournaments/tournament-formats.js?v=1.6.71"></script>
+<script src="../../js/tournaments/tournament-formats.js?v=1.6.73"></script>
+<script src="../../js/tournaments/team-battle-league.js?v=1.6.73"></script>
 <script src="../../js/tournaments/tournaments-storage.js?v=1.6.55"></script>
 <script src="../../js/tournaments/tournament-admin-page.js?v=1.6.67.5"></script>
  

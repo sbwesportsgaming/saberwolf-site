@@ -56,17 +56,25 @@ let requestedOrganizerKey = "";
 
       if (registered) {
         return {
+          key: registered.key || String(format || "").trim(),
           title: registered.label || registered.shortLabel || format,
+          shortLabel: registered.shortLabel || registered.label || format,
           description: registered.description || registered.publicNote || "Formato competitivo da plataforma -SBW-.",
           family: registered.family || "custom",
           category: registered.category || "custom",
           status: registered.status || "custom",
           teamMode: registered.teamMode || "solo",
-          publicNote: registered.publicNote || ""
+          publicNote: registered.publicNote || "",
+          flowTitle: registered.flowTitle || "",
+          flowDescription: registered.flowDescription || "",
+          features: Array.isArray(registered.features) ? registered.features : [],
+          requirements: Array.isArray(registered.requirements) ? registered.requirements : [],
+          specs: Array.isArray(registered.specs) ? registered.specs : [],
+          capabilities: registered.capabilities && typeof registered.capabilities === "object" ? registered.capabilities : {}
         };
       }
 
-      return formatDescriptions[format] || {
+      const fallback = formatDescriptions[format] || {
         title: String(format || "Formato").trim() || "Formato",
         description: "Formato competitivo personalizado.",
         family: "custom",
@@ -74,6 +82,15 @@ let requestedOrganizerKey = "";
         status: "custom",
         teamMode: "solo",
         publicNote: ""
+      };
+
+      return {
+        key: String(format || fallback.title || "custom").trim() || "custom",
+        features: [],
+        requirements: [],
+        specs: [],
+        capabilities: {},
+        ...fallback
       };
     }
 
@@ -869,6 +886,72 @@ async function initAccessControl() {
     }
 
 
+    function renderTeamBattleLeagueCreationPreview(info) {
+      const key = String(info?.key || "").toLowerCase();
+      if (key !== "team-battle-league-4v4") return "";
+
+      const helper = window.SBWTeamBattleLeague;
+      const modes = helper && typeof helper.buildTeamBattleLeagueModeComparison === "function"
+        ? helper.buildTeamBattleLeagueModeComparison()
+        : [
+            { title: "Team Battle League 4v4 básica", shortLabel: "Básica", divisionModel: "Divisão única", status: "prioridade inicial", description: "Modelo inicial com todas as equipes em uma única divisão.", highlights: ["Uma divisão única", "Menor risco operacional", "Ideal para primeiros testes"] },
+            { title: "Team Battle League 4v4 avançada", shortLabel: "Avançada", divisionModel: "Várias divisões", status: "fase posterior", description: "Modelo expandido para ligas maiores com múltiplas divisões.", highlights: ["Várias divisões", "Classificação por divisão", "Playoffs avançados"] }
+          ];
+      const rulebook = helper && typeof helper.buildTeamBattleLeagueRulebookSummary === "function"
+        ? helper.buildTeamBattleLeagueRulebookSummary()
+        : {
+            scoreModel: [
+              { label: "Partida 1", points: 10 },
+              { label: "Partida 2", points: 10 },
+              { label: "Partida 3", points: 20 },
+              { label: "Partida extra", points: 10, conditional: true }
+            ],
+            rules: ["Equipes com elenco de 4 jogadores", "3 titulares + 1 reserva", "Partida extra em caso de empate"]
+          };
+      const testPackage = helper && typeof helper.buildTeamBattleLeagueControlledTestPackage === "function"
+        ? helper.buildTeamBattleLeagueControlledTestPackage({}, { leagueMode: "basic_single_division" })
+        : null;
+      const gates = Array.isArray(testPackage?.gates) ? testPackage.gates.slice(0, 6) : [];
+
+      return `
+        <div class="format-box__team-battle-preview">
+          <div class="format-box__team-battle-head">
+            <strong>Prévia visual do formato 4v4</strong>
+            <span>Em preparação · não libera criação real ainda</span>
+          </div>
+          <div class="format-box__team-battle-modes">
+            ${modes.map((mode) => `
+              <article class="format-box__team-battle-mode ${mode.recommendedFirstRelease ? "is-recommended" : ""}">
+                <small>${escapeHTML(mode.shortLabel || mode.status || "Modo")}</small>
+                <strong>${escapeHTML(mode.divisionModel || mode.title || "Modo")}</strong>
+                <p>${escapeHTML(mode.description || "Modelo planejado para este formato.")}</p>
+                ${Array.isArray(mode.highlights) && mode.highlights.length ? `<div>${mode.highlights.slice(0, 3).map((item) => `<span>${escapeHTML(item)}</span>`).join("")}</div>` : ""}
+              </article>
+            `).join("")}
+          </div>
+          <div class="format-box__team-battle-score">
+            ${Array.isArray(rulebook.scoreModel) ? rulebook.scoreModel.map((slot) => `
+              <span><strong>${escapeHTML(slot.points || 0)}</strong> ${escapeHTML(slot.label || "Partida")}${slot.conditional ? " · se empate" : ""}</span>
+            `).join("") : ""}
+          </div>
+          ${gates.length ? `
+            <div class="format-box__team-battle-gates" aria-label="Etapas do teste controlado Team Battle League 4v4">
+              <strong>Teste controlado planejado</strong>
+              <div>
+                ${gates.map((gate) => `
+                  <span class="is-${escapeHTML(gate.status || "pending")}">
+                    <small>${escapeHTML(gate.stateLabel || "Pendente")}</small>
+                    ${escapeHTML(gate.label || "Etapa")}
+                  </span>
+                `).join("")}
+              </div>
+            </div>
+          ` : ""}
+          <div class="format-box__notice">Primeira liberação planejada: Team Battle League 4v4 básica com divisão única. O modo avançado com várias divisões fica para etapa posterior.</div>
+        </div>
+      `;
+    }
+
     function renderFormatInfoDetails(info) {
       const features = Array.isArray(info.features) ? info.features.slice(0, 5) : [];
       const requirements = Array.isArray(info.requirements) ? info.requirements.slice(0, 5) : [];
@@ -890,6 +973,7 @@ async function initAccessControl() {
             ${requirements.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}
           </ul>
         ` : ""}
+        ${renderTeamBattleLeagueCreationPreview(info)}
         <div class="format-box__notice">${escapeHTML(notice)}</div>
       `;
     }

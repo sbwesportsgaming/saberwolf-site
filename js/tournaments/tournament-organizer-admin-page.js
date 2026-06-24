@@ -260,6 +260,162 @@ function sbwOrganizerEditorRenderFormatBadge(tournament, options = {}) {
 }
 
 
+function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament = sbwOrganizerEditorEditingTournament) {
+  const metadata = sbwOrganizerEditorGetFormatMetadata(formatValue || "double-elimination");
+  const key = String(metadata.key || formatValue || "").toLowerCase();
+
+  if (key !== "team-battle-league-4v4") return "";
+
+  const helper = window.SBWTeamBattleLeague;
+  const model = helper && typeof helper.buildTeamBattleLeagueAdminSectionModel === "function"
+    ? helper.buildTeamBattleLeagueAdminSectionModel(tournament || {}, { leagueMode: "basic_single_division" })
+    : null;
+  const modes = model?.modeComparison || (helper && typeof helper.buildTeamBattleLeagueModeComparison === "function"
+    ? helper.buildTeamBattleLeagueModeComparison()
+    : []);
+  const rulebook = model?.rulebook || (helper && typeof helper.buildTeamBattleLeagueRulebookSummary === "function"
+    ? helper.buildTeamBattleLeagueRulebookSummary()
+    : null);
+  const cards = Array.isArray(model?.cards) ? model.cards : [
+    { label: "Modo recomendado", value: "Divisão única", description: "Primeira versão funcional planejada." },
+    { label: "Equipes", value: "4v4", description: "Cada equipe usa elenco de 4 jogadores." },
+    { label: "Pontuação", value: "10/10/20", description: "Partida extra vale 10 pontos se houver empate." }
+  ];
+  const operations = [
+    { label: "Configuração", value: "Divisão única", detail: "Criar a liga básica com todas as equipes no mesmo grupo." },
+    { label: "Inscrições", value: "Equipes aprovadas", detail: "Validar equipes com elenco mínimo de 4 jogadores." },
+    { label: "Escalações", value: "3 + 1", detail: "Confirmar titulares e reserva antes do confronto." },
+    { label: "Rodadas", value: "Round-robin", detail: "Gerar confrontos da divisão única e acompanhar resultados." }
+  ];
+  const releaseChecks = [
+    "Formato ainda bloqueado para criação real.",
+    "Primeira liberação deve usar somente divisão única.",
+    "Modo com várias divisões fica reservado para etapa avançada.",
+    "Inscrição, check-in e resultados reais entram apenas após validação controlada."
+  ];
+  const visualBoard = helper && typeof helper.buildTeamBattleLeagueVisualPreviewBoard === "function"
+    ? helper.buildTeamBattleLeagueVisualPreviewBoard(tournament || {}, { leagueMode: "basic_single_division" })
+    : null;
+  const testPackage = helper && typeof helper.buildTeamBattleLeagueControlledTestPackage === "function"
+    ? helper.buildTeamBattleLeagueControlledTestPackage(tournament || {}, { leagueMode: "basic_single_division" })
+    : null;
+  const testGates = Array.isArray(testPackage?.gates) ? testPackage.gates.slice(0, 6) : [];
+  const boardStandings = Array.isArray(visualBoard?.standings) ? visualBoard.standings.slice(0, 4) : [];
+  const boardMatches = Array.isArray(visualBoard?.matches) ? visualBoard.matches.slice(0, 2) : [];
+
+  return `
+    <section class="organizer-admin-team-battle-preview" aria-label="Prévia administrativa Team Battle League 4v4">
+      <div class="organizer-admin-team-battle-preview__head">
+        <div>
+          <span class="organizer-admin-eyebrow">Prévia visual 4v4</span>
+          <strong>Team Battle League 4v4</strong>
+          <p>Primeira tela real de preparação do formato. O modo básico usa divisão única; o modo avançado com várias divisões fica para etapa posterior.</p>
+        </div>
+        <span>${sbwOrganizerEditorEscape(model?.badge?.label || "Em preparação")}</span>
+      </div>
+
+      <div class="organizer-admin-team-battle-cards">
+        ${cards.slice(0, 4).map((card) => `
+          <article>
+            <small>${sbwOrganizerEditorEscape(card.label || "Item")}</small>
+            <strong>${sbwOrganizerEditorEscape(card.value || "—")}</strong>
+            <p>${sbwOrganizerEditorEscape(card.description || "Preparado para etapa futura.")}</p>
+          </article>
+        `).join("")}
+      </div>
+
+      <div class="organizer-admin-team-battle-modes">
+        ${modes.slice(0, 2).map((mode) => `
+          <article class="${mode.recommendedFirstRelease ? "is-recommended" : ""}">
+            <small>${sbwOrganizerEditorEscape(mode.shortLabel || mode.status || "Modo")}</small>
+            <strong>${sbwOrganizerEditorEscape(mode.divisionModel || mode.title || "Modo")}</strong>
+            <p>${sbwOrganizerEditorEscape(mode.description || "Modelo planejado para a liga.")}</p>
+          </article>
+        `).join("")}
+      </div>
+
+      ${Array.isArray(rulebook?.scoreModel) ? `
+        <div class="organizer-admin-team-battle-score">
+          ${rulebook.scoreModel.map((slot) => `
+            <span><strong>${sbwOrganizerEditorEscape(slot.points || 0)}</strong>${sbwOrganizerEditorEscape(slot.label || "Partida")}${slot.conditional ? " · se empate" : ""}</span>
+          `).join("")}
+        </div>
+      ` : ""}
+
+      <div class="organizer-admin-team-battle-ops" aria-label="Fluxo operacional planejado do Team Battle League 4v4">
+        ${operations.map((item) => `
+          <article>
+            <small>${sbwOrganizerEditorEscape(item.label)}</small>
+            <strong>${sbwOrganizerEditorEscape(item.value)}</strong>
+            <p>${sbwOrganizerEditorEscape(item.detail)}</p>
+          </article>
+        `).join("")}
+      </div>
+
+      ${visualBoard ? `
+        <div class="organizer-admin-team-battle-board" aria-label="Prévia administrativa da divisão única">
+          <div class="organizer-admin-team-battle-board__head">
+            <div>
+              <small>Prévia da liga básica</small>
+              <strong>${sbwOrganizerEditorEscape(visualBoard.divisionName || "Divisão única")}</strong>
+            </div>
+            <span>${sbwOrganizerEditorEscape(visualBoard.leagueModeLabel || "Básica · divisão única")}</span>
+          </div>
+          <div class="organizer-admin-team-battle-board__grid">
+            <div class="organizer-admin-team-battle-standings-preview">
+              <strong>Classificação</strong>
+              ${boardStandings.length ? boardStandings.map((row, index) => `
+                <div>
+                  <span>${sbwOrganizerEditorEscape(row.position || index + 1)}º</span>
+                  <strong>${sbwOrganizerEditorEscape(row.teamName || row.name || `Equipe ${index + 1}`)}</strong>
+                  <small>${sbwOrganizerEditorEscape(row.battlePoints || 0)} pts · ${sbwOrganizerEditorEscape(row.teamMatchWins || 0)}V</small>
+                </div>
+              `).join("") : `<p>As equipes aprovadas aparecerão aqui.</p>`}
+            </div>
+            <div class="organizer-admin-team-battle-round-preview">
+              <strong>Rodada inicial</strong>
+              ${boardMatches.length ? boardMatches.map((match) => `
+                <article>
+                  <small>${sbwOrganizerEditorEscape(match.label || "Confronto")}</small>
+                  <div><span>${sbwOrganizerEditorEscape(match.homeTeamName || "Equipe A")}</span><em>vs</em><span>${sbwOrganizerEditorEscape(match.awayTeamName || "Equipe B")}</span></div>
+                  <p>${sbwOrganizerEditorEscape(match.statusLabel || "A definir")}</p>
+                </article>
+              `).join("") : `<p>Os confrontos serão gerados quando houver equipes aprovadas.</p>`}
+            </div>
+          </div>
+        </div>
+      ` : ""}
+
+      ${testGates.length ? `
+        <div class="organizer-admin-team-battle-test-gates" aria-label="Etapas do teste controlado Team Battle League 4v4">
+          <div class="organizer-admin-team-battle-test-gates__head">
+            <div>
+              <small>Teste controlado</small>
+              <strong>${sbwOrganizerEditorEscape(testPackage?.releaseLabel || "Teste interno planejado")}</strong>
+            </div>
+            <span>${sbwOrganizerEditorEscape(testPackage?.modeLabel || "Básica · divisão única")}</span>
+          </div>
+          <div class="organizer-admin-team-battle-test-gates__grid">
+            ${testGates.map((gate) => `
+              <article class="is-${sbwOrganizerEditorEscape(gate.status || "pending")}">
+                <small>${sbwOrganizerEditorEscape(gate.stateLabel || "Pendente")}</small>
+                <strong>${sbwOrganizerEditorEscape(gate.label || "Etapa")}</strong>
+                <p>${sbwOrganizerEditorEscape(gate.description || "Preparado para teste controlado.")}</p>
+              </article>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+
+      <div class="organizer-admin-team-battle-release-checks" aria-label="Checklist de liberação do formato">
+        ${releaseChecks.map((item) => `<span>${sbwOrganizerEditorEscape(item)}</span>`).join("")}
+      </div>
+
+      <p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(model?.lockedMessage || "Criação real ainda bloqueada. Esta prévia serve para validar a estrutura visual antes da liberação funcional.")}</p>
+    </section>
+  `;
+}
+
 function sbwOrganizerEditorRenderFormatPreview(formatValue = sbwOrganizerTournamentEditFormat?.value) {
   if (!sbwOrganizerTournamentEditFormatPreview) return;
 
@@ -287,6 +443,7 @@ function sbwOrganizerEditorRenderFormatPreview(formatValue = sbwOrganizerTournam
         ${requirements.map((item) => `<li>${sbwOrganizerEditorEscape(item)}</li>`).join("")}
       </ul>
     ` : ""}
+    ${sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue)}
     ${unavailableReason ? `<p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(unavailableReason)}</p>` : ""}
   `;
 }

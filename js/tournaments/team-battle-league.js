@@ -1,4 +1,4 @@
-// v1.6.72.16 — Contrato técnico e checklist final do Team Battle League 4v4 da plataforma -SBW-
+// v1.6.72.17 — Pacote consolidado de liberação básica do Team Battle League 4v4 da plataforma -SBW-
 (function () {
   "use strict";
 
@@ -2804,6 +2804,85 @@
     };
   }
 
+
+  function buildTeamBattleLeagueVisualPreviewBoard(tournament = {}, options = {}) {
+    const league = normalizeTeamBattleLeagueTournamentPayload(tournament, options);
+    const mode = normalizeLeagueMode(league.leagueMode || options.leagueMode);
+    const publicOverview = buildTeamBattlePublicOverview(league, {
+      ...options,
+      includePlayoffs: false
+    });
+    const division = asArray(publicOverview.divisions)[0] || {};
+    const defaultTeams = [
+      { id: "team-a", name: "Equipe A", tag: "A", seed: 1 },
+      { id: "team-b", name: "Equipe B", tag: "B", seed: 2 },
+      { id: "team-c", name: "Equipe C", tag: "C", seed: 3 },
+      { id: "team-d", name: "Equipe D", tag: "D", seed: 4 }
+    ];
+    const teams = asArray(division.teams).length ? asArray(division.teams) : defaultTeams;
+    const standings = asArray(division.standings).length
+      ? asArray(division.standings).map((row, index) => normalizeStandingRow(row, index + 1))
+      : teams.map((team, index) => ({
+          position: index + 1,
+          teamId: cleanText(team.id || team.teamId, `team-${index + 1}`),
+          teamName: cleanText(team.name || team.teamName || team.label, `Equipe ${index + 1}`),
+          tag: cleanText(team.tag || team.teamTag || team.team_tag),
+          battlePoints: 0,
+          teamMatchWins: 0,
+          individualWins: 0,
+          battlePointDiff: 0,
+          source: "visual-preview"
+        }));
+    const firstRound = asArray(division.rounds)[0] || {};
+    const matchSource = asArray(firstRound.matches).length ? asArray(firstRound.matches) : [
+      {
+        id: "preview-match-1",
+        label: "Rodada 1 · Confronto 1",
+        homeTeamName: teams[0]?.label || teams[0]?.name || "Equipe A",
+        awayTeamName: teams[1]?.label || teams[1]?.name || "Equipe B",
+        statusLabel: "A definir"
+      },
+      {
+        id: "preview-match-2",
+        label: "Rodada 1 · Confronto 2",
+        homeTeamName: teams[2]?.label || teams[2]?.name || "Equipe C",
+        awayTeamName: teams[3]?.label || teams[3]?.name || "Equipe D",
+        statusLabel: "A definir"
+      }
+    ];
+    const matches = matchSource.slice(0, 4).map((match, index) => ({
+      id: cleanText(match.id || match.matchId, `preview-match-${index + 1}`),
+      label: cleanText(match.label || match.roundLabel, `Rodada 1 · Confronto ${index + 1}`),
+      homeTeamName: cleanText(match.homeTeamName || match.homeName || match.home?.name, index === 0 ? "Equipe A" : "Equipe C"),
+      awayTeamName: cleanText(match.awayTeamName || match.awayName || match.away?.name, index === 0 ? "Equipe B" : "Equipe D"),
+      statusLabel: cleanText(match.statusLabel || match.status || "A definir", "A definir")
+    }));
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.visual-board.v1`,
+      leagueMode: mode,
+      leagueModeLabel: getLeagueModeLabel(mode),
+      divisionName: cleanText(division.name || division.label, mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Divisão A"),
+      summaryLabel: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION
+        ? "Prévia da liga básica com todas as equipes em uma divisão única."
+        : "Prévia do modo avançado com múltiplas divisões.",
+      standings: standings.slice(0, 6),
+      matches,
+      statusCards: [
+        { label: "Modo", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Básico" : "Avançado", detail: getLeagueModeLabel(mode) },
+        { label: "Divisões", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "1" : String(Math.max(2, publicOverview.divisionCount || 2)), detail: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Múltiplas divisões" },
+        { label: "Elenco", value: "4v4", detail: "3 titulares + 1 reserva" },
+        { label: "Pontuação", value: "10/10/20", detail: "+10 no extra se empatar" }
+      ],
+      notes: [
+        "Modelo visual para validação antes da criação real do formato.",
+        "A versão básica deve ser a primeira a entrar em teste controlado.",
+        "Nomes, equipes e rodadas reais serão preenchidos quando o formato for liberado."
+      ]
+    };
+  }
+
   function buildTeamBattleLeagueImplementationPlan() {
     return [
       {
@@ -3312,6 +3391,333 @@
     };
   }
 
+
+  function buildTeamBattleLeagueBasicMvpScope() {
+    return {
+      key: "team-battle-league-4v4-basic-mvp",
+      label: "Team Battle League 4v4 básica",
+      mode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+      modeLabel: getLeagueModeLabel(LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION),
+      status: "em_preparacao",
+      releaseGoal: "Liberar primeiro a versão com divisão única, equipes 4v4, rodadas internas, escalações, resultados e classificação simples.",
+      included: [
+        "Divisão única",
+        "Equipes com elenco de 4 jogadores",
+        "3 partidas principais por confronto",
+        "1 reserva por equipe",
+        "Partida extra em caso de empate",
+        "Pontuação 10/10/20/10",
+        "Classificação da divisão única",
+        "Playoffs simples quando aplicável",
+        "Resumo público de confrontos e tabela"
+      ],
+      deferred: [
+        "Várias divisões",
+        "Playoffs entre campeões de divisão",
+        "Regras avançadas por conferência",
+        "Automação completa de temporadas longas",
+        "Integração pública completa de páginas dedicadas da liga"
+      ]
+    };
+  }
+
+  function buildTeamBattleLeagueBasicAdminFlow() {
+    return [
+      {
+        step: "format-selection",
+        label: "Selecionar formato",
+        description: "Organizador escolhe Team Battle League 4v4 básica quando o formato for liberado.",
+        required: true
+      },
+      {
+        step: "basic-settings",
+        label: "Configurar liga básica",
+        description: "Definir nome, jogo, período, pontuação, limite de equipes e regras de check-in.",
+        required: true
+      },
+      {
+        step: "team-registration-review",
+        label: "Aprovar equipes",
+        description: "Validar equipes inscritas e confirmar elencos com 4 jogadores.",
+        required: true
+      },
+      {
+        step: "schedule-generation",
+        label: "Gerar rodadas",
+        description: "Criar calendário de confrontos da divisão única.",
+        required: true
+      },
+      {
+        step: "lineup-checkin",
+        label: "Escalações e check-in",
+        description: "Confirmar titulares, reserva e prontidão das equipes antes dos confrontos.",
+        required: true
+      },
+      {
+        step: "results-operation",
+        label: "Resultados",
+        description: "Registrar placares das partidas, liberar partida extra quando houver empate e atualizar classificação.",
+        required: true
+      },
+      {
+        step: "publish-summary",
+        label: "Publicação pública",
+        description: "Exibir tabela, confrontos, resultados e campeão da liga básica.",
+        required: false
+      }
+    ];
+  }
+
+  function buildTeamBattleLeagueBasicPublicFlow() {
+    return [
+      {
+        area: "overview",
+        label: "Visão geral",
+        content: "Explica o formato 4v4, divisão única, regras de pontuação e status da liga."
+      },
+      {
+        area: "teams",
+        label: "Equipes",
+        content: "Lista equipes aprovadas e seus elencos públicos quando permitido."
+      },
+      {
+        area: "schedule",
+        label: "Rodadas",
+        content: "Mostra confrontos por rodada, mandante/visitante e status operacional."
+      },
+      {
+        area: "matches",
+        label: "Confrontos",
+        content: "Exibe as 3 partidas principais, placar, partida extra quando necessária e vencedor."
+      },
+      {
+        area: "standings",
+        label: "Classificação",
+        content: "Mostra pontos, vitórias, empates, derrotas, saldo e posição na divisão única."
+      },
+      {
+        area: "playoffs",
+        label: "Playoffs",
+        content: "Usado apenas quando a liga básica configurar fase final."
+      }
+    ];
+  }
+
+  function buildTeamBattleLeagueBasicDataChecklist() {
+    return [
+      {
+        key: "format-metadata",
+        label: "Metadados do formato",
+        required: true,
+        expected: ["formatKey", "schemaVersion", "leagueMode", "config"]
+      },
+      {
+        key: "teams",
+        label: "Equipes",
+        required: true,
+        expected: ["id", "name", "tag", "roster[4]"]
+      },
+      {
+        key: "registrations",
+        label: "Inscrições de equipes",
+        required: true,
+        expected: ["status", "team", "roster", "createdAt"]
+      },
+      {
+        key: "rounds",
+        label: "Rodadas e confrontos",
+        required: true,
+        expected: ["round", "homeTeam", "awayTeam", "matchSlots"]
+      },
+      {
+        key: "lineups",
+        label: "Escalações",
+        required: true,
+        expected: ["starters[3]", "reserve[1]"]
+      },
+      {
+        key: "results",
+        label: "Resultados",
+        required: true,
+        expected: ["slotWinner", "homeScore", "awayScore", "winnerSide"]
+      },
+      {
+        key: "standings",
+        label: "Classificação",
+        required: true,
+        expected: ["points", "matchWins", "draws", "losses", "pointDiff"]
+      }
+    ];
+  }
+
+  function buildTeamBattleLeagueBasicLaunchDecision(league = {}, options = {}) {
+    const source = asObject(league);
+    const normalizedLeague = source.leagueMode
+      ? source
+      : createTeamBattleLeagueByMode(LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION, source.teams || source.registrations || [], source);
+    const snapshot = buildTeamBattleLeagueOperationalSnapshot(normalizedLeague, {
+      ...asObject(options),
+      leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION
+    });
+    const errors = asArray(snapshot.errors);
+    const warnings = asArray(snapshot.warnings);
+    const checklist = buildTeamBattleLeaguePreReleaseChecklist(normalizedLeague, options);
+    const blockingChecklist = asArray(checklist.items).filter((item) => item.required && item.status !== "ready");
+    const canReleaseForInternalTest = !errors.length && !blockingChecklist.length;
+
+    return {
+      status: canReleaseForInternalTest ? "ready_for_internal_test" : "not_ready",
+      label: canReleaseForInternalTest ? "Pronto para teste interno controlado" : "Ainda requer ajustes antes do teste interno",
+      canReleaseForInternalTest,
+      canReleasePublicly: false,
+      releaseNote: "Mesmo quando pronto para teste interno, o formato continua bloqueado para criação pública até validação da operação real.",
+      blockingItems: [
+        ...errors,
+        ...blockingChecklist.map((item) => item.label || item.key).filter(Boolean)
+      ],
+      warnings,
+      snapshot,
+      checklist
+    };
+  }
+
+  function buildTeamBattleLeagueBasicImplementationPackage(league = {}, options = {}) {
+    const scope = buildTeamBattleLeagueBasicMvpScope();
+    const adminFlow = buildTeamBattleLeagueBasicAdminFlow();
+    const publicFlow = buildTeamBattleLeagueBasicPublicFlow();
+    const dataChecklist = buildTeamBattleLeagueBasicDataChecklist();
+    const launchDecision = buildTeamBattleLeagueBasicLaunchDecision(league, options);
+
+    return {
+      key: "team-battle-basic-implementation-package",
+      label: "Pacote consolidado da Team Battle League 4v4 básica",
+      summary: "Documento técnico em objeto JS para orientar a próxima etapa funcional sem dividir a fase em muitos micropatches.",
+      scope,
+      adminFlow,
+      publicFlow,
+      dataChecklist,
+      launchDecision,
+      recommendedNextPatch: {
+        version: "v1.6.73",
+        label: "Prévia visual do Team Battle League 4v4 no painel do organizador",
+        goal: "Mostrar a estrutura preparada no painel, ainda sem liberar criação real para o público."
+      }
+    };
+  }
+
+
+
+  function buildTeamBattleLeagueControlledTestGates(league = {}, options = {}) {
+    const normalizedOptions = asObject(options);
+    const normalizedLeague = asObject(league).leagueMode
+      ? asObject(league)
+      : createTeamBattleLeagueByMode(LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION, asObject(league).teams || asObject(league).registrations || [], asObject(league));
+    const snapshot = buildTeamBattleLeagueOperationalSnapshot(normalizedLeague, {
+      ...normalizedOptions,
+      leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION
+    });
+    const checkins = buildTeamCheckinSummary(asArray(normalizedLeague.checkins));
+    const registrations = buildTeamRegistrationSummary(asArray(normalizedLeague.registrations || normalizedLeague.teams));
+    const timeline = buildTeamBattleLeagueTimeline(normalizedLeague, normalizedOptions);
+    const nextAction = getTeamBattleLeagueNextOperationalAction(normalizedLeague, normalizedOptions);
+
+    return [
+      {
+        key: "structure",
+        label: "Estrutura da liga",
+        status: snapshot?.readiness?.ready ? "ready" : "pending",
+        value: "Divisão única",
+        description: "A primeira liberação deve operar em modo básico, com todas as equipes na mesma divisão."
+      },
+      {
+        key: "registrations",
+        label: "Inscrições de equipes",
+        status: Number(registrations.approved || 0) >= 2 ? "ready" : "pending",
+        value: `${Number(registrations.approved || 0)} aprovadas`,
+        description: "Cada equipe precisa ter elenco 4v4 validado antes de entrar na liga."
+      },
+      {
+        key: "lineups",
+        label: "Escalações 3 + 1",
+        status: snapshot?.summary?.matchesReady ? "ready" : "planned",
+        value: "3 titulares + 1 reserva",
+        description: "As escalações serão confirmadas por confronto antes da rodada começar."
+      },
+      {
+        key: "checkin",
+        label: "Check-in de equipe",
+        status: Number(checkins.ready || 0) > 0 ? "ready" : "planned",
+        value: `${Number(checkins.ready || 0)} prontas`,
+        description: "O check-in valida presença, elenco e escalação antes do confronto."
+      },
+      {
+        key: "results",
+        label: "Resultados e classificação",
+        status: snapshot?.lifecycle?.status === LEAGUE_OPERATION_STATUS.FINISHED ? "ready" : "planned",
+        value: "10 / 10 / 20 / +10",
+        description: "Resultados alimentam pontos de batalha, vitórias, saldo e tabela da divisão única."
+      },
+      {
+        key: "release",
+        label: "Liberação pública",
+        status: "locked",
+        value: "Bloqueada",
+        description: "O formato permanece em preparação até teste interno controlado e validação operacional."
+      }
+    ].map((gate, index) => ({
+      ...gate,
+      order: index + 1,
+      stateLabel: gate.status === "ready" ? "Pronto" : gate.status === "locked" ? "Bloqueado" : gate.status === "planned" ? "Planejado" : "Pendente",
+      timelineState: asArray(timeline.steps).find((step) => step.key === gate.key)?.state || gate.status,
+      nextAction: index === 0 ? nextAction?.label || "Preparar teste interno" : ""
+    }));
+  }
+
+  function buildTeamBattleLeagueControlledTestPackage(league = {}, options = {}) {
+    const normalizedLeague = asObject(league).leagueMode
+      ? asObject(league)
+      : createTeamBattleLeagueByMode(LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION, asObject(league).teams || asObject(league).registrations || [], asObject(league));
+    const gates = buildTeamBattleLeagueControlledTestGates(normalizedLeague, options);
+    const readyCount = gates.filter((gate) => gate.status === "ready").length;
+    const lockedCount = gates.filter((gate) => gate.status === "locked").length;
+    const pendingCount = gates.length - readyCount - lockedCount;
+    const snapshot = buildTeamBattleLeagueOperationalSnapshot(normalizedLeague, {
+      ...asObject(options),
+      leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION
+    });
+
+    return {
+      key: "team-battle-controlled-test-package",
+      label: "Teste controlado Team Battle League 4v4",
+      mode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+      modeLabel: "Básica · divisão única",
+      summary: "Pacote visual e operacional para preparar o primeiro teste interno do formato 4v4 sem liberar criação pública.",
+      releaseStatus: "internal_test_planned",
+      releaseLabel: "Teste interno planejado",
+      publicCreationEnabled: false,
+      gates,
+      metrics: {
+        totalGates: gates.length,
+        ready: readyCount,
+        pending: pendingCount,
+        locked: lockedCount
+      },
+      safetyLocks: [
+        "Criação pública continua bloqueada.",
+        "Modo inicial limitado à divisão única.",
+        "Inscrições, check-in e resultados reais dependem de validação controlada.",
+        "Modo avançado com várias divisões permanece reservado para fase posterior."
+      ],
+      nextRecommendedActions: [
+        "Criar tela administrativa de teste interno.",
+        "Gerar liga básica com equipes reais aprovadas.",
+        "Validar escalações 3 + 1 e check-in por equipe.",
+        "Testar um confronto completo com resultados e classificação."
+      ],
+      snapshot
+    };
+  }
+
   window.SBWTeamBattleLeague = Object.freeze({
     FORMAT_KEY,
     SCHEMA_VERSION,
@@ -3369,6 +3775,7 @@
     buildTeamBattleLeagueRulebookSummary,
     buildTeamBattleLeagueAdminSectionModel,
     buildTeamBattleLeaguePublicSectionModel,
+    buildTeamBattleLeagueVisualPreviewBoard,
     buildTeamBattleLeagueImplementationPlan,
     buildTeamBattleLeagueConsolidatedModel,
     createTeamBattleLeagueInternalTestRoster,
@@ -3379,6 +3786,14 @@
     applyTeamBattleLeagueInternalTestResults,
     buildTeamBattleLeagueBasicInternalTestScenario,
     buildTeamBattleLeagueInternalTestReport,
+    buildTeamBattleLeagueBasicMvpScope,
+    buildTeamBattleLeagueBasicAdminFlow,
+    buildTeamBattleLeagueBasicPublicFlow,
+    buildTeamBattleLeagueBasicDataChecklist,
+    buildTeamBattleLeagueBasicLaunchDecision,
+    buildTeamBattleLeagueBasicImplementationPackage,
+    buildTeamBattleLeagueControlledTestGates,
+    buildTeamBattleLeagueControlledTestPackage,
     buildTeamBattleLeagueIntegrationContract,
     buildTeamBattleLeaguePreReleaseChecklist,
     buildTeamBattleLeagueNextImplementationBatches,
