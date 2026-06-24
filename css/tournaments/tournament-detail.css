@@ -204,6 +204,21 @@
   color: #cbd5e1;
 }
 
+.detail-hero-tags .detail-ranking-tag.ranking-global,
+.status-pill.ranking-global {
+  border-color: rgba(34, 211, 238, 0.34);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.14), rgba(124, 58, 237, 0.12));
+  color: #cffafe;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.10);
+}
+
+.detail-hero-tags .detail-ranking-tag.no-ranking,
+.status-pill.no-ranking {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.52);
+  color: rgba(226, 232, 240, 0.78);
+}
+
 .detail-hero-tags {
   display: flex;
   flex-wrap: wrap;
@@ -5291,7 +5306,7 @@
 
 .overview-metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
 }
 
@@ -5329,6 +5344,20 @@
 .overview-metric-card.full,
 .overview-metric-card.closed {
   border-color: rgba(250, 204, 21, 0.18);
+}
+
+.overview-metric-card.ranking-global {
+  border-color: rgba(34, 211, 238, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.13), transparent 50%),
+    linear-gradient(180deg, rgba(8, 19, 36, 0.90), rgba(3, 8, 18, 0.78));
+}
+
+.overview-metric-card.no-ranking {
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(148, 163, 184, 0.08), transparent 50%),
+    linear-gradient(180deg, rgba(8, 19, 36, 0.84), rgba(3, 8, 18, 0.74));
 }
 
 .overview-content-grid {

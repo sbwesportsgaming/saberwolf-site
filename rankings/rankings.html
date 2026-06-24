@@ -13,7 +13,7 @@
 
   <link rel="icon" href="../assets/home/sbw-home-banner.png" type="image/png" />
   <link rel="stylesheet" href="../css/layout/sbw-sidebar.css" />
-  <link rel="stylesheet" href="../css/rankings.css?v=1.6.68.3" />
+  <link rel="stylesheet" href="../css/rankings.css?v=1.6.70.12" />
   <link rel="stylesheet" href="../css/core/sbw-page-state.css" />
   <link rel="stylesheet" href="../css/core/sbw-site-compliance.css" />
 </head>
@@ -89,13 +89,192 @@
       </article>
     </section>
 
+
+
+
+    <section class="sbw-ranking-quick-nav" aria-labelledby="ranking-quick-nav-title">
+      <div class="sbw-ranking-quick-nav__intro">
+        <span>Navegação rápida</span>
+        <h2 id="ranking-quick-nav-title">Explore o Ranking Global -SBW-</h2>
+        <p>Use os atalhos para ir direto aos dados, regras e recortes mais importantes da classificação.</p>
+      </div>
+
+      <div class="sbw-ranking-quick-nav__links" aria-label="Atalhos da página de rankings">
+        <a href="#ranking-global-jogadores">
+          <strong>Top jogadores</strong>
+          <small>Classificação individual</small>
+        </a>
+        <a href="#ranking-global-equipes">
+          <strong>Top equipes</strong>
+          <small>Ranking de organizações</small>
+        </a>
+        <a href="#minha-posicao-ranking-global">
+          <strong>Minha posição</strong>
+          <small>Resumo do usuário logado</small>
+        </a>
+        <a href="#ranking-global-torneios-pontuaveis">
+          <strong>Torneios pontuáveis</strong>
+          <small>Base usada no ranking</small>
+        </a>
+        <a href="#regras-ranking-global">
+          <strong>Regras públicas</strong>
+          <small>Como a pontuação funciona</small>
+        </a>
+        <a href="#tabela-pontuacao-ranking-global">
+          <strong>Tabela de pontos</strong>
+          <small>Referência competitiva</small>
+        </a>
+      </div>
+    </section>
+
+    <section class="sbw-ranking-global-toolbar" aria-label="Filtros do Ranking Global -SBW-">
+      <div class="sbw-ranking-global-toolbar__intro">
+        <span>Filtro global</span>
+        <h2>Recorte do Ranking Global -SBW-</h2>
+        <p>Filtre a classificação oficial por jogo ou temporada sem alterar os rankings por organizador e por torneio.</p>
+      </div>
+
+      <div class="sbw-ranking-global-toolbar__controls">
+        <label class="sbw-ranking-select-field">
+          <span>Jogo</span>
+          <select data-ranking-global-game-select>
+            <option value="all">Todos os jogos</option>
+          </select>
+        </label>
+
+        <label class="sbw-ranking-select-field">
+          <span>Temporada</span>
+          <select data-ranking-global-season-select>
+            <option value="all">Todas as temporadas</option>
+          </select>
+        </label>
+      </div>
+
+      <small class="sbw-ranking-global-toolbar__context" data-ranking-global-filter-context>Ranking Global -SBW- completo.</small>
+    </section>
+
+    <section class="sbw-global-highlights-panel" id="destaques-ranking-global" data-ranking-global-highlights>
+      <div class="sbw-ranking-empty">Carregando destaques do Ranking Global -SBW-...</div>
+    </section>
+
+    <section class="sbw-global-current-panel" id="minha-posicao-ranking-global" data-ranking-current-summary>
+      <div class="sbw-ranking-empty">Carregando sua posição no Ranking Global -SBW-...</div>
+    </section>
+
+    <section class="sbw-global-eligibility-panel" id="ranking-global-elegibilidade" data-ranking-global-eligibility>
+      <div class="sbw-ranking-empty">Carregando critérios do Ranking Global -SBW-...</div>
+    </section>
+
+    <section class="sbw-global-source-panel" id="ranking-global-torneios-pontuaveis" data-ranking-global-source>
+      <div class="sbw-ranking-empty">Carregando base de torneios pontuáveis do Ranking Global -SBW-...</div>
+    </section>
+
+    <section class="sbw-global-rules-panel" id="regras-ranking-global" aria-labelledby="regras-ranking-global-title">
+      <div class="sbw-global-rules-head">
+        <div>
+          <span>Regras públicas</span>
+          <h2 id="regras-ranking-global-title">Como funciona o Ranking Global -SBW-</h2>
+          <p>
+            O Ranking Global -SBW- usa torneios marcados como pontuáveis dentro da plataforma.
+            A regra é simples: se o torneio pontua, ele alimenta o ranking do organizador e também o ranking global.
+          </p>
+        </div>
+        <a href="#ranking-global-torneios-pontuaveis">Ver base usada</a>
+      </div>
+
+      <div class="sbw-global-rules-grid">
+        <article>
+          <span>01</span>
+          <strong>Torneio pontuável entra no Global</strong>
+          <p>Todo torneio criado na plataforma pode ser configurado como pontuável ou não pontuável. Os pontuáveis entram no Ranking Global -SBW-.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <strong>Jogadores pontuam por colocação</strong>
+          <p>A pontuação dos jogadores vem dos resultados finais registrados em torneios finalizados e marcados como pontuáveis.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <strong>Equipes têm pontuação controlada</strong>
+          <p>Para evitar distorção por quantidade de membros, a pontuação de equipes considera a regra de melhor colocado da equipe por torneio.</p>
+        </article>
+        <article>
+          <span>04</span>
+          <strong>Filtros não alteram os dados</strong>
+          <p>Os filtros de jogo e temporada apenas mudam o recorte exibido na página. Eles não modificam resultados, pontos ou histórico competitivo.</p>
+        </article>
+      </div>
+
+      <p class="sbw-global-rules-note">
+        Torneios recreativos, testes, exibições ou eventos sem pontuação continuam aparecendo na plataforma, mas não geram pontos no Ranking Global -SBW-.
+      </p>
+    </section>
+
+
+
+    <section class="sbw-global-points-panel" id="tabela-pontuacao-ranking-global" aria-labelledby="tabela-pontuacao-ranking-global-title">
+      <div class="sbw-global-points-head">
+        <div>
+          <span>Tabela pública</span>
+          <h2 id="tabela-pontuacao-ranking-global-title">Pontuação usada no Ranking Global -SBW-</h2>
+          <p>
+            A base de pontuação deixa claro como resultados finalizados alimentam jogadores e equipes.
+            O objetivo é manter uma classificação transparente, comparável e fácil de acompanhar.
+          </p>
+        </div>
+        <a href="#regras-ranking-global">Ver regras</a>
+      </div>
+
+      <div class="sbw-global-points-grid">
+        <article class="sbw-global-points-card">
+          <div class="sbw-global-points-card__head">
+            <span>Jogadores</span>
+            <strong>Pontuação individual</strong>
+            <small>Aplicada por colocação final em torneios pontuáveis.</small>
+          </div>
+          <div class="sbw-global-points-table" role="table" aria-label="Pontuação individual do Ranking Global -SBW-">
+            <div role="row"><span role="cell">1º</span><strong role="cell">50 pts</strong></div>
+            <div role="row"><span role="cell">2º</span><strong role="cell">40 pts</strong></div>
+            <div role="row"><span role="cell">3º</span><strong role="cell">35 pts</strong></div>
+            <div role="row"><span role="cell">4º</span><strong role="cell">30 pts</strong></div>
+            <div role="row"><span role="cell">5º/6º</span><strong role="cell">25 pts</strong></div>
+            <div role="row"><span role="cell">7º/8º</span><strong role="cell">20 pts</strong></div>
+            <div role="row"><span role="cell">9º–12º</span><strong role="cell">15 pts</strong></div>
+          </div>
+        </article>
+
+        <article class="sbw-global-points-card sbw-global-points-card--teams">
+          <div class="sbw-global-points-card__head">
+            <span>Equipes</span>
+            <strong>Ranking de organizações</strong>
+            <small>Somente o melhor colocado da equipe em cada torneio conta para evitar pontuação inflada.</small>
+          </div>
+          <div class="sbw-global-points-table" role="table" aria-label="Pontuação de equipes do Ranking Global -SBW-">
+            <div role="row"><span role="cell">1º</span><strong role="cell">100 pts</strong></div>
+            <div role="row"><span role="cell">2º</span><strong role="cell">75 pts</strong></div>
+            <div role="row"><span role="cell">3º</span><strong role="cell">50 pts</strong></div>
+            <div role="row"><span role="cell">4º</span><strong role="cell">30 pts</strong></div>
+            <div role="row"><span role="cell">5º</span><strong role="cell">20 pts</strong></div>
+            <div role="row"><span role="cell">6º</span><strong role="cell">15 pts</strong></div>
+            <div role="row"><span role="cell">7º</span><strong role="cell">10 pts</strong></div>
+            <div role="row"><span role="cell">8º</span><strong role="cell">5 pts</strong></div>
+          </div>
+        </article>
+      </div>
+
+      <div class="sbw-global-points-note">
+        <strong>Transparência competitiva:</strong> a tabela serve como base pública do ranking.
+        Ajustes específicos por formato, fase ou temporada devem ser exibidos na página do torneio quando existirem.
+      </div>
+    </section>
+
     <div class="sbw-ranking-page-grid">
       <section class="sbw-ranking-card sbw-ranking-card--global" id="ranking-global-jogadores">
         <header class="sbw-ranking-card__header">
           <div>
             <span>Ranking Global -SBW-</span>
             <h2>Top jogadores</h2>
-            <p>Classificação geral da plataforma, somando torneios elegíveis para ranking.</p>
+            <p>Classificação oficial da plataforma, somando os torneios marcados como pontuáveis.</p>
           </div>
           <small data-ranking-updated-at>Atualizando...</small>
         </header>
@@ -110,7 +289,7 @@
           <div>
             <span>Ranking Global de Equipes -SBW-</span>
             <h2>Top equipes</h2>
-            <p>Classificação geral das equipes, atualizada conforme a pontuação dos torneios.</p>
+            <p>Classificação oficial das equipes, atualizada com torneios pontuáveis da plataforma -SBW-.</p>
           </div>
         </header>
 
@@ -216,7 +395,7 @@
     </div>
 
     <p class="sbw-ranking-footnote">
-      Os rankings são atualizados conforme torneios ranqueados são finalizados e validados pelos organizadores autorizados.
+      Torneios marcados como pontuáveis alimentam o ranking do organizador e também são elegíveis para o Ranking Global -SBW-.
     </p>
   </main>
 
@@ -234,9 +413,9 @@
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournaments-storage.js"></script>
 
-  <script src="../js/rankings/rankings-storage.js?v=1.6.68.3"></script>
+  <script src="../js/rankings/rankings-storage.js?v=1.6.70.7"></script>
   <script src="../js/core/sbw-page-state.js"></script>
-  <script src="../js/rankings/rankings-page.js?v=1.6.68.3"></script>
+  <script src="../js/rankings/rankings-page.js?v=1.6.70.7"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

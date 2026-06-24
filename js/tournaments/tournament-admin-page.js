@@ -1015,6 +1015,7 @@ async function initAccessControl() {
       const selectedOrganizer = getSelectedOrganizer();
       const organizerName = selectedOrganizer?.name || selectedOrganizer?.displayName || currentUser.name;
       const matchPhaseRules = getMatchPhaseRules();
+      const rankingEnabled = document.getElementById("rankingEnabled")?.value !== "false";
 
       return {
         id: `sbw-${Date.now()}`,
@@ -1052,7 +1053,33 @@ async function initAccessControl() {
           checkInRequired: true,
           phaseRules: matchPhaseRules,
           matchPhaseRules,
+          rankingEnabled,
+          ranking_enabled: rankingEnabled,
+          countsForRanking: rankingEnabled,
+          counts_for_ranking: rankingEnabled,
+          countsForOrganizerRanking: rankingEnabled,
+          counts_for_organizer_ranking: rankingEnabled,
+          globalRankingEligible: rankingEnabled,
+          global_ranking_eligible: rankingEnabled,
+          sbwGlobalRankingEligible: rankingEnabled,
+          rankingScope: rankingEnabled ? "organizer_and_global" : "none",
+          rankingLabel: rankingEnabled
+            ? "Pontua no ranking do organizador e no Ranking Global -SBW-"
+            : "Torneio sem pontuação",
           ...getDynamicSettings(format)
+        },
+
+        metadata: {
+          ranking: {
+            enabled: rankingEnabled,
+            countsForRanking: rankingEnabled,
+            countsForOrganizerRanking: rankingEnabled,
+            globalRankingEligible: rankingEnabled,
+            scope: rankingEnabled ? "organizer_and_global" : "none",
+            label: rankingEnabled
+              ? "Pontua no ranking do organizador e no Ranking Global -SBW-"
+              : "Torneio sem pontuação"
+          }
         },
 
         prize: document.getElementById("prize").value.trim(),

@@ -678,6 +678,92 @@ function sbwRenderRegistrationBadge(tournament) {
   return `<span class="status-pill registration">Inscrito</span>`;
 }
 
+function sbwTournamentListAsObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function sbwTournamentListIsExplicitFalse(value) {
+  const normalized = String(value).trim().toLowerCase();
+  return value === false || value === 0 || normalized === "false" || normalized === "0" || normalized === "nao" || normalized === "não" || normalized === "off" || normalized === "none";
+}
+
+function sbwTournamentListFirstDefined(values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
+}
+
+function sbwGetTournamentListRankingState(tournament) {
+  const settings = sbwTournamentListAsObject(tournament?.settings);
+  const metadata = sbwTournamentListAsObject(tournament?.metadata);
+  const ranking = sbwTournamentListAsObject(settings.ranking || metadata.ranking || tournament?.ranking);
+  const finalResults = sbwTournamentListAsObject(settings.finalResults || metadata.finalResults || tournament?.finalResults || tournament?.final_results);
+  const rawFlag = sbwTournamentListFirstDefined([
+    ranking.enabled,
+    ranking.rankingEnabled,
+    ranking.ranking_enabled,
+    ranking.countsForRanking,
+    ranking.counts_for_ranking,
+    ranking.countsForOrganizerRanking,
+    ranking.counts_for_organizer_ranking,
+    ranking.globalRankingEligible,
+    ranking.global_ranking_eligible,
+    settings.rankingEnabled,
+    settings.ranking_enabled,
+    settings.countsForRanking,
+    settings.counts_for_ranking,
+    settings.countsForOrganizerRanking,
+    settings.counts_for_organizer_ranking,
+    settings.globalRankingEligible,
+    settings.global_ranking_eligible,
+    settings.sbwGlobalRankingEligible,
+    metadata.rankingEnabled,
+    metadata.ranking_enabled,
+    metadata.countsForRanking,
+    metadata.counts_for_ranking,
+    metadata.countsForOrganizerRanking,
+    metadata.counts_for_organizer_ranking,
+    metadata.globalRankingEligible,
+    metadata.global_ranking_eligible,
+    metadata.sbwGlobalRankingEligible,
+    tournament?.rankingEnabled,
+    tournament?.ranking_enabled,
+    tournament?.countsForRanking,
+    tournament?.counts_for_ranking,
+    tournament?.countsForOrganizerRanking,
+    tournament?.counts_for_organizer_ranking,
+    tournament?.globalRankingEligible,
+    tournament?.global_ranking_eligible,
+    finalResults.rankingApplied,
+    finalResults.ranking_applied
+  ]);
+  const pointable = rawFlag === undefined ? true : !sbwTournamentListIsExplicitFalse(rawFlag);
+
+  return pointable
+    ? {
+        pointable: true,
+        className: "ranking-global",
+        label: "Pontua Ranking Global",
+        shortLabel: "Pontuável",
+        description: "Este torneio pontua no ranking do organizador e no Ranking Global -SBW-."
+      }
+    : {
+        pointable: false,
+        className: "no-ranking",
+        label: "Sem pontuação",
+        shortLabel: "Não pontuável",
+        description: "Este torneio aparece na plataforma, mas não gera pontos de ranking."
+      };
+}
+
+function sbwRenderTournamentRankingBadge(tournament) {
+  const rankingState = sbwGetTournamentListRankingState(tournament);
+
+  return `
+    <span class="status-pill ${sbwSafeEscape(rankingState.className)}" title="${sbwSafeEscape(rankingState.description)}">
+      ${sbwSafeEscape(rankingState.shortLabel)}
+    </span>
+  `;
+}
+
 function sbwRenderTournamentCard(tournament, options = {}) {
   const status = sbwGetStatusInfo(tournament?.status);
   const format = sbwGetTournamentComparableFormat(tournament);
@@ -710,6 +796,7 @@ function sbwRenderTournamentCard(tournament, options = {}) {
         <div class="public-tournament-banner__badges">
           ${sbwRenderSourceBadge(tournament)}
           <span class="status-pill ${sbwSafeEscape(status.className)}">${sbwSafeEscape(status.label)}</span>
+          ${sbwRenderTournamentRankingBadge(tournament)}
           ${sbwRenderRegistrationBadge(tournament)}
         </div>
       </div>

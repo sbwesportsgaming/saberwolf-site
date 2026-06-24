@@ -2117,21 +2117,120 @@ function sbwOrganizerEditorIsTournamentPointableForOrganizer(tournament) {
   const settings = sbwOrganizerEditorAsObject(tournament?.settings);
   const finalData = sbwOrganizerEditorAsObject(settings.finalResults || settings.final_results || metadata.finalResults || metadata.final_results);
   return Boolean(
+    tournament?.countsForRanking ||
+    tournament?.counts_for_ranking ||
     tournament?.countsForOrganizerRanking ||
     tournament?.counts_for_organizer_ranking ||
     tournament?.rankingEnabled ||
     tournament?.ranking_enabled ||
+    tournament?.globalRankingEligible ||
+    tournament?.global_ranking_eligible ||
+    tournament?.sbwGlobalRankingEligible ||
+    settings.countsForRanking ||
+    settings.counts_for_ranking ||
     settings.countsForOrganizerRanking ||
     settings.counts_for_organizer_ranking ||
     settings.rankingEnabled ||
     settings.ranking_enabled ||
+    settings.globalRankingEligible ||
+    settings.global_ranking_eligible ||
+    settings.sbwGlobalRankingEligible ||
+    metadata.countsForRanking ||
+    metadata.counts_for_ranking ||
     metadata.countsForOrganizerRanking ||
     metadata.counts_for_organizer_ranking ||
     metadata.rankingEnabled ||
     metadata.ranking_enabled ||
+    metadata.globalRankingEligible ||
+    metadata.global_ranking_eligible ||
+    metadata.sbwGlobalRankingEligible ||
     finalData.rankingApplied ||
     finalData.ranking_applied
   );
+}
+
+function sbwOrganizerEditorGetTournamentStatusKey(tournament) {
+  return String(tournament?.status || tournament?.state || "")
+    .trim()
+    .toLowerCase();
+}
+
+function sbwOrganizerEditorGetTournamentFinalData(tournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  return sbwOrganizerEditorAsObject(
+    tournament?.finalResults ||
+    tournament?.final_results ||
+    settings.finalResults ||
+    settings.final_results ||
+    metadata.finalResults ||
+    metadata.final_results ||
+    {}
+  );
+}
+
+function sbwOrganizerEditorHasTournamentFinalResults(tournament) {
+  const finalData = sbwOrganizerEditorGetTournamentFinalData(tournament);
+  const champion = finalData.champion || finalData.winner || finalData.championName || finalData.champion_name;
+  const standings = finalData.standings || finalData.classification || finalData.results || finalData.finalStandings || finalData.final_standings;
+  const status = sbwOrganizerEditorGetTournamentStatusKey(tournament);
+  return Boolean(
+    champion ||
+    (Array.isArray(standings) && standings.length) ||
+    ["completed", "complete", "finished", "finalizado", "encerrado"].includes(status)
+  );
+}
+
+function sbwOrganizerEditorGetSeasonRankingImpact(candidates, season) {
+  const items = Array.isArray(candidates) ? candidates : [];
+  const linked = items.filter((item) => item?.state?.linked);
+  const pointable = items.filter((item) => item?.state?.pointable);
+  const ready = pointable.filter((item) => item?.state?.insidePeriod && sbwOrganizerEditorHasTournamentFinalResults(item.tournament));
+  const pendingResults = pointable.filter((item) => item?.state?.insidePeriod && !sbwOrganizerEditorHasTournamentFinalResults(item.tournament));
+  const outsidePointable = pointable.filter((item) => !item?.state?.insidePeriod);
+  const eligibleUnlinked = items.filter((item) => item?.state?.insidePeriod && !item?.state?.linked);
+  const linkedNotPointable = linked.filter((item) => !item?.state?.pointable);
+
+  return {
+    linkedCount: linked.length,
+    pointableCount: pointable.length,
+    readyCount: ready.length,
+    pendingResultsCount: pendingResults.length,
+    outsidePointableCount: outsidePointable.length,
+    eligibleUnlinkedCount: eligibleUnlinked.length,
+    linkedNotPointableCount: linkedNotPointable.length,
+    seasonLabel: String(season?.name || season?.title || "Temporada atual").trim() || "Temporada atual"
+  };
+}
+
+function sbwOrganizerEditorRenderSeasonRankingImpact(impact) {
+  const warnings = [];
+  if (impact.pendingResultsCount) warnings.push(`${impact.pendingResultsCount} pontuável${impact.pendingResultsCount === 1 ? "" : "eis"} ainda sem resultado final.`);
+  if (impact.outsidePointableCount) warnings.push(`${impact.outsidePointableCount} pontuável${impact.outsidePointableCount === 1 ? "" : "eis"} fora do período.`);
+  if (impact.eligibleUnlinkedCount) warnings.push(`${impact.eligibleUnlinkedCount} torneio${impact.eligibleUnlinkedCount === 1 ? " apto" : "s aptos"} ainda não vinculado${impact.eligibleUnlinkedCount === 1 ? "" : "s"}.`);
+
+  return `
+    <div class="organizer-admin-season-impact-panel">
+      <div>
+        <span class="organizer-admin-eyebrow">Impacto no ranking</span>
+        <strong>${sbwOrganizerEditorEscape(impact.seasonLabel)}</strong>
+        <p>Prévia de segurança para revisar o que já pode entrar no ranking do organizador.</p>
+      </div>
+      <div class="organizer-admin-season-impact-grid">
+        <span><strong>${sbwOrganizerEditorEscape(impact.readyCount)}</strong> prontos</span>
+        <span><strong>${sbwOrganizerEditorEscape(impact.pendingResultsCount)}</strong> sem resultado final</span>
+        <span><strong>${sbwOrganizerEditorEscape(impact.linkedNotPointableCount)}</strong> vinculados sem pontuar</span>
+        <span><strong>${sbwOrganizerEditorEscape(impact.eligibleUnlinkedCount)}</strong> aptos não vinculados</span>
+      </div>
+      ${warnings.length ? `
+        <div class="organizer-admin-season-impact-warning">
+          ${warnings.map((item) => `<span>${sbwOrganizerEditorEscape(item)}</span>`).join("")}
+        </div>
+      ` : `
+        <div class="organizer-admin-season-impact-ok">Ranking da temporada sem alertas visuais no momento.</div>
+      `}
+    </div>
+  `;
 }
 
 function sbwOrganizerEditorGetTournamentRawDate(tournament) {
@@ -2240,7 +2339,7 @@ function sbwOrganizerEditorGetSeasonTimelineStatus(season) {
     return {
       label: "Programada",
       className: "scheduled",
-      action: "Vincule torneios elegíveis e revise quais serão pontuáveis antes do início."
+      action: "Vincule torneios elegíveis e revise quais serão pontuáveis para o ranking do organizador e para o Ranking Global -SBW-."
     };
   }
 
@@ -2380,7 +2479,7 @@ function sbwOrganizerEditorGetSeasonAuditEntries(organizer = sbwOrganizerEditorC
         type: state.pointable ? "Pontuação" : "Vínculo",
         title: state.pointable ? `Pontuação ativa — ${title}` : `Torneio vinculado — ${title}`,
         detail: state.pointable
-          ? "Este torneio conta para o ranking do organizador nesta temporada."
+          ? "Este torneio conta para o ranking do organizador e para o Ranking Global -SBW- nesta temporada."
           : "Este torneio está vinculado à temporada, mas ainda não pontua.",
         date: updatedAt
       };
@@ -2452,7 +2551,7 @@ function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganiz
           <div>
             <span class="organizer-admin-eyebrow">Torneios da temporada</span>
             <strong>Crie uma temporada para vincular torneios</strong>
-            <p>Defina nome, início e fim da temporada antes de escolher quais torneios contam para o ranking do organizador.</p>
+            <p>Defina nome, início e fim da temporada antes de escolher quais torneios contam para o ranking do organizador e para o Ranking Global -SBW-.</p>
           </div>
         </div>
       </section>
@@ -2491,6 +2590,7 @@ function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganiz
     ["eligible", "Aptos", eligibleCount],
     ["outside", "Fora do período", outsideCount]
   ];
+  const rankingImpact = sbwOrganizerEditorGetSeasonRankingImpact(decoratedCandidates, season);
 
   sbwOrganizerSeasonTournamentsManager.innerHTML = `
     <section class="organizer-admin-season-tournaments-panel" data-season-key="${sbwOrganizerEditorEscape(seasonKey)}">
@@ -2498,7 +2598,7 @@ function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganiz
         <div>
           <span class="organizer-admin-eyebrow">Torneios da temporada</span>
           <strong>Vínculo e pontuação</strong>
-          <p>Escolha quais torneios entram na temporada e quais contam para o ranking do organizador.</p>
+          <p>Escolha quais torneios entram na temporada e quais contam para o ranking do organizador e para o Ranking Global -SBW-.</p>
         </div>
         <div class="organizer-admin-season-tournaments-summary">
           <span><strong>${sbwOrganizerEditorEscape(linkedCount)}</strong> vinculados</span>
@@ -2507,6 +2607,7 @@ function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganiz
         </div>
       </div>
       ${candidates.length ? `
+        ${sbwOrganizerEditorRenderSeasonRankingImpact(rankingImpact)}
         <div class="organizer-admin-season-toolbar">
           <label class="organizer-admin-season-search">
             <span>Buscar torneio</span>
@@ -2556,7 +2657,7 @@ function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganiz
                       <button type="button" class="organizer-admin-small-link organizer-admin-small-link--button" data-season-link-tournament="${sbwOrganizerEditorEscape(key)}" ${canLink ? "" : "disabled"}>Vincular</button>
                     `}
                     <button type="button" class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--primary" data-season-toggle-ranking="${sbwOrganizerEditorEscape(key)}" ${state.linked && state.insidePeriod ? "" : "disabled"}>
-                      ${state.pointable ? "Remover pontuação" : "Marcar pontuável"}
+                      ${state.pointable ? "Remover pontuação" : "Pontuar ranking"}
                     </button>
                   </div>
                 </article>
@@ -2601,17 +2702,35 @@ async function sbwOrganizerEditorUpdateTournamentSeason(tournamentKey, options =
     season_name: link ? seasonName : "",
     seasonSlug: link ? seasonSlug : "",
     season_slug: link ? seasonSlug : "",
+    countsForRanking: link && pointable,
+    counts_for_ranking: link && pointable,
     countsForOrganizerRanking: link && pointable,
     counts_for_organizer_ranking: link && pointable,
     rankingEnabled: link && pointable,
     ranking_enabled: link && pointable,
+    globalRankingEligible: link && pointable,
+    global_ranking_eligible: link && pointable,
+    sbwGlobalRankingEligible: link && pointable,
+    rankingScope: link && pointable ? "organizer_and_global" : "none",
     metadata: {
       ...metadata,
       season: seasonPayload,
       seasonName: link ? seasonName : "",
       seasonSlug: link ? seasonSlug : "",
+      countsForRanking: link && pointable,
       countsForOrganizerRanking: link && pointable,
       rankingEnabled: link && pointable,
+      globalRankingEligible: link && pointable,
+      sbwGlobalRankingEligible: link && pointable,
+      rankingScope: link && pointable ? "organizer_and_global" : "none",
+      ranking: {
+        ...sbwOrganizerEditorAsObject(metadata.ranking),
+        enabled: link && pointable,
+        countsForRanking: link && pointable,
+        countsForOrganizerRanking: link && pointable,
+        globalRankingEligible: link && pointable,
+        scope: link && pointable ? "organizer_and_global" : "none"
+      },
       seasonUpdatedAt: new Date().toISOString()
     },
     settings: {
@@ -2619,8 +2738,20 @@ async function sbwOrganizerEditorUpdateTournamentSeason(tournamentKey, options =
       season: seasonPayload,
       seasonName: link ? seasonName : "",
       seasonSlug: link ? seasonSlug : "",
+      countsForRanking: link && pointable,
       countsForOrganizerRanking: link && pointable,
-      rankingEnabled: link && pointable
+      rankingEnabled: link && pointable,
+      globalRankingEligible: link && pointable,
+      sbwGlobalRankingEligible: link && pointable,
+      rankingScope: link && pointable ? "organizer_and_global" : "none",
+      ranking: {
+        ...sbwOrganizerEditorAsObject(settings.ranking),
+        enabled: link && pointable,
+        countsForRanking: link && pointable,
+        countsForOrganizerRanking: link && pointable,
+        globalRankingEligible: link && pointable,
+        scope: link && pointable ? "organizer_and_global" : "none"
+      }
     }
   };
 
@@ -2660,7 +2791,7 @@ function sbwOrganizerEditorBindSeasonTournamentActions() {
     const nextPointable = isToggleRanking ? !state.pointable : state.pointable;
     const shouldLink = isUnlink ? false : true;
 
-    if (isUnlink && state.pointable && !window.confirm("Este torneio está pontuando para a temporada. Deseja desvincular e remover a pontuação do ranking do organizador?")) {
+    if (isUnlink && state.pointable && !window.confirm("Este torneio está pontuando para a temporada e para o Ranking Global -SBW-. Deseja desvincular e remover a pontuação?")) {
       return;
     }
 

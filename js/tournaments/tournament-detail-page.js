@@ -63,6 +63,87 @@ function sbwBuildTournamentHeroStyle(tournament) {
   return ` style="--tournament-cover: url('${safeUrl}'); --tournament-cover-x: ${x}%; --tournament-cover-y: ${y}%; --tournament-cover-size: ${size}% auto; --tournament-cover-opacity: 0.88;"`;
 }
 
+
+function sbwTournamentDetailAsObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function sbwTournamentDetailIsExplicitFalse(value) {
+  const normalized = String(value).trim().toLowerCase();
+  return value === false || value === 0 || normalized === "false" || normalized === "0" || normalized === "nao" || normalized === "não" || normalized === "off" || normalized === "none";
+}
+
+function sbwTournamentDetailFirstDefined(values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
+}
+
+function sbwGetTournamentDetailRankingState(tournament) {
+  const settings = sbwTournamentDetailAsObject(tournament?.settings);
+  const metadata = sbwTournamentDetailAsObject(tournament?.metadata);
+  const ranking = sbwTournamentDetailAsObject(settings.ranking || metadata.ranking || tournament?.ranking);
+  const finalResults = sbwTournamentDetailAsObject(settings.finalResults || metadata.finalResults || tournament?.finalResults || tournament?.final_results);
+  const rawFlag = sbwTournamentDetailFirstDefined([
+    ranking.enabled,
+    ranking.rankingEnabled,
+    ranking.ranking_enabled,
+    ranking.countsForRanking,
+    ranking.counts_for_ranking,
+    ranking.countsForOrganizerRanking,
+    ranking.counts_for_organizer_ranking,
+    ranking.globalRankingEligible,
+    ranking.global_ranking_eligible,
+    settings.rankingEnabled,
+    settings.ranking_enabled,
+    settings.countsForRanking,
+    settings.counts_for_ranking,
+    settings.countsForOrganizerRanking,
+    settings.counts_for_organizer_ranking,
+    settings.globalRankingEligible,
+    settings.global_ranking_eligible,
+    settings.sbwGlobalRankingEligible,
+    metadata.rankingEnabled,
+    metadata.ranking_enabled,
+    metadata.countsForRanking,
+    metadata.counts_for_ranking,
+    metadata.countsForOrganizerRanking,
+    metadata.counts_for_organizer_ranking,
+    metadata.globalRankingEligible,
+    metadata.global_ranking_eligible,
+    metadata.sbwGlobalRankingEligible,
+    tournament?.rankingEnabled,
+    tournament?.ranking_enabled,
+    tournament?.countsForRanking,
+    tournament?.counts_for_ranking,
+    tournament?.countsForOrganizerRanking,
+    tournament?.counts_for_organizer_ranking,
+    tournament?.globalRankingEligible,
+    tournament?.global_ranking_eligible,
+    finalResults.rankingApplied,
+    finalResults.ranking_applied
+  ]);
+  const pointable = rawFlag === undefined ? true : !sbwTournamentDetailIsExplicitFalse(rawFlag);
+
+  return pointable
+    ? {
+        pointable: true,
+        className: "ranking-global",
+        icon: "fa-ranking-star",
+        label: "Pontua Ranking Global",
+        shortLabel: "Pontuável",
+        summaryLabel: "Global + organizador",
+        description: "Este torneio pontua no ranking do organizador e no Ranking Global -SBW-."
+      }
+    : {
+        pointable: false,
+        className: "no-ranking",
+        icon: "fa-circle-minus",
+        label: "Sem pontuação",
+        shortLabel: "Não pontuável",
+        summaryLabel: "Sem pontuação",
+        description: "Este torneio aparece na plataforma, mas não gera pontos de ranking."
+      };
+}
+
 function findTournamentById(tournamentId) {
   if (typeof sbwGetTournamentById === "function") {
     return sbwGetTournamentById(tournamentId);
@@ -4949,6 +5030,7 @@ function renderTournamentOverviewCards(tournament, availability) {
   });
   const currentScheduleItem = sbwBuildTournamentScheduleItems(tournament, availability).find((item) => sbwGetScheduleItemState(item) === "current");
   const organizerName = sbwGetTournamentOrganizerData(tournament).displayName || getOrganizer(tournament);
+  const rankingState = sbwGetTournamentDetailRankingState(tournament);
 
   return `
     <div class="overview-final-page">
@@ -4986,6 +5068,11 @@ function renderTournamentOverviewCards(tournament, availability) {
           <strong>${escapeHTML(resultCounts.completed)} / ${escapeHTML(resultCounts.total)}</strong>
           <small>${resultCounts.total > 0 ? "Partidas públicas encontradas" : "Aguardando partidas"}</small>
         </article>
+        <article class="overview-metric-card ${escapeHTML(rankingState.className)}">
+          <span>Ranking</span>
+          <strong>${escapeHTML(rankingState.shortLabel)}</strong>
+          <small>${escapeHTML(rankingState.description)}</small>
+        </article>
       </section>
 
       <section class="overview-content-grid">
@@ -5003,6 +5090,7 @@ function renderTournamentOverviewCards(tournament, availability) {
               <div><small>Formato</small><strong>${escapeHTML(getFormatLabel(getTournamentFormat(tournament)))}</strong></div>
               <div><small>Jogo</small><strong>${escapeHTML(tournament.game || "A definir")}</strong></div>
               <div><small>Plataforma</small><strong>${escapeHTML(tournament.platform || "A definir")}</strong></div>
+              <div><small>Ranking</small><strong>${escapeHTML(rankingState.summaryLabel)}</strong></div>
             </div>
             ${sbwRenderOverviewQuickActions(tournament)}
           </article>
@@ -5156,6 +5244,7 @@ function renderTournament(tournament) {
   const registrationAvailability = sbwGetRegistrationAvailability(tournament);
   const registrationOpen = registrationAvailability.open;
   const registrationState = sbwBuildRegistrationViewState(tournament, registrationOpen);
+  const rankingState = sbwGetTournamentDetailRankingState(tournament);
   const alreadyRegistered = registrationState.alreadyRegistered;
   const registrationButtonLabel = registrationState.buttonLabel;
   const registrationButtonDisabled = registrationState.disabled ? "disabled" : "";
@@ -5186,6 +5275,7 @@ function renderTournament(tournament) {
                 <span><i class="fa-solid fa-tv"></i> ${escapeHTML(tournament.platform || "Plataforma a definir")}</span>
                 <span><i class="fa-solid fa-shield-halved"></i> ${escapeHTML(getOrganizer(tournament))}</span>
                 <span class="detail-registration-tag ${escapeHTML(registrationAvailability.className)}"><i class="fa-solid fa-ticket"></i> ${escapeHTML(registrationAvailability.label)}</span>
+                <span class="detail-ranking-tag ${escapeHTML(rankingState.className)}" title="${escapeHTML(rankingState.description)}"><i class="fa-solid ${escapeHTML(rankingState.icon)}"></i> ${escapeHTML(rankingState.label)}</span>
               </div>
             </div>
 
@@ -5200,6 +5290,7 @@ function renderTournament(tournament) {
                 <div class="detail-summary-item"><span>Horário</span><strong>${escapeHTML(tournament.startTime || "A definir")}</strong></div>
                 <div class="detail-summary-item"><span>Check-in</span><strong>${escapeHTML(tournament.checkInTime || "A definir")}</strong></div>
                 <div class="detail-summary-item"><span>Premiação</span><strong>${escapeHTML(getPrize(tournament))}</strong></div>
+                <div class="detail-summary-item"><span>Ranking</span><strong>${escapeHTML(rankingState.summaryLabel)}</strong></div>
               </div>
               <div class="detail-actions">
                 <button type="button" class="detail-btn" data-action="tournament-registration" data-tournament-id="${escapeHTML(tournament.id)}" ${registrationButtonDisabled}>

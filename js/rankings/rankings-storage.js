@@ -250,29 +250,53 @@
     return value === false || value === "false" || value === 0 || value === "0";
   }
 
+  function valueIsExplicitTrue(value) {
+    return value === true || value === "true" || value === 1 || value === "1" || value === "yes" || value === "sim" || value === "on";
+  }
+
+  function getFirstDefinedValue(values) {
+    return asArray(values).find(function (value) {
+      return value !== undefined && value !== null && String(value).trim() !== "";
+    });
+  }
+
   function getTournamentRankingConfig(tournament) {
     const settings = getTournamentSettings(tournament);
     const metadata = getTournamentMetadata(tournament);
+    const finalResults = getFinalResults(tournament) || {};
     const ranking = settings.ranking || metadata.ranking || {};
-    const globalStatus = String(
-      ranking.globalStatus ||
-      ranking.sbwGlobalStatus ||
-      settings.globalRankingStatus ||
-      metadata.globalRankingStatus ||
-      (ranking.sbwGlobalApproved || settings.sbwGlobalApproved || metadata.sbwGlobalApproved ? "approved" : "pending")
-    ).toLowerCase();
+    const rankingFlag = getFirstDefinedValue([
+      ranking.enabled,
+      ranking.rankingEnabled,
+      ranking.ranking_enabled,
+      ranking.countsForRanking,
+      ranking.counts_for_ranking,
+      ranking.countsForOrganizerRanking,
+      ranking.counts_for_organizer_ranking,
+      settings.rankingEnabled,
+      settings.ranking_enabled,
+      settings.countsForRanking,
+      settings.counts_for_ranking,
+      settings.countsForOrganizerRanking,
+      settings.counts_for_organizer_ranking,
+      metadata.rankingEnabled,
+      metadata.ranking_enabled,
+      metadata.countsForRanking,
+      metadata.counts_for_ranking,
+      metadata.countsForOrganizerRanking,
+      metadata.counts_for_organizer_ranking,
+      finalResults.rankingApplied,
+      finalResults.ranking_applied
+    ]);
+    const organizerEligible = rankingFlag === undefined ? true : !valueIsExplicitFalse(rankingFlag);
+    const globalStatus = organizerEligible ? "pointable" : "not_pointable";
 
     return {
-      organizerEligible: !valueIsExplicitFalse(
-        ranking.organizerEligible ??
-        ranking.countsForOrganizerRanking ??
-        settings.countsForOrganizerRanking ??
-        metadata.countsForOrganizerRanking ??
-        true
-      ),
-      globalStatus: globalStatus || "pending",
-      globalApproved: globalStatus === "approved",
-      scopeLabel: globalStatus === "approved" ? "Global SBW aprovado" : "Ranking do organizador"
+      organizerEligible,
+      globalStatus,
+      globalApproved: organizerEligible,
+      globalRequested: false,
+      scopeLabel: organizerEligible ? "Pontua no Ranking Global -SBW-" : "Torneio não pontuável"
     };
   }
 
@@ -605,10 +629,6 @@
     const season = String(safeFilters.season || "all");
     const globalStatus = String(safeFilters.globalStatus || "organizer");
 
-    if (globalStatus === "approved" && !record.globalApproved) {
-      return false;
-    }
-
     if (!record.organizerEligible) {
       return false;
     }
@@ -677,8 +697,8 @@
       parts.push("Jogo: " + safeFilters.game);
     }
 
-    if (safeFilters.globalStatus === "approved") {
-      parts.push("Global SBW aprovado");
+    if (safeFilters.globalStatus === "global") {
+      parts.push("Ranking Global -SBW-");
     } else {
       parts.push("Ranking do organizador/plataforma");
     }
@@ -700,7 +720,7 @@
     const scoredTeamRecords = filteredRecords.filter(function (record) { return record.teamPoints > 0 && teamLooksValid(record); });
 
     return {
-      version: "v1.5.9.3",
+      version: "v1.6.70.1",
       generatedAt: nowIso(),
       source: rankingSupabaseEnabled() ? "supabase" : "local-demo",
       filters: {
@@ -718,7 +738,7 @@
         teamPoints: { ...TEAM_POINTS },
         teamRule: "Somente o melhor colocado da equipe em cada torneio conta para a pontuação da equipe.",
         organizerRule: "Torneios concluídos contam por padrão para o ranking do organizador, exceto quando marcados como não elegíveis.",
-        globalRule: "O ranking global oficial da SBW será separado por aprovação administrativa em fase futura."
+        globalRule: "Todo torneio marcado como pontuável entra no ranking do organizador e também é elegível para o Ranking Global -SBW-."
       },
       tournaments,
       records: filteredRecords,
@@ -745,7 +765,7 @@
   }
 
   window.SBWRankingsStorage = {
-    version: "v1.5.9.3",
+    version: "v1.6.70.0",
     playerScoringTiers: PLAYER_SCORING_TIERS,
     playerPoints: PLAYER_POINTS,
     teamPoints: TEAM_POINTS,

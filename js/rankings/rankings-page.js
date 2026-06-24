@@ -3,11 +3,14 @@
 
   const state = {
     snapshot: null,
+    globalSnapshot: null,
     currentUser: null,
     currentProfile: null,
     currentTeamKeys: new Set(),
     selectedOrganizer: "all",
     selectedTournament: "",
+    selectedGlobalGame: "all",
+    selectedGlobalSeason: "all",
     search: "",
     isLoading: false,
     initialParams: new URLSearchParams(window.location.search)
@@ -341,13 +344,13 @@
 
   function renderMetricCards() {
     const summary = state.snapshot?.summary || {};
+    const globalSummary = state.globalSnapshot?.summary || {};
     const options = state.snapshot?.options || {};
-    const tournaments = asArray(state.snapshot?.tournaments);
 
-    setText("[data-ranking-stat-players]", formatNumber(summary.rankedPlayers || 0));
-    setText("[data-ranking-stat-teams]", formatNumber(summary.rankedTeams || 0));
+    setText("[data-ranking-stat-players]", formatNumber(globalSummary.rankedPlayers || 0));
+    setText("[data-ranking-stat-teams]", formatNumber(globalSummary.rankedTeams || 0));
     setText("[data-ranking-stat-organizers]", formatNumber(asArray(options.organizers).length || 0));
-    setText("[data-ranking-stat-tournaments]", formatNumber(summary.allCompletedTournaments || tournaments.length || 0));
+    setText("[data-ranking-stat-tournaments]", formatNumber(globalSummary.completedTournaments || 0));
   }
 
   function renderTopRow(row, type, compact) {
@@ -411,15 +414,131 @@
     `;
   }
 
+  function getGlobalOptionValues(kind) {
+    const options = state.snapshot?.options || {};
+    const values = kind === "season" ? options.seasons : options.games;
+
+    return asArray(values).map(function (value) {
+      return { value: String(value), label: String(value) };
+    }).sort(function (a, b) {
+      return String(a.label).localeCompare(String(b.label), "pt-BR");
+    });
+  }
+
+  function chooseGlobalFilterValue(kind, param) {
+    if (!param) return "all";
+
+    const options = getGlobalOptionValues(kind);
+    const found = options.find(function (option) {
+      return valuesMatch(option.value, param) || valuesMatch(option.label, param);
+    });
+
+    return found?.value || "all";
+  }
+
+  function renderGlobalSelectOptions(select, values, allLabel, selectedValue) {
+    if (!select) return;
+
+    const current = selectedValue || "all";
+    const safeValues = asArray(values);
+    const hasCurrent = current === "all" || safeValues.some(function (value) {
+      return String(value.value) === String(current);
+    });
+    const customCurrentOption = current !== "all" && !hasCurrent
+      ? `<option value="${escapeHtml(current)}">${escapeHtml(current)} · filtro ativo</option>`
+      : "";
+
+    select.innerHTML = `
+      <option value="all">${escapeHtml(allLabel)}</option>
+      ${customCurrentOption}
+      ${safeValues.map(function (value) {
+        return `<option value="${escapeHtml(value.value)}">${escapeHtml(value.label)}</option>`;
+      }).join("")}
+    `;
+
+    select.value = hasCurrent || customCurrentOption ? current : "all";
+  }
+
+  function syncGlobalFilterControls() {
+    renderGlobalSelectOptions(
+      document.querySelector("[data-ranking-global-game-select]"),
+      getGlobalOptionValues("game"),
+      "Todos os jogos",
+      state.selectedGlobalGame
+    );
+
+    renderGlobalSelectOptions(
+      document.querySelector("[data-ranking-global-season-select]"),
+      getGlobalOptionValues("season"),
+      "Todas as temporadas",
+      state.selectedGlobalSeason
+    );
+
+    const context = document.querySelector("[data-ranking-global-filter-context]");
+    if (context) {
+      const parts = [];
+      if (state.selectedGlobalGame && state.selectedGlobalGame !== "all") parts.push("Jogo: " + state.selectedGlobalGame);
+      if (state.selectedGlobalSeason && state.selectedGlobalSeason !== "all") parts.push("Temporada: " + state.selectedGlobalSeason);
+      context.textContent = parts.length
+        ? "Ranking Global -SBW- filtrado por " + parts.join(" • ") + "."
+        : "Ranking Global -SBW- completo.";
+    }
+  }
+
+  function renderGlobalRankingLoading() {
+    [
+      "[data-ranking-global-players]",
+      "[data-ranking-global-teams]",
+      "[data-ranking-global-eligibility]",
+      "[data-ranking-global-highlights]",
+      "[data-ranking-global-source]"
+    ].forEach(function (selector) {
+      const element = document.querySelector(selector);
+      if (!element) return;
+      element.innerHTML = `<div class="sbw-ranking-empty">Atualizando recorte do Ranking Global -SBW-...</div>`;
+    });
+  }
+
+  async function updateGlobalRankingSnapshot() {
+    if (!window.SBWRankingsStorage?.getRankingSnapshotAsync) return;
+
+    renderGlobalRankingLoading();
+
+    state.globalSnapshot = await window.SBWRankingsStorage.getRankingSnapshotAsync({
+      game: state.selectedGlobalGame || "all",
+      organizer: "all",
+      season: state.selectedGlobalSeason || "all",
+      globalStatus: "global"
+    });
+
+    renderMetricCards();
+    renderGlobalBlocks();
+    renderGlobalHighlightsPanel();
+    renderCurrentRankingPanel();
+    renderGlobalEligibilityPanel();
+    renderGlobalSourcePanel();
+    updateSearchBlock();
+  }
+
+  function recordMatchesGlobalFilters(record) {
+    const game = state.selectedGlobalGame || "all";
+    const season = state.selectedGlobalSeason || "all";
+    const gameMatches = game === "all" || record.gameName === game || record.gameId === game;
+    const seasonMatches = season === "all" || String(record.season || "") === season;
+
+    return gameMatches && seasonMatches;
+  }
+
   function renderGlobalBlocks() {
     const playersRoot = document.querySelector("[data-ranking-global-players]");
     const teamsRoot = document.querySelector("[data-ranking-global-teams]");
     const updatedRoot = document.querySelector("[data-ranking-updated-at]");
+    const snapshot = state.globalSnapshot || state.snapshot;
 
-    if (!state.snapshot) return;
+    if (!snapshot) return;
 
     if (playersRoot) {
-      playersRoot.innerHTML = renderList(state.snapshot.players, "player", {
+      playersRoot.innerHTML = renderList(snapshot.players, "player", {
         limit: 5,
         compact: true,
         empty: "Nenhum jogador pontuou ainda no ranking global."
@@ -427,7 +546,7 @@
     }
 
     if (teamsRoot) {
-      teamsRoot.innerHTML = renderList(state.snapshot.teams, "team", {
+      teamsRoot.innerHTML = renderList(snapshot.teams, "team", {
         limit: 5,
         compact: true,
         empty: "Nenhuma equipe pontuou ainda no ranking global."
@@ -435,8 +554,456 @@
     }
 
     if (updatedRoot) {
-      updatedRoot.textContent = "Atualizado em " + formatDateTime(state.snapshot.generatedAt);
+      updatedRoot.textContent = "Atualizado em " + formatDateTime(snapshot.generatedAt);
     }
+  }
+
+
+  function getGlobalFilteredRecords() {
+    return asArray(state.snapshot?.allRecords || state.snapshot?.records)
+      .filter(recordMatchesGlobalFilters)
+      .filter(function (record) {
+        return record.organizerEligible !== false;
+      });
+  }
+
+  function buildGlobalTopCount(records, property, fallbackLabel) {
+    const map = new Map();
+
+    asArray(records).forEach(function (record) {
+      const label = String(record[property] || fallbackLabel || "A definir").trim() || (fallbackLabel || "A definir");
+      const current = map.get(label) || { label, count: 0, points: 0 };
+      current.count += 1;
+      current.points += Number(record.playerPoints || 0);
+      map.set(label, current);
+    });
+
+    return Array.from(map.values()).sort(function (a, b) {
+      if (Number(b.count || 0) !== Number(a.count || 0)) return Number(b.count || 0) - Number(a.count || 0);
+      if (Number(b.points || 0) !== Number(a.points || 0)) return Number(b.points || 0) - Number(a.points || 0);
+      return String(a.label).localeCompare(String(b.label), "pt-BR");
+    })[0] || null;
+  }
+
+  function getLatestGlobalTournament(records) {
+    const map = new Map();
+
+    asArray(records).forEach(function (record) {
+      const key = String(record.tournamentSlug || record.tournamentId || record.tournamentName || "").trim();
+      if (!key) return;
+
+      const current = map.get(key) || {
+        key,
+        tournamentSlug: record.tournamentSlug || record.tournamentId || record.tournamentName || "",
+        title: record.tournamentName || "Torneio pontuável",
+        gameName: record.gameName || "Jogo não informado",
+        organizerName: record.organizerName || "Organizador",
+        completedAt: record.completedAt || "",
+        entries: 0
+      };
+
+      current.entries += 1;
+      if (!current.completedAt && record.completedAt) current.completedAt = record.completedAt;
+      map.set(key, current);
+    });
+
+    return Array.from(map.values()).sort(function (a, b) {
+      return new Date(b.completedAt || 0) - new Date(a.completedAt || 0);
+    })[0] || null;
+  }
+
+  function renderGlobalHighlightCard(options) {
+    const safeOptions = options || {};
+    const href = safeOptions.href ? `href="${escapeHtml(safeOptions.href)}"` : "";
+    const tagName = safeOptions.href ? "a" : "article";
+
+    return `
+      <${tagName} class="sbw-global-highlight-card ${safeOptions.tone ? "is-" + escapeHtml(safeOptions.tone) : ""}" ${href}>
+        <span>${escapeHtml(safeOptions.label || "Destaque")}</span>
+        <strong>${escapeHtml(safeOptions.value || "A definir")}</strong>
+        <small>${escapeHtml(safeOptions.meta || "Aguardando dados pontuáveis.")}</small>
+      </${tagName}>
+    `;
+  }
+
+  function renderGlobalHighlightsPanel() {
+    const root = document.querySelector("[data-ranking-global-highlights]");
+    if (!root) return;
+
+    const snapshot = state.globalSnapshot || state.snapshot || {};
+    const records = getGlobalFilteredRecords();
+    const topPlayer = asArray(snapshot.players)[0] || null;
+    const topTeam = asArray(snapshot.teams)[0] || null;
+    const topGame = buildGlobalTopCount(records, "gameName", "Jogo não informado");
+    const topOrganizer = buildGlobalTopCount(records, "organizerName", "Organizador");
+    const latestTournament = getLatestGlobalTournament(records);
+    const context = getGlobalFilterContextLabel();
+
+    root.innerHTML = `
+      <div class="sbw-global-highlights-head">
+        <div>
+          <span>Destaques do recorte</span>
+          <h2>Resumo do Ranking Global -SBW-</h2>
+          <p>Uma visão rápida dos líderes e da base competitiva usada no filtro atual: ${escapeHtml(context)}.</p>
+        </div>
+        <a href="#ranking-global-torneios-pontuaveis">Ver torneios pontuáveis</a>
+      </div>
+
+      <div class="sbw-global-highlights-grid">
+        ${renderGlobalHighlightCard({
+          label: "Líder entre jogadores",
+          value: topPlayer ? `#${topPlayer.rank || 1} ${topPlayer.name || "Jogador"}` : "Sem líder ainda",
+          meta: topPlayer ? `${formatNumber(topPlayer.points || 0)} pts • ${formatNumber(topPlayer.events || 0)} evento${Number(topPlayer.events || 0) === 1 ? "" : "s"}` : "Nenhum jogador pontuou no recorte atual.",
+          href: topPlayer ? getProfileUrl(topPlayer) : "",
+          tone: "player"
+        })}
+        ${renderGlobalHighlightCard({
+          label: "Líder entre equipes",
+          value: topTeam ? `#${topTeam.rank || 1} ${topTeam.name || "Equipe"}` : "Sem equipe ainda",
+          meta: topTeam ? `${formatNumber(topTeam.points || 0)} pts • ${formatNumber(topTeam.events || 0)} evento${Number(topTeam.events || 0) === 1 ? "" : "s"}` : "Nenhuma equipe pontuou no recorte atual.",
+          href: topTeam ? getTeamUrl(topTeam) : "",
+          tone: "team"
+        })}
+        ${renderGlobalHighlightCard({
+          label: "Jogo mais movimentado",
+          value: topGame ? topGame.label : "Sem jogo ainda",
+          meta: topGame ? `${formatNumber(topGame.count)} resultado${Number(topGame.count || 0) === 1 ? "" : "s"} pontuável${Number(topGame.count || 0) === 1 ? "" : "eis"}` : "Nenhum resultado pontuável no recorte atual.",
+          tone: "game"
+        })}
+        ${renderGlobalHighlightCard({
+          label: "Organizador mais ativo",
+          value: topOrganizer ? topOrganizer.label : "Sem organizador ainda",
+          meta: topOrganizer ? `${formatNumber(topOrganizer.count)} resultado${Number(topOrganizer.count || 0) === 1 ? "" : "s"} usado${Number(topOrganizer.count || 0) === 1 ? "" : "s"} no Global` : "Nenhum organizador com resultado pontuável.",
+          tone: "organizer"
+        })}
+        ${renderGlobalHighlightCard({
+          label: "Último torneio usado",
+          value: latestTournament ? latestTournament.title : "Nenhum torneio ainda",
+          meta: latestTournament ? `${latestTournament.gameName} • ${latestTournament.organizerName} • ${formatDate(latestTournament.completedAt)}` : "Torneios finalizados e pontuáveis aparecerão aqui.",
+          href: latestTournament ? getTournamentUrl(latestTournament.tournamentSlug || latestTournament.key) : "",
+          tone: "tournament"
+        })}
+      </div>
+    `;
+  }
+
+  function getGlobalEligibilityRows() {
+    const records = asArray(state.snapshot?.allRecords || state.snapshot?.records)
+      .filter(recordMatchesGlobalFilters);
+    const map = new Map();
+
+    records.forEach(function (record) {
+      const key = String(record.tournamentSlug || record.tournamentId || record.tournamentName || "").trim();
+      if (!key) return;
+
+      const isPointable = record.organizerEligible !== false;
+      const current = map.get(key) || {
+        key,
+        tournamentName: record.tournamentName || "Torneio",
+        gameName: record.gameName || "Jogo",
+        organizerName: record.organizerName || "Organizador",
+        completedAt: record.completedAt,
+        isPointable,
+        records: 0
+      };
+
+      current.records += 1;
+      current.isPointable = current.isPointable && isPointable;
+      map.set(key, current);
+    });
+
+    return Array.from(map.values());
+  }
+
+  function getGlobalEligibilityStatus(row) {
+    if (row?.isPointable === false) {
+      return { key: "notPointable", label: "Não pontuável", tone: "blocked" };
+    }
+
+    return { key: "pointable", label: "Pontua no Global", tone: "approved" };
+  }
+
+  function getGlobalFilterContextLabel() {
+    const parts = [];
+
+    if (state.selectedGlobalGame && state.selectedGlobalGame !== "all") {
+      parts.push("Jogo: " + state.selectedGlobalGame);
+    }
+
+    if (state.selectedGlobalSeason && state.selectedGlobalSeason !== "all") {
+      parts.push("Temporada: " + state.selectedGlobalSeason);
+    }
+
+    return parts.length ? parts.join(" • ") : "Ranking Global -SBW- completo";
+  }
+
+  function getCurrentRankingRow(kind) {
+    const snapshot = state.globalSnapshot || state.snapshot || {};
+    const rows = kind === "team" ? asArray(snapshot.teams) : asArray(snapshot.players);
+    const matcher = kind === "team" ? isCurrentTeamRow : isCurrentPlayerRow;
+
+    return rows.find(function (row) {
+      return matcher(row);
+    }) || null;
+  }
+
+  function renderCurrentRankingCard(kind, row, options) {
+    const safeOptions = options || {};
+    const isTeam = kind === "team";
+    const title = isTeam ? "Sua equipe" : "Seu jogador";
+    const emptyTitle = safeOptions.emptyTitle || "Sem pontuação no recorte";
+    const emptyText = safeOptions.emptyText || "Ainda não há pontuação registrada neste recorte do Ranking Global -SBW-.";
+
+    if (!row) {
+      return `
+        <article class="sbw-global-current-card is-empty">
+          <span>${escapeHtml(title)}</span>
+          <strong>${escapeHtml(emptyTitle)}</strong>
+          <p>${escapeHtml(emptyText)}</p>
+        </article>
+      `;
+    }
+
+    const url = isTeam ? getTeamUrl(row) : getProfileUrl(row);
+    const subtitle = [
+      !isTeam ? row.teamName : "Equipe vinculada",
+      Array.isArray(row.games) ? row.games[0] : "",
+      Array.isArray(row.organizers) ? row.organizers[0] : ""
+    ].filter(Boolean).join(" • ");
+
+    return `
+      <article class="sbw-global-current-card is-ranked">
+        <span>${escapeHtml(title)}</span>
+        <div class="sbw-global-current-card__rank">
+          <strong>#${escapeHtml(row.rank || "-")}</strong>
+          <em>${escapeHtml(formatNumber(row.points || 0))} pts</em>
+        </div>
+        <a href="${escapeHtml(url)}">${escapeHtml(row.name || (isTeam ? "Equipe" : "Jogador"))}</a>
+        <p>${escapeHtml(subtitle || "Ranking Global -SBW-")}</p>
+        <small>${escapeHtml(row.events || 0)} evento${Number(row.events || 0) === 1 ? "" : "s"} • ${escapeHtml(row.podiums || 0)} pódio${Number(row.podiums || 0) === 1 ? "" : "s"} • ${escapeHtml(row.titles || 0)} título${Number(row.titles || 0) === 1 ? "" : "s"}</small>
+      </article>
+    `;
+  }
+
+  function renderCurrentRankingPanel() {
+    const root = document.querySelector("[data-ranking-current-summary]");
+    if (!root) return;
+
+    const contextLabel = getGlobalFilterContextLabel();
+
+    if (!state.currentUser) {
+      root.innerHTML = `
+        <div class="sbw-global-current-head">
+          <div>
+            <span>Minha posição</span>
+            <h2>Acompanhe seu lugar no Ranking Global -SBW-</h2>
+            <p>Entre na plataforma para destacar sua posição e a posição da sua equipe no recorte atual.</p>
+          </div>
+          <strong>${escapeHtml(contextLabel)}</strong>
+        </div>
+        <div class="sbw-global-current-grid">
+          <article class="sbw-global-current-card is-empty">
+            <span>Jogador</span>
+            <strong>Login necessário</strong>
+            <p>Com sua conta conectada, esta área mostra sua colocação no Ranking Global -SBW-.</p>
+          </article>
+          <article class="sbw-global-current-card is-empty">
+            <span>Equipe</span>
+            <strong>Login necessário</strong>
+            <p>Se você estiver vinculado a uma equipe, a posição dela também aparece aqui.</p>
+          </article>
+        </div>
+      `;
+      return;
+    }
+
+    const playerRow = getCurrentRankingRow("player");
+    const teamRow = getCurrentRankingRow("team");
+    const hasTeamLink = state.currentTeamKeys && state.currentTeamKeys.size > 0;
+
+    root.innerHTML = `
+      <div class="sbw-global-current-head">
+        <div>
+          <span>Minha posição</span>
+          <h2>Seu recorte no Ranking Global -SBW-</h2>
+          <p>Resumo rápido da sua colocação e da sua equipe no filtro global ativo, sem alterar os rankings por organizador ou por torneio.</p>
+        </div>
+        <strong>${escapeHtml(contextLabel)}</strong>
+      </div>
+      <div class="sbw-global-current-grid">
+        ${renderCurrentRankingCard("player", playerRow, {
+          emptyTitle: "Você ainda não pontuou",
+          emptyText: "Seu perfil ainda não tem pontos neste recorte. Ao participar de torneios pontuáveis finalizados, sua posição aparecerá aqui."
+        })}
+        ${renderCurrentRankingCard("team", teamRow, {
+          emptyTitle: hasTeamLink ? "Equipe sem pontuação" : "Equipe não vinculada",
+          emptyText: hasTeamLink
+            ? "Sua equipe ainda não tem pontos neste recorte do Ranking Global -SBW-."
+            : "Entre em uma equipe da plataforma -SBW- para acompanhar também a posição coletiva."
+        })}
+      </div>
+    `;
+  }
+
+  function renderGlobalEligibilityPanel() {
+    const root = document.querySelector("[data-ranking-global-eligibility]");
+    if (!root) return;
+
+    const rows = getGlobalEligibilityRows();
+    const summary = rows.reduce(function (acc, row) {
+      const status = getGlobalEligibilityStatus(row);
+      acc[status.key] = (acc[status.key] || 0) + 1;
+      return acc;
+    }, { pointable: 0, notPointable: 0 });
+    const organizerCount = new Set(rows.map(function (row) { return row.organizerName; }).filter(Boolean)).size;
+    const gameCount = new Set(rows.map(function (row) { return row.gameName; }).filter(Boolean)).size;
+    const recentRows = rows
+      .slice()
+      .sort(function (a, b) {
+        return new Date(b.completedAt || 0) - new Date(a.completedAt || 0);
+      })
+      .slice(0, 4);
+
+    root.innerHTML = `
+      <div class="sbw-global-eligibility-head">
+        <div>
+          <span>Critério global</span>
+          <h2>Ranking Global -SBW- por torneios pontuáveis</h2>
+          <p>Todo torneio criado na plataforma pode escolher se pontua ou não. Se estiver marcado como pontuável, ele conta para o ranking do organizador e também para o Ranking Global -SBW-. Os números abaixo respeitam o filtro global ativo.</p>
+        </div>
+        <strong>${escapeHtml(summary.pointable || 0)} ${Number(summary.pointable || 0) === 1 ? "pontuável" : "pontuáveis"}</strong>
+      </div>
+
+      <div class="sbw-global-eligibility-grid">
+        <article><span>Pontuáveis</span><strong>${escapeHtml(summary.pointable || 0)}</strong></article>
+        <article><span>Não pontuáveis</span><strong>${escapeHtml(summary.notPointable || 0)}</strong></article>
+        <article><span>Organizadores</span><strong>${escapeHtml(organizerCount || 0)}</strong></article>
+        <article><span>Jogos</span><strong>${escapeHtml(gameCount || 0)}</strong></article>
+      </div>
+
+      <div class="sbw-global-eligibility-list">
+        ${recentRows.length ? recentRows.map(function (row) {
+          const status = getGlobalEligibilityStatus(row);
+          return `
+            <article class="sbw-global-eligibility-row is-${escapeHtml(status.tone)}">
+              <div>
+                <strong>${escapeHtml(row.tournamentName)}</strong>
+                <span>${escapeHtml(row.gameName)} • ${escapeHtml(row.organizerName)} • ${escapeHtml(formatDate(row.completedAt))}</span>
+              </div>
+              <em>${escapeHtml(status.label)}</em>
+            </article>
+          `;
+        }).join("") : `<div class="sbw-ranking-empty">Nenhum torneio finalizado encontrado para avaliar o Ranking Global -SBW-.</div>`}
+      </div>
+    `;
+  }
+
+
+  function buildGlobalSourceRows() {
+    const records = asArray(state.snapshot?.allRecords || state.snapshot?.records)
+      .filter(recordMatchesGlobalFilters)
+      .filter(function (record) {
+        return record.organizerEligible !== false;
+      });
+    const map = new Map();
+
+    records.forEach(function (record) {
+      const key = String(record.tournamentSlug || record.tournamentId || record.tournamentName || "").trim();
+      if (!key) return;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          tournamentSlug: record.tournamentSlug || record.tournamentId || record.tournamentName || "",
+          tournamentName: record.tournamentName || "Torneio pontuável",
+          gameName: record.gameName || "Jogo não informado",
+          organizerName: record.organizerName || "Organizador",
+          season: record.season || "Temporada atual",
+          completedAt: record.completedAt || "",
+          entries: 0,
+          teams: new Set(),
+          champion: "",
+          totalPlayerPoints: 0,
+          totalTeamPoints: 0
+        });
+      }
+
+      const row = map.get(key);
+      row.entries += 1;
+      row.totalPlayerPoints += Number(record.playerPoints || 0);
+      row.totalTeamPoints += Number(record.teamPoints || 0);
+      if (record.teamName) row.teams.add(record.teamName);
+      if (Number(record.placement || 0) === 1 && !row.champion) {
+        row.champion = record.name || record.nickname || record.playerName || "Campeão";
+      }
+      if (!row.completedAt && record.completedAt) row.completedAt = record.completedAt;
+      if (!row.season && record.season) row.season = record.season;
+    });
+
+    return Array.from(map.values()).map(function (row) {
+      return {
+        ...row,
+        teams: Array.from(row.teams)
+      };
+    }).sort(function (a, b) {
+      return new Date(b.completedAt || 0) - new Date(a.completedAt || 0);
+    });
+  }
+
+  function renderGlobalSourcePanel() {
+    const root = document.querySelector("[data-ranking-global-source]");
+    if (!root) return;
+
+    const rows = buildGlobalSourceRows();
+    const totalPlayerPoints = rows.reduce(function (total, row) {
+      return total + Number(row.totalPlayerPoints || 0);
+    }, 0);
+    const totalTeamPoints = rows.reduce(function (total, row) {
+      return total + Number(row.totalTeamPoints || 0);
+    }, 0);
+    const totalResults = rows.reduce(function (total, row) {
+      return total + Number(row.entries || 0);
+    }, 0);
+    const visibleRows = rows.slice(0, 8);
+
+    root.innerHTML = `
+      <div class="sbw-global-source-head">
+        <div>
+          <span>Base do Ranking Global</span>
+          <h2>Torneios pontuáveis usados na classificação</h2>
+          <p>Esta área mostra quais torneios estão alimentando o Ranking Global -SBW- no recorte atual. Ela ajuda a validar a origem dos pontos sem criar fluxo de aprovação separado.</p>
+        </div>
+        <a href="#ranking-global-elegibilidade">Ver critério</a>
+      </div>
+
+      <div class="sbw-global-source-summary">
+        <article><span>Torneios usados</span><strong>${escapeHtml(rows.length)}</strong></article>
+        <article><span>Resultados</span><strong>${escapeHtml(totalResults)}</strong></article>
+        <article><span>Pontos jogadores</span><strong>${escapeHtml(formatNumber(totalPlayerPoints))}</strong></article>
+        <article><span>Pontos equipes</span><strong>${escapeHtml(formatNumber(totalTeamPoints))}</strong></article>
+      </div>
+
+      <div class="sbw-global-source-list">
+        ${visibleRows.length ? visibleRows.map(function (row) {
+          const pointsLabel = `${formatNumber(row.totalPlayerPoints)}J / ${formatNumber(row.totalTeamPoints)}E pts`;
+          const seasonLabel = row.season ? `Temporada ${row.season}` : "Temporada atual";
+          return `
+            <article class="sbw-global-source-row">
+              <div class="sbw-global-source-row__main">
+                <strong>${escapeHtml(row.tournamentName)}</strong>
+                <span>${escapeHtml([row.gameName, row.organizerName, formatDate(row.completedAt), seasonLabel].filter(Boolean).join(" • "))}</span>
+                ${row.champion ? `<em>Campeão: ${escapeHtml(row.champion)}</em>` : ""}
+              </div>
+              <div class="sbw-global-source-row__meta">
+                <strong>${escapeHtml(pointsLabel)}</strong>
+                <small>${escapeHtml(row.entries)} resultado${Number(row.entries || 0) === 1 ? "" : "s"}</small>
+                <a href="${escapeHtml(getTournamentUrl(row.tournamentSlug || row.key))}">Ver torneio</a>
+              </div>
+            </article>
+          `;
+        }).join("") : `<div class="sbw-ranking-empty">Nenhum torneio pontuável encontrado para o recorte atual do Ranking Global -SBW-.</div>`}
+      </div>
+    `;
   }
 
   function renderSelectOptions(select, values, placeholder, selectedValue) {
@@ -893,11 +1460,13 @@
       ];
     }
 
+    const globalSnapshot = state.globalSnapshot || state.snapshot;
+
     return [
-      ...asArray(state.snapshot?.players).map(function (row) {
+      ...asArray(globalSnapshot?.players).map(function (row) {
         return { ...row, type: "player", context: "Ranking Global -SBW-" };
       }),
-      ...asArray(state.snapshot?.teams).map(function (row) {
+      ...asArray(globalSnapshot?.teams).map(function (row) {
         return { ...row, type: "team", context: "Ranking Global de Equipes -SBW-" };
       })
     ];
@@ -1017,7 +1586,10 @@
       "[data-ranking-organizer-body]",
       "[data-ranking-tournament-body]",
       "[data-ranking-search-results]",
-      "[data-ranking-rules-table]"
+      "[data-ranking-rules-table]",
+      "[data-ranking-current-summary]",
+      "[data-ranking-global-eligibility]",
+      "[data-ranking-global-highlights]"
     ].forEach(function (selector) {
       const element = document.querySelector(selector);
 
@@ -1086,11 +1658,20 @@
 
     try {
       const userPromise = getCurrentUserSafely();
-      state.snapshot = await window.SBWRankingsStorage.getRankingSnapshotAsync({
+      const platformSnapshotPromise = window.SBWRankingsStorage.getRankingSnapshotAsync({
         game: "all",
         organizer: "all",
         season: "all",
         globalStatus: "organizer"
+      });
+      state.snapshot = await platformSnapshotPromise;
+      state.selectedGlobalGame = chooseGlobalFilterValue("game", getInitialParam(["game", "jogo", "globalGame", "global_game"]));
+      state.selectedGlobalSeason = chooseGlobalFilterValue("season", getInitialParam(["season", "temporada", "globalSeason", "global_season"]));
+      state.globalSnapshot = await window.SBWRankingsStorage.getRankingSnapshotAsync({
+        game: state.selectedGlobalGame || "all",
+        organizer: "all",
+        season: state.selectedGlobalSeason || "all",
+        globalStatus: "global"
       });
       state.currentUser = await userPromise;
       state.currentProfile = await getCurrentProfileSafely(state.currentUser);
@@ -1106,7 +1687,12 @@
       }
 
       renderMetricCards();
+      syncGlobalFilterControls();
       renderGlobalBlocks();
+      renderGlobalHighlightsPanel();
+      renderCurrentRankingPanel();
+      renderGlobalEligibilityPanel();
+      renderGlobalSourcePanel();
       syncBlockSelects();
       await updateOrganizerBlock();
       updateTournamentBlock();
@@ -1115,7 +1701,7 @@
     } catch (error) {
       console.error("[SBW Rankings] Erro ao carregar rankings:", error);
       const targets = document.querySelectorAll(
-        "[data-ranking-global-players], [data-ranking-global-teams], [data-ranking-organizer-body], [data-ranking-tournament-body], [data-ranking-search-results], [data-ranking-rules-table]"
+        "[data-ranking-global-players], [data-ranking-global-teams], [data-ranking-global-highlights], [data-ranking-current-summary], [data-ranking-global-eligibility], [data-ranking-global-source], [data-ranking-organizer-body], [data-ranking-tournament-body], [data-ranking-search-results], [data-ranking-rules-table]"
       );
 
       targets.forEach(function (element) {
@@ -1137,6 +1723,8 @@
   function bindEvents() {
     const organizerSelect = document.querySelector("[data-ranking-organizer-select]");
     const tournamentSelect = document.querySelector("[data-ranking-tournament-select]");
+    const globalGameSelect = document.querySelector("[data-ranking-global-game-select]");
+    const globalSeasonSelect = document.querySelector("[data-ranking-global-season-select]");
     const searchInput = document.querySelector("[data-ranking-search]");
 
     if (organizerSelect) {
@@ -1152,6 +1740,22 @@
         state.selectedTournament = tournamentSelect.value || "";
         updateTournamentBlock();
         updateSearchBlock();
+      });
+    }
+
+    if (globalGameSelect) {
+      globalGameSelect.addEventListener("change", async function () {
+        state.selectedGlobalGame = globalGameSelect.value || "all";
+        syncGlobalFilterControls();
+        await updateGlobalRankingSnapshot();
+      });
+    }
+
+    if (globalSeasonSelect) {
+      globalSeasonSelect.addEventListener("change", async function () {
+        state.selectedGlobalSeason = globalSeasonSelect.value || "all";
+        syncGlobalFilterControls();
+        await updateGlobalRankingSnapshot();
       });
     }
 
