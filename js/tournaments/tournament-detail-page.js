@@ -783,59 +783,38 @@ function getTournamentFormat(tournament) {
 
     const model = sbwGetTeamBattlePublicPreviewModel(tournament, format);
     const scoreModel = Array.isArray(model?.rulebook?.scoreModel) ? model.rulebook.scoreModel : [];
-    const highlights = Array.isArray(model?.highlights) ? model.highlights.slice(0, 5) : [];
     const notes = Array.isArray(model?.transparencyNotes) ? model.transparencyNotes.slice(0, 3) : [];
-    const overview = model?.publicOverview || {};
-    const matchSlots = [
-      { label: "Partida 1", home: "Titular A1", away: "Titular B1", points: "10 pts" },
-      { label: "Partida 2", home: "Titular A2", away: "Titular B2", points: "10 pts" },
-      { label: "Partida 3", home: "Titular A3", away: "Titular B3", points: "20 pts" },
-      { label: "Extra", home: "Reserva A", away: "Reserva B", points: "+10 pts", conditional: true }
-    ];
-    const publicSteps = [
-      { label: "1", title: "Equipes 4v4", text: "Cada equipe entra com 4 jogadores: 3 titulares e 1 reserva." },
-      { label: "2", title: "Confronto por rodada", text: "As equipes se enfrentam em 3 partidas principais com pontuação assimétrica." },
-      { label: "3", title: "Extra se empatar", text: "Se o confronto terminar empatado, a reserva entra na partida extra." },
-      { label: "4", title: "Tabela da liga", text: "Vitórias, pontos e saldo alimentam a classificação da divisão única." }
-    ];
-    const visualBoard = window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.buildTeamBattleLeagueVisualPreviewBoard === "function"
+    const board = window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.buildTeamBattleLeagueVisualPreviewBoard === "function"
       ? window.SBWTeamBattleLeague.buildTeamBattleLeagueVisualPreviewBoard(tournament || {}, { leagueMode: "basic_single_division" })
       : null;
-    const testPackage = window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.buildTeamBattleLeagueControlledTestPackage === "function"
-      ? window.SBWTeamBattleLeague.buildTeamBattleLeagueControlledTestPackage(tournament || {}, { leagueMode: "basic_single_division" })
-      : null;
-    const publicGates = Array.isArray(testPackage?.gates) ? testPackage.gates.slice(0, 5) : [];
-    const boardStandings = Array.isArray(visualBoard?.standings) ? visualBoard.standings.slice(0, 4) : [];
-    const boardMatches = Array.isArray(visualBoard?.matches) ? visualBoard.matches.slice(0, 2) : [];
+    const standings = Array.isArray(board?.standings) ? board.standings : [];
+    const matches = Array.isArray(board?.matches) ? board.matches : [];
+    const emptyState = board?.emptyState || {
+      title: "Aguardando check-in das equipes",
+      description: "As equipes reais confirmadas aparecerão nesta divisão após o encerramento do check-in.",
+      tableHint: "A tabela não usa equipes demo ou placeholders como participantes."
+    };
+    const publicSteps = [
+      { label: "1", title: "Criação do torneio", text: "O organizador escolhe o Team Battle League 4v4 básico e revisa as regras principais." },
+      { label: "2", title: "Molde da Divisão Única", text: "Depois de criado, o torneio mostra a tabela vazia e a estrutura de pontuação." },
+      { label: "3", title: "Check-in de equipes", text: "Somente equipes reais confirmadas entram no grupo e nos confrontos." },
+      { label: "4", title: "Rodadas e resultados", text: "Confrontos, pontos e classificação serão calculados na etapa funcional do formato." }
+    ];
 
     return `
-      <section class="overview-team-battle-public-preview" aria-label="Prévia pública Team Battle League 4v4">
+      <section class="overview-team-battle-public-preview overview-team-battle-public-preview--efficient" aria-label="Molde público Team Battle League 4v4">
         <div class="overview-team-battle-public-preview__head">
           <div>
-            <span>Prévia pública 4v4</span>
-            <h5>${escapeHTML(model?.title || "Team Battle League 4v4")}</h5>
-            <p>${escapeHTML(model?.description || model?.subtitle || "Formato por equipes em preparação na plataforma -SBW-.")}</p>
+            <span>Team Battle League 4v4</span>
+            <h5>${escapeHTML(model?.title || "Team Battle League 4v4 básico")}</h5>
+            <p>${escapeHTML(model?.description || "Formato por equipes em preparação na plataforma -SBW-.")}</p>
           </div>
           <em>${escapeHTML(model?.badge?.label || "Em preparação")}</em>
         </div>
 
         <div class="overview-team-battle-public-preview__mode">
-          <strong>${escapeHTML(model?.leagueModeLabel || "Básica · divisão única")}</strong>
-          <span>Primeira versão planejada para teste controlado antes do modo avançado com várias divisões.</span>
-        </div>
-
-        <div class="overview-team-battle-public-preview__flow" aria-label="Modelo de confronto Team Battle League 4v4">
-          <article>
-            <small>Equipe A</small>
-            <strong>4 jogadores</strong>
-            <span>3 titulares + 1 reserva</span>
-          </article>
-          <div class="overview-team-battle-public-preview__versus">VS</div>
-          <article>
-            <small>Equipe B</small>
-            <strong>4 jogadores</strong>
-            <span>3 titulares + 1 reserva</span>
-          </article>
+          <strong>Básica · Divisão Única</strong>
+          <span>Sem equipes demo. A tabela só será preenchida com equipes reais após check-in confirmado.</span>
         </div>
 
         ${scoreModel.length ? `
@@ -846,27 +825,59 @@ function getTournamentFormat(tournament) {
           </div>
         ` : ""}
 
-        <div class="overview-team-battle-match-map" aria-label="Mapa visual do confronto 4v4">
-          <div class="overview-team-battle-match-map__head">
-            <strong>Mapa do confronto</strong>
-            <span>Modelo previsto para a liga básica com divisão única.</span>
+        <div class="overview-team-battle-empty-group" aria-label="Molde da Divisão Única">
+          <div class="overview-team-battle-empty-group__head">
+            <div>
+              <strong>${escapeHTML(board?.divisionName || "Divisão Única")}</strong>
+              <span>${escapeHTML(board?.summaryLabel || "Molde da liga básica aguardando equipes reais.")}</span>
+            </div>
+            <em>${escapeHTML(board?.leagueModeLabel || "Básica · divisão única")}</em>
           </div>
-          <div class="overview-team-battle-match-map__grid">
-            ${matchSlots.map((slot) => `
-              <article class="${slot.conditional ? "is-conditional" : ""}">
-                <small>${escapeHTML(slot.label)}${slot.conditional ? " · se empate" : ""}</small>
-                <div>
-                  <span>${escapeHTML(slot.home)}</span>
-                  <em>vs</em>
-                  <span>${escapeHTML(slot.away)}</span>
-                </div>
-                <strong>${escapeHTML(slot.points)}</strong>
-              </article>
-            `).join("")}
+
+          <div class="overview-team-battle-empty-group__table" role="table" aria-label="Tabela da Divisão Única">
+            <div role="row" class="is-head">
+              <span>Pos.</span>
+              <span>Equipe</span>
+              <span>Pts</span>
+              <span>V</span>
+              <span>Saldo</span>
+            </div>
+            ${standings.length ? standings.map((row, index) => `
+              <div role="row">
+                <span>${escapeHTML(row.position || index + 1)}º</span>
+                <span>${escapeHTML(row.teamName || row.name || "Equipe confirmada")}</span>
+                <span>${escapeHTML(row.battlePoints || 0)}</span>
+                <span>${escapeHTML(row.teamMatchWins || 0)}</span>
+                <span>${escapeHTML(row.battlePointDiff || 0)}</span>
+              </div>
+            `).join("") : `
+              <div role="row" class="is-empty">
+                <span>—</span>
+                <span>${escapeHTML(emptyState.description)}</span>
+                <span>—</span>
+                <span>—</span>
+                <span>—</span>
+              </div>
+            `}
+          </div>
+
+          <p>${escapeHTML(emptyState.tableHint || "A tabela será preenchida apenas com equipes reais confirmadas.")}</p>
+        </div>
+
+        <div class="overview-team-battle-match-model" aria-label="Modelo de confronto sem equipes demo">
+          <div>
+            <strong>Modelo do confronto 4v4</strong>
+            <span>O confronto usa 3 partidas principais e uma extra somente em caso de empate.</span>
+          </div>
+          <div class="overview-team-battle-match-model__grid">
+            <article><small>Partida 1</small><strong>10 pts</strong><span>Titular confirmado vs titular confirmado</span></article>
+            <article><small>Partida 2</small><strong>10 pts</strong><span>Titular confirmado vs titular confirmado</span></article>
+            <article><small>Partida 3</small><strong>20 pts</strong><span>Titular confirmado vs titular confirmado</span></article>
+            <article><small>Extra</small><strong>+10 pts</strong><span>Reserva confirmada somente se houver empate</span></article>
           </div>
         </div>
 
-        <div class="overview-team-battle-public-preview__steps" aria-label="Como funciona o Team Battle League 4v4">
+        <div class="overview-team-battle-public-preview__steps" aria-label="Fluxo eficiente do Team Battle League 4v4">
           ${publicSteps.map((step) => `
             <article>
               <span>${escapeHTML(step.label)}</span>
@@ -876,71 +887,23 @@ function getTournamentFormat(tournament) {
           `).join("")}
         </div>
 
-        ${publicGates.length ? `
-          <div class="overview-team-battle-test-gates" aria-label="Etapas antes da liberação pública Team Battle League 4v4">
-            <div>
-              <strong>${escapeHTML(testPackage?.releaseLabel || "Teste interno planejado")}</strong>
-              <span>Antes da liberação real, a plataforma -SBW- deve validar o formato em ambiente controlado.</span>
-            </div>
-            <div>
-              ${publicGates.map((gate) => `
-                <span class="is-${escapeHTML(gate.status || "pending")}"><small>${escapeHTML(gate.stateLabel || "Pendente")}</small>${escapeHTML(gate.label || "Etapa")}</span>
-              `).join("")}
-            </div>
-          </div>
-        ` : ""}
-
-        ${visualBoard ? `
-          <div class="overview-team-battle-board" aria-label="Prévia de classificação e rodada Team Battle League 4v4">
-            <div class="overview-team-battle-board__head">
-              <div>
-                <strong>${escapeHTML(visualBoard.divisionName || "Divisão única")}</strong>
-                <span>${escapeHTML(visualBoard.summaryLabel || "Prévia do modo básico com divisão única.")}</span>
-              </div>
-              <em>${escapeHTML(visualBoard.leagueModeLabel || "Básica · divisão única")}</em>
-            </div>
-            <div class="overview-team-battle-board__grid">
-              <div class="overview-team-battle-standings-preview">
-                <strong>Classificação prevista</strong>
-                ${boardStandings.length ? boardStandings.map((row, index) => `
-                  <div>
-                    <span>${escapeHTML(row.position || index + 1)}º</span>
-                    <strong>${escapeHTML(row.teamName || row.name || `Equipe ${index + 1}`)}</strong>
-                    <small>${escapeHTML(row.battlePoints || 0)} pts · ${escapeHTML(row.teamMatchWins || 0)}V</small>
-                  </div>
-                `).join("") : `<p>As equipes aparecerão aqui quando o formato for liberado.</p>`}
-              </div>
-              <div class="overview-team-battle-round-preview">
-                <strong>Primeira rodada</strong>
-                ${boardMatches.length ? boardMatches.map((match) => `
-                  <article>
-                    <small>${escapeHTML(match.label || "Confronto")}</small>
-                    <div><span>${escapeHTML(match.homeTeamName || "Equipe A")}</span><em>vs</em><span>${escapeHTML(match.awayTeamName || "Equipe B")}</span></div>
-                    <p>${escapeHTML(match.statusLabel || "A definir")}</p>
-                  </article>
-                `).join("") : `<p>Os confrontos serão gerados a partir das equipes aprovadas.</p>`}
-              </div>
-            </div>
-          </div>
-        ` : ""}
-
-        <div class="overview-team-battle-public-preview__meta">
-          <span><strong>${escapeHTML(overview.divisions || 1)}</strong> divisão</span>
-          <span><strong>${escapeHTML(overview.teams || 0)}</strong> equipes</span>
-          <span><strong>${escapeHTML(overview.rounds || 0)}</strong> rodadas</span>
-          <span><strong>${escapeHTML(overview.matches || 0)}</strong> confrontos</span>
-        </div>
-
-        ${highlights.length ? `
-          <div class="overview-team-battle-public-preview__highlights">
-            ${highlights.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}
+        ${matches.length ? `
+          <div class="overview-team-battle-round-preview">
+            <strong>Rodada gerada</strong>
+            ${matches.map((match) => `
+              <article>
+                <small>${escapeHTML(match.label || "Confronto")}</small>
+                <div><span>${escapeHTML(match.homeTeamName || "Equipe confirmada")}</span><em>vs</em><span>${escapeHTML(match.awayTeamName || "Equipe confirmada")}</span></div>
+                <p>${escapeHTML(match.statusLabel || "Aguardando equipes")}</p>
+              </article>
+            `).join("")}
           </div>
         ` : ""}
 
         ${notes.length ? `
-          <ul class="overview-team-battle-public-preview__notes">
-            ${notes.map((note) => `<li>${escapeHTML(note)}</li>`).join("")}
-          </ul>
+          <div class="overview-team-battle-public-preview__notes">
+            ${notes.map((note) => `<span>${escapeHTML(note)}</span>`).join("")}
+          </div>
         ` : ""}
       </section>
     `;

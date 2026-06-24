@@ -891,63 +891,80 @@ async function initAccessControl() {
       if (key !== "team-battle-league-4v4") return "";
 
       const helper = window.SBWTeamBattleLeague;
-      const modes = helper && typeof helper.buildTeamBattleLeagueModeComparison === "function"
-        ? helper.buildTeamBattleLeagueModeComparison()
-        : [
-            { title: "Team Battle League 4v4 básica", shortLabel: "Básica", divisionModel: "Divisão única", status: "prioridade inicial", description: "Modelo inicial com todas as equipes em uma única divisão.", highlights: ["Uma divisão única", "Menor risco operacional", "Ideal para primeiros testes"] },
-            { title: "Team Battle League 4v4 avançada", shortLabel: "Avançada", divisionModel: "Várias divisões", status: "fase posterior", description: "Modelo expandido para ligas maiores com múltiplas divisões.", highlights: ["Várias divisões", "Classificação por divisão", "Playoffs avançados"] }
-          ];
-      const rulebook = helper && typeof helper.buildTeamBattleLeagueRulebookSummary === "function"
-        ? helper.buildTeamBattleLeagueRulebookSummary()
-        : {
-            scoreModel: [
-              { label: "Partida 1", points: 10 },
-              { label: "Partida 2", points: 10 },
-              { label: "Partida 3", points: 20 },
-              { label: "Partida extra", points: 10, conditional: true }
-            ],
-            rules: ["Equipes com elenco de 4 jogadores", "3 titulares + 1 reserva", "Partida extra em caso de empate"]
-          };
-      const testPackage = helper && typeof helper.buildTeamBattleLeagueControlledTestPackage === "function"
-        ? helper.buildTeamBattleLeagueControlledTestPackage({}, { leagueMode: "basic_single_division" })
+      const flow = helper && typeof helper.buildTeamBattleLeagueEfficientFlowSummary === "function"
+        ? helper.buildTeamBattleLeagueEfficientFlowSummary({}, { leagueMode: "basic_single_division" })
         : null;
-      const gates = Array.isArray(testPackage?.gates) ? testPackage.gates.slice(0, 6) : [];
+      const setupPreview = flow?.setup || (helper && typeof helper.buildTeamBattleLeagueBasicMvpSetupPreview === "function"
+        ? helper.buildTeamBattleLeagueBasicMvpSetupPreview({}, { leagueMode: "basic_single_division" })
+        : null);
+      const board = flow?.board || null;
+      const setupCards = Array.isArray(setupPreview?.cards) ? setupPreview.cards.slice(0, 4) : [];
+      const setupFields = Array.isArray(setupPreview?.fields) ? setupPreview.fields.slice(0, 8) : [];
+      const flowSteps = Array.isArray(flow?.steps) ? flow.steps : [
+        { label: "Criar torneio", description: "Escolher Team Battle League 4v4 básica e revisar regras principais." },
+        { label: "Molde da liga", description: "Depois de criado, a página mostra a Divisão Única vazia." },
+        { label: "Check-in", description: "A tabela só recebe equipes reais confirmadas." }
+      ];
 
       return `
-        <div class="format-box__team-battle-preview">
+        <div class="format-box__team-battle-preview format-box__team-battle-preview--efficient">
           <div class="format-box__team-battle-head">
-            <strong>Prévia visual do formato 4v4</strong>
-            <span>Em preparação · não libera criação real ainda</span>
+            <strong>Configuração do Team Battle League 4v4 básico</strong>
+            <span>Divisão única · sem equipes demo · preenchimento real após check-in</span>
           </div>
-          <div class="format-box__team-battle-modes">
-            ${modes.map((mode) => `
-              <article class="format-box__team-battle-mode ${mode.recommendedFirstRelease ? "is-recommended" : ""}">
-                <small>${escapeHTML(mode.shortLabel || mode.status || "Modo")}</small>
-                <strong>${escapeHTML(mode.divisionModel || mode.title || "Modo")}</strong>
-                <p>${escapeHTML(mode.description || "Modelo planejado para este formato.")}</p>
-                ${Array.isArray(mode.highlights) && mode.highlights.length ? `<div>${mode.highlights.slice(0, 3).map((item) => `<span>${escapeHTML(item)}</span>`).join("")}</div>` : ""}
+
+          <div class="format-box__team-battle-setup" aria-label="Configuração eficiente do MVP básico Team Battle League 4v4">
+            <div class="format-box__team-battle-setup-head">
+              <div>
+                <strong>${escapeHTML(setupPreview?.label || "Configuração do formato")}</strong>
+                <span>${escapeHTML(setupPreview?.previewNote || "Configure o modo na criação. A tabela pública começa vazia e recebe equipes reais após o check-in.")}</span>
+              </div>
+              <em>${escapeHTML(setupPreview?.badge || "Configuração visual")}</em>
+            </div>
+            <div class="format-box__team-battle-setup-cards">
+              ${setupCards.map((card) => `
+                <article>
+                  <small>${escapeHTML(card.label || "Item")}</small>
+                  <strong>${escapeHTML(card.value || "—")}</strong>
+                  <p>${escapeHTML(card.detail || "Regra do MVP básico.")}</p>
+                </article>
+              `).join("")}
+            </div>
+            <div class="format-box__team-battle-setup-fields">
+              ${setupFields.map((field) => `
+                <span class="${field.locked ? "is-locked" : "is-editable"}">
+                  <small>${escapeHTML(field.locked ? "Travado" : "Configurável")}</small>
+                  ${escapeHTML(field.label || "Campo")}: <strong>${escapeHTML(field.value ?? "—")}</strong>
+                </span>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="format-box__team-battle-flow" aria-label="Fluxo eficiente do formato">
+            ${flowSteps.map((step, index) => `
+              <article>
+                <span>${escapeHTML(index + 1)}</span>
+                <strong>${escapeHTML(step.label || step.title || "Etapa")}</strong>
+                <p>${escapeHTML(step.description || step.text || "Etapa planejada do formato.")}</p>
               </article>
             `).join("")}
           </div>
-          <div class="format-box__team-battle-score">
-            ${Array.isArray(rulebook.scoreModel) ? rulebook.scoreModel.map((slot) => `
-              <span><strong>${escapeHTML(slot.points || 0)}</strong> ${escapeHTML(slot.label || "Partida")}${slot.conditional ? " · se empate" : ""}</span>
-            `).join("") : ""}
-          </div>
-          ${gates.length ? `
-            <div class="format-box__team-battle-gates" aria-label="Etapas do teste controlado Team Battle League 4v4">
-              <strong>Teste controlado planejado</strong>
-              <div>
-                ${gates.map((gate) => `
-                  <span class="is-${escapeHTML(gate.status || "pending")}">
-                    <small>${escapeHTML(gate.stateLabel || "Pendente")}</small>
-                    ${escapeHTML(gate.label || "Etapa")}
-                  </span>
-                `).join("")}
-              </div>
+
+          <div class="format-box__team-battle-empty-table" aria-label="Molde da tabela após criação">
+            <div>
+              <strong>${escapeHTML(board?.divisionName || "Divisão Única")}</strong>
+              <span>${escapeHTML(board?.emptyState?.description || "A tabela aparece vazia após a criação e só recebe equipes reais depois do check-in.")}</span>
             </div>
-          ` : ""}
-          <div class="format-box__notice">Primeira liberação planejada: Team Battle League 4v4 básica com divisão única. O modo avançado com várias divisões fica para etapa posterior.</div>
+            <div class="format-box__team-battle-empty-table-grid">
+              <span>Pos.</span>
+              <span>Equipe</span>
+              <span>Pts</span>
+              <span>V</span>
+              <span>Saldo</span>
+            </div>
+          </div>
+
+          <div class="format-box__notice">MVP básico liberado para criação controlada. A tabela pública nasce vazia e só será preenchida por equipes reais confirmadas após o check-in.</div>
         </div>
       `;
     }
@@ -955,11 +972,13 @@ async function initAccessControl() {
     function renderFormatInfoDetails(info) {
       const features = Array.isArray(info.features) ? info.features.slice(0, 5) : [];
       const requirements = Array.isArray(info.requirements) ? info.requirements.slice(0, 5) : [];
-      const statusLabel = info.status === "planned" ? "Em preparação" : info.status === "active" ? "Disponível" : "Customizado";
+      const statusLabel = info.status === "planned" ? "Em preparação" : info.status === "beta" ? "Beta controlado" : info.status === "active" ? "Disponível" : "Customizado";
       const categoryLabel = info.category === "advanced" ? "Formato avançado" : info.category === "core" ? "Formato base" : "Formato customizado";
       const notice = info.status === "planned"
         ? "Este formato aparece no roadmap da plataforma -SBW-, mas ainda não deve ser usado para criação real de torneio."
-        : "Formato disponível para criação dentro da estrutura atual da plataforma -SBW-.";
+        : info.status === "beta"
+          ? "MVP básico liberado para criação controlada: divisão única, equipes reais após check-in e sem equipes demo/fake."
+          : "Formato disponível para criação dentro da estrutura atual da plataforma -SBW-.";
 
       return `
         <div class="format-box__title">
@@ -1251,6 +1270,48 @@ async function initAccessControl() {
       return true;
     }
 
+    function buildTeamBattleLeagueCreationDraft(format, context = {}) {
+      if (String(format || "") !== "team-battle-league-4v4") return null;
+
+      const helper = window.SBWTeamBattleLeague;
+
+      if (helper && typeof helper.buildTeamBattleLeagueBasicControlledCreationPayload === "function") {
+        return helper.buildTeamBattleLeagueBasicControlledCreationPayload(context, {
+          leagueMode: "basic_single_division"
+        });
+      }
+
+      const createdAt = new Date().toISOString();
+      const payload = {
+        enabled: true,
+        formatKey: "team-battle-league-4v4",
+        schemaVersion: "tbleague4v4.v1",
+        status: "beta_controlled",
+        leagueMode: "basic_single_division",
+        divisionName: "Divisão Única",
+        source: "real_checkin_only",
+        realTeamsOnly: true,
+        publicMoldBeforeCheckin: true,
+        checkinRequiredBeforeTeams: true,
+        teamSize: 4,
+        startersPerTeamMatch: 3,
+        reservePerTeamMatch: 1,
+        mainMatchPointsBySlot: [10, 10, 20],
+        defaultExtraMatchPoints: 10,
+        createdAt
+      };
+
+      return {
+        settings: payload,
+        metadata: {
+          ...payload,
+          title: context.title || "",
+          game: context.game || "",
+          organizerName: context.organizerName || ""
+        }
+      };
+    }
+
     function createTournamentObject() {
       const title = document.getElementById("title").value.trim();
       const game = document.getElementById("game").value.trim();
@@ -1261,6 +1322,12 @@ async function initAccessControl() {
       const rankingEnabled = document.getElementById("rankingEnabled")?.value !== "false";
       const formatDefinition = getTournamentFormatDefinition(format);
       const formatMetadata = getTournamentFormatMetadata(format);
+      const teamBattleLeagueDraft = buildTeamBattleLeagueCreationDraft(format, {
+        title,
+        game,
+        organizerName,
+        rankingEnabled
+      });
 
       return {
         id: `sbw-${Date.now()}`,
@@ -1318,11 +1385,19 @@ async function initAccessControl() {
           rankingLabel: rankingEnabled
             ? "Pontua no ranking do organizador e no Ranking Global -SBW-"
             : "Torneio sem pontuação",
+          ...(teamBattleLeagueDraft ? {
+            teamBattleLeague: teamBattleLeagueDraft.settings,
+            team_battle_league: teamBattleLeagueDraft.settings
+          } : {}),
           ...getDynamicSettings(format)
         },
 
         metadata: {
           format: formatMetadata,
+          ...(teamBattleLeagueDraft ? {
+            teamBattleLeague: teamBattleLeagueDraft.metadata,
+            team_battle_league: teamBattleLeagueDraft.metadata
+          } : {}),
           ranking: {
             enabled: rankingEnabled,
             countsForRanking: rankingEnabled,

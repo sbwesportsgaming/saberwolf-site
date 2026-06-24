@@ -105,25 +105,25 @@
       shortLabel: "Team Battle 4v4",
       family: "team-league",
       category: "advanced",
-      status: "planned",
+      status: "beta",
       teamMode: "team_4v4",
       implementationKey: "team-battle-league-4v4",
       schemaVersion: "tbleague4v4.v1",
       helperNamespace: "SBWTeamBattleLeague",
-      description: "Formato avançado futuro com equipes de 4 jogadores, escalações, confrontos por equipe e suporte a liga básica ou avançada.",
-      publicNote: "Planejado para uma etapa futura da plataforma -SBW-. A primeira versão funcional deve priorizar a liga básica com divisão única.",
+      description: "Formato avançado em beta controlado com equipes de 4 jogadores, escalações, confrontos por equipe e primeira versão funcional focada na liga básica de divisão única.",
+      publicNote: "MVP básico liberado para criação controlada: divisão única, equipes reais após check-in e sem equipes demo/fake.",
       flowTitle: "Liga por equipes 4v4",
-      flowDescription: "Equipes disputam confrontos com escalações, partidas individuais, pontuação por duelo e playoffs. O modo básico usa uma divisão única; o modo avançado permite várias divisões.",
-      features: ["Equipes de 4", "Modo básico com divisão única", "Modo avançado com várias divisões", "Escalações", "Team matches", "Playoffs"],
-      requirements: ["Equipes com elenco de 4 jogadores", "Capitão ou responsável por escalação", "Divisão única no modo básico", "Várias divisões no modo avançado", "Rodadas e confrontos por equipe", "Sistema de partida extra em caso de empate"],
-      roadmap: ["Priorizar preset básico com divisão única", "Adicionar elenco e escalações", "Adicionar confrontos por equipe", "Adicionar classificação da divisão única", "Expandir para modo avançado com múltiplas divisões e playoffs entre divisões"],
+      flowDescription: "Equipes disputam confrontos com escalações, partidas individuais e pontuação por duelo. O MVP básico usa uma divisão única; o modo avançado com várias divisões fica reservado para etapa futura.",
+      features: ["Equipes de 4", "MVP básico com divisão única", "Equipes reais após check-in", "Escalações 3 + 1", "Team matches", "Pontuação 10/10/20/+10"],
+      requirements: ["Equipes reais confirmadas", "Check-in encerrado para preencher a tabela", "Elenco de 4 jogadores por equipe", "Divisão única no MVP básico", "Rodadas e confrontos por equipe", "Partida extra em caso de empate"],
+      roadmap: ["Liberar criação controlada do MVP básico", "Preencher tabela somente com equipes reais após check-in", "Conectar confrontos e resultados reais", "Refinar painel operacional", "Expandir para modo avançado com múltiplas divisões"],
       specs: [
         { label: "Participação", value: "Equipes com elenco de 4 jogadores" },
         { label: "Modo básico", value: "Uma divisão única para simplificar a primeira versão funcional" },
         { label: "Modo avançado", value: "Várias divisões, classificação por divisão e playoffs entre campeões" },
         { label: "Confronto", value: "3 partidas principais, reserva e partida extra em caso de empate" },
         { label: "Pontuação", value: "Modelo planejado por partidas individuais e resultado do confronto" },
-        { label: "Status", value: "Base planejada; criação funcional será liberada em etapa própria" }
+        { label: "Status", value: "Beta controlado: criação do MVP básico liberada com divisão única" }
       ],
       capabilities: {
         players: true,
@@ -141,6 +141,9 @@
         publicStandings: true,
         rankingCompatible: true,
         requiresAdvancedSetup: true,
+        controlledBeta: true,
+        realTeamsOnly: true,
+        publicMoldBeforeCheckin: true,
         defaultLeagueMode: "basic_single_division",
         advancedLeagueMode: "advanced_multi_division"
       }
@@ -238,7 +241,7 @@
 
   function isAvailable(value) {
     const format = get(value);
-    return Boolean(format && format.status === "active");
+    return Boolean(format && (format.status === "active" || format.status === "beta"));
   }
 
   function isPlanned(value) {
@@ -255,6 +258,7 @@
     const status = normalize(format?.status || value);
 
     if (status === "active") return "Disponível";
+    if (status === "beta") return "Beta controlado";
     if (status === "planned") return "Em preparação";
     if (status === "custom") return "Customizado";
 
@@ -266,6 +270,10 @@
 
     if (!format) {
       return "Formato não registrado no catálogo competitivo da plataforma -SBW-.";
+    }
+
+    if (format.status === "beta") {
+      return "";
     }
 
     if (format.status === "planned") {

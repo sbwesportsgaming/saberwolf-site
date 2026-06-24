@@ -119,16 +119,16 @@ function sbwOrganizerEditorGetFormatMetadata(format) {
     label: labels[key] || key,
     family: key === "team-battle-league-4v4" ? "team-league" : "core",
     category: key === "team-battle-league-4v4" ? "advanced" : "core",
-    status: key === "team-battle-league-4v4" ? "planned" : "active",
+    status: key === "team-battle-league-4v4" ? "beta" : "active",
     teamMode: key === "team-battle-league-4v4" ? "team_4v4" : "solo",
     description: key === "team-battle-league-4v4"
-      ? "Formato avançado futuro com equipes de 4 jogadores, divisões, escalações e confrontos por equipe."
+      ? "Formato avançado em beta controlado com MVP básico de divisão única, equipes reais após check-in e confrontos por equipe."
       : "Formato competitivo base da plataforma -SBW-.",
     features: key === "team-battle-league-4v4"
-      ? ["Equipes de 4", "Divisões", "Escalações", "Team matches"]
+      ? ["Equipes de 4", "Divisão única", "Equipes reais após check-in", "Team matches"]
       : [],
     requirements: key === "team-battle-league-4v4"
-      ? ["Elenco de 4 jogadores", "Divisões", "Rodadas", "Sistema de escalação"]
+      ? ["Elenco de 4 jogadores", "Check-in encerrado", "Divisão única", "Sistema de escalação"]
       : []
   };
 }
@@ -185,6 +185,10 @@ function sbwOrganizerEditorGetFormatBlockReason(format) {
 
   const metadata = sbwOrganizerEditorGetFormatMetadata(format);
 
+  if (metadata.status === "beta") {
+    return "";
+  }
+
   if (metadata.status === "planned") {
     return `${metadata.label || "Este formato"} está em preparação e ainda não deve ser usado em torneios reais.`;
   }
@@ -227,6 +231,7 @@ function sbwOrganizerEditorGetTournamentFormatMetadata(tournament) {
 
 function sbwOrganizerEditorGetFormatStatusLabel(status) {
   const normalized = String(status || "").toLowerCase();
+  if (normalized === "beta") return "Beta controlado";
   if (normalized === "planned") return "Em preparação";
   if (normalized === "active") return "Disponível";
   if (normalized === "custom") return "Customizado";
@@ -299,7 +304,17 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const testPackage = helper && typeof helper.buildTeamBattleLeagueControlledTestPackage === "function"
     ? helper.buildTeamBattleLeagueControlledTestPackage(tournament || {}, { leagueMode: "basic_single_division" })
     : null;
+  const mvpModel = helper && typeof helper.buildTeamBattleLeagueBasicMvpAdminSummary === "function"
+    ? helper.buildTeamBattleLeagueBasicMvpAdminSummary(tournament || {}, { leagueMode: "basic_single_division" })
+    : null;
+  const setupPreview = helper && typeof helper.buildTeamBattleLeagueBasicMvpSetupPreview === "function"
+    ? helper.buildTeamBattleLeagueBasicMvpSetupPreview(tournament || {}, { leagueMode: "basic_single_division" })
+    : null;
   const testGates = Array.isArray(testPackage?.gates) ? testPackage.gates.slice(0, 6) : [];
+  const mvpCards = Array.isArray(mvpModel?.cards) ? mvpModel.cards.slice(0, 4) : [];
+  const mvpRequired = Array.isArray(mvpModel?.requiredData) ? mvpModel.requiredData.slice(0, 4) : [];
+  const setupFields = Array.isArray(setupPreview?.fields) ? setupPreview.fields.slice(0, 8) : [];
+  const setupCards = Array.isArray(setupPreview?.cards) ? setupPreview.cards.slice(0, 4) : [];
   const boardStandings = Array.isArray(visualBoard?.standings) ? visualBoard.standings.slice(0, 4) : [];
   const boardMatches = Array.isArray(visualBoard?.matches) ? visualBoard.matches.slice(0, 2) : [];
 
@@ -309,9 +324,9 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
         <div>
           <span class="organizer-admin-eyebrow">Prévia visual 4v4</span>
           <strong>Team Battle League 4v4</strong>
-          <p>Primeira tela real de preparação do formato. O modo básico usa divisão única; o modo avançado com várias divisões fica para etapa posterior.</p>
+          <p>Prévia administrativa do formato. A versão básica usa Divisão Única e só deve preencher equipes reais após o check-in.</p>
         </div>
-        <span>${sbwOrganizerEditorEscape(model?.badge?.label || "Em preparação")}</span>
+        <span>${sbwOrganizerEditorEscape(metadata.status === "beta" ? "Beta controlado" : model?.badge?.label || "Em preparação")}</span>
       </div>
 
       <div class="organizer-admin-team-battle-cards">
@@ -352,6 +367,68 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
         `).join("")}
       </div>
 
+      ${mvpModel ? `
+        <div class="organizer-admin-team-battle-mvp" aria-label="MVP básico Team Battle League 4v4">
+          <div class="organizer-admin-team-battle-mvp__head">
+            <div>
+              <small>${sbwOrganizerEditorEscape(mvpModel.releaseLabel || "Liberação controlada")}</small>
+              <strong>${sbwOrganizerEditorEscape(mvpModel.title || "MVP básico Team Battle League 4v4")}</strong>
+              <p>${sbwOrganizerEditorEscape(mvpModel.summary || "Primeira liberação planejada com divisão única.")}</p>
+            </div>
+            <span>${sbwOrganizerEditorEscape(mvpModel.statusLabel || "Preparando MVP")}</span>
+          </div>
+          <div class="organizer-admin-team-battle-mvp__grid">
+            ${mvpCards.map((card) => `
+              <article>
+                <small>${sbwOrganizerEditorEscape(card.label || "Item")}</small>
+                <strong>${sbwOrganizerEditorEscape(card.value || "—")}</strong>
+                <p>${sbwOrganizerEditorEscape(card.detail || "Preparado para teste controlado.")}</p>
+              </article>
+            `).join("")}
+          </div>
+          <div class="organizer-admin-team-battle-mvp__checks">
+            ${mvpRequired.map((item) => `
+              <span class="${item.ok ? "is-ok" : "is-pending"}">
+                <small>${item.ok ? "OK" : "Pendente"}</small>
+                ${sbwOrganizerEditorEscape(item.label || "Requisito")} · ${sbwOrganizerEditorEscape(item.current ?? 0)}/${sbwOrganizerEditorEscape(item.required ?? 1)}
+              </span>
+            `).join("")}
+          </div>
+          <p>${sbwOrganizerEditorEscape(mvpModel.nextAction || "Executar teste interno antes de liberar criação real.")}</p>
+        </div>
+      ` : ""}
+
+      ${setupPreview ? `
+        <div class="organizer-admin-team-battle-setup" aria-label="Configuração do MVP básico Team Battle League 4v4">
+          <div class="organizer-admin-team-battle-setup__head">
+            <div>
+              <small>${sbwOrganizerEditorEscape(setupPreview.badge || "Configuração visual")}</small>
+              <strong>${sbwOrganizerEditorEscape(setupPreview.label || "Configuração do MVP básico")}</strong>
+              <p>${sbwOrganizerEditorEscape(setupPreview.previewNote || "Configuração sem equipes demo. A tabela pública fica vazia até o check-in.")}</p>
+            </div>
+            <span>${setupPreview.ready ? "Pronto" : "Revisar"}</span>
+          </div>
+          <div class="organizer-admin-team-battle-setup__cards">
+            ${setupCards.map((card) => `
+              <article>
+                <small>${sbwOrganizerEditorEscape(card.label || "Item")}</small>
+                <strong>${sbwOrganizerEditorEscape(card.value || "—")}</strong>
+                <p>${sbwOrganizerEditorEscape(card.detail || "Preparado para validação controlada.")}</p>
+              </article>
+            `).join("")}
+          </div>
+          <div class="organizer-admin-team-battle-setup__fields">
+            ${setupFields.map((field) => `
+              <span class="${field.locked ? "is-locked" : "is-editable"}">
+                <small>${field.locked ? "Travado" : "Configurável"}</small>
+                ${sbwOrganizerEditorEscape(field.label || "Campo")}: <strong>${sbwOrganizerEditorEscape(field.value ?? "—")}</strong>
+              </span>
+            `).join("")}
+          </div>
+          ${Array.isArray(setupPreview.warnings) && setupPreview.warnings.length ? `<p>${sbwOrganizerEditorEscape(setupPreview.warnings[0])}</p>` : ""}
+        </div>
+      ` : ""}
+
       ${visualBoard ? `
         <div class="organizer-admin-team-battle-board" aria-label="Prévia administrativa da divisão única">
           <div class="organizer-admin-team-battle-board__head">
@@ -367,20 +444,20 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
               ${boardStandings.length ? boardStandings.map((row, index) => `
                 <div>
                   <span>${sbwOrganizerEditorEscape(row.position || index + 1)}º</span>
-                  <strong>${sbwOrganizerEditorEscape(row.teamName || row.name || `Equipe ${index + 1}`)}</strong>
+                  <strong>${sbwOrganizerEditorEscape(row.teamName || row.name || "Equipe confirmada")}</strong>
                   <small>${sbwOrganizerEditorEscape(row.battlePoints || 0)} pts · ${sbwOrganizerEditorEscape(row.teamMatchWins || 0)}V</small>
                 </div>
-              `).join("") : `<p>As equipes aprovadas aparecerão aqui.</p>`}
+              `).join("") : `<p>As equipes reais confirmadas aparecerão aqui após o check-in.</p>`}
             </div>
             <div class="organizer-admin-team-battle-round-preview">
               <strong>Rodada inicial</strong>
               ${boardMatches.length ? boardMatches.map((match) => `
                 <article>
                   <small>${sbwOrganizerEditorEscape(match.label || "Confronto")}</small>
-                  <div><span>${sbwOrganizerEditorEscape(match.homeTeamName || "Equipe A")}</span><em>vs</em><span>${sbwOrganizerEditorEscape(match.awayTeamName || "Equipe B")}</span></div>
+                  <div><span>${sbwOrganizerEditorEscape(match.homeTeamName || "Equipe confirmada")}</span><em>vs</em><span>${sbwOrganizerEditorEscape(match.awayTeamName || "Equipe confirmada")}</span></div>
                   <p>${sbwOrganizerEditorEscape(match.statusLabel || "A definir")}</p>
                 </article>
-              `).join("") : `<p>Os confrontos serão gerados quando houver equipes aprovadas.</p>`}
+              `).join("") : `<p>Os confrontos serão gerados quando houver equipes reais confirmadas.</p>`}
             </div>
           </div>
         </div>
@@ -411,7 +488,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
         ${releaseChecks.map((item) => `<span>${sbwOrganizerEditorEscape(item)}</span>`).join("")}
       </div>
 
-      <p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(model?.lockedMessage || "Criação real ainda bloqueada. Esta prévia serve para validar a estrutura visual antes da liberação funcional.")}</p>
+      <p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(model?.lockedMessage || "Formato ainda em preparação. A configuração deve aparecer na criação; depois de criado, o torneio mostra a Divisão Única vazia até o check-in confirmar equipes reais.")}</p>
     </section>
   `;
 }
@@ -422,7 +499,7 @@ function sbwOrganizerEditorRenderFormatPreview(formatValue = sbwOrganizerTournam
   const metadata = sbwOrganizerEditorGetFormatMetadata(formatValue || "double-elimination");
   const features = Array.isArray(metadata.features) ? metadata.features.slice(0, 5) : [];
   const requirements = Array.isArray(metadata.requirements) ? metadata.requirements.slice(0, 5) : [];
-  const statusLabel = metadata.status === "planned" ? "Em preparação" : metadata.status === "active" ? "Disponível" : "Customizado";
+  const statusLabel = metadata.status === "planned" ? "Em preparação" : metadata.status === "beta" ? "Beta controlado" : metadata.status === "active" ? "Disponível" : "Customizado";
   const categoryLabel = metadata.category === "advanced" ? "Formato avançado" : metadata.category === "core" ? "Formato base" : "Formato customizado";
   const unavailableReason = sbwOrganizerEditorIsFormatAvailableForSave(formatValue || "double-elimination")
     ? ""

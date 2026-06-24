@@ -23,7 +23,7 @@
     defaultMainMatchPoints: 10,
     defaultExtraMatchPoints: 10,
     defaultWinCondition: "best_of_3",
-    status: "planned"
+    status: "beta_controlled"
   });
 
   const MATCH_SLOT_TYPES = Object.freeze({
@@ -2804,81 +2804,492 @@
     };
   }
 
+  function normalizeTeamBattleParticipantStatus(source = {}) {
+    const status = cleanKey(
+      source.status ||
+      source.registrationStatus ||
+      source.registration_status ||
+      source.participantStatus ||
+      source.participant_status ||
+      source.state,
+      "registered"
+    );
+
+    if (["removed", "cancelled", "canceled", "disqualified", "dq", "no-show-removed", "registration-cancelled"].includes(status)) {
+      return "removed";
+    }
+
+    if (["approved", "confirmed", "checked-in", "checked-in-confirmed", "ready", "presente"].includes(status)) {
+      return "confirmed";
+    }
+
+    if (["waitlist", "lista-espera"].includes(status)) {
+      return "waitlist";
+    }
+
+    return "registered";
+  }
+
+  function isTeamBattleParticipantCheckedIn(source = {}) {
+    const item = asObject(source);
+    const raw = cleanKey(
+      item.checkInStatus ||
+      item.check_in_status ||
+      item.checkinStatus ||
+      item.checkin_status ||
+      item.presenceStatus ||
+      item.presence_status ||
+      item.status,
+      "pending"
+    );
+
+    return Boolean(
+      item.checkedIn === true ||
+      item.checked_in === true ||
+      item.checkin === true ||
+      item.checkIn === true ||
+      ["checked-in", "checked-in-confirmed", "confirmed", "ready", "presente", "ok"].includes(raw)
+    );
+  }
+
+  function getTeamBattleCheckinEndValue(tournament = {}) {
+    const source = asObject(tournament);
+    const settings = asObject(source.settings);
+    const metadata = asObject(source.metadata);
+    const teamBattle = asObject(metadata.teamBattleLeague || metadata.team_battle_league || settings.teamBattleLeague || settings.team_battle_league);
+
+    return cleanText(
+      source.checkinEndsAt ||
+      source.checkInEndsAt ||
+      source.checkinEndAt ||
+      source.checkInEndAt ||
+      source.checkinEnd ||
+      source.checkInEnd ||
+      settings.checkinEndsAt ||
+      settings.checkInEndsAt ||
+      settings.checkinEndAt ||
+      settings.checkInEndAt ||
+      metadata.checkinEndsAt ||
+      metadata.checkInEndsAt ||
+      teamBattle.checkinEndsAt ||
+      teamBattle.checkInEndsAt
+    );
+  }
+
+  function isTeamBattleCheckinClosed(tournament = {}, options = {}) {
+    if (options.forceCheckinClosed === true || options.force_checkin_closed === true) return true;
+
+    const source = asObject(tournament);
+    const settings = asObject(source.settings);
+    const metadata = asObject(source.metadata);
+    const teamBattle = asObject(metadata.teamBattleLeague || metadata.team_battle_league || settings.teamBattleLeague || settings.team_battle_league);
+    const explicitFlags = [
+      source.checkinClosed,
+      source.checkInClosed,
+      source.check_in_closed,
+      source.checkin_closed,
+      settings.checkinClosed,
+      settings.checkInClosed,
+      settings.check_in_closed,
+      metadata.checkinClosed,
+      metadata.checkInClosed,
+      metadata.check_in_closed,
+      teamBattle.checkinClosed,
+      teamBattle.checkInClosed,
+      teamBattle.check_in_closed
+    ];
+
+    if (explicitFlags.some((flag) => flag === true || cleanKey(flag) === "true" || cleanKey(flag) === "closed" || cleanKey(flag) === "encerrado")) {
+      return true;
+    }
+
+    const endValue = getTeamBattleCheckinEndValue(source);
+    if (endValue) {
+      const date = new Date(endValue);
+      if (!Number.isNaN(date.getTime()) && date.getTime() <= Date.now()) return true;
+    }
+
+    const status = cleanKey(source.status || source.tournamentStatus || source.tournament_status);
+    return ["running", "live", "ongoing", "started", "in-progress", "em-andamento", "finished", "completed", "finalizado"].includes(status);
+  }
+
+  function getTeamBattleParticipantSources(tournament = {}) {
+    const source = asObject(tournament);
+    const metadata = asObject(source.metadata);
+    const settings = asObject(source.settings);
+    const teamBattle = asObject(metadata.teamBattleLeague || metadata.team_battle_league || settings.teamBattleLeague || settings.team_battle_league);
+
+    return [
+      source.teamParticipants,
+      source.team_participants,
+      source.participantTeams,
+      source.participant_teams,
+      source.participants,
+      source.registrations,
+      source.teamRegistrations,
+      source.team_registrations,
+      teamBattle.teamParticipants,
+      teamBattle.team_participants,
+      teamBattle.teams,
+      teamBattle.registrations,
+      teamBattle.teamRegistrations,
+      teamBattle.team_registrations
+    ].find((items) => Array.isArray(items)) || [];
+  }
+
+  function getTeamBattleParticipantTeamInfo(participant = {}, fallbackIndex = 1) {
+    const item = asObject(participant);
+    const team = asObject(item.team || item.sbwTeam || item.sbw_team || item.teamData || item.team_data || item.organizationTeam || item.organization_team);
+    const key = cleanText(
+      team.id || team.teamId || team.slug || team.teamSlug ||
+      item.teamId || item.team_id || item.teamSlug || item.team_slug || item.teamKey || item.team_key ||
+      item.currentTeamSlug || item.current_team_slug || item.currentTeamId || item.current_team_id ||
+      item.id && (item.roster || item.players || item.members) ? item.id : ""
+    );
+    const name = cleanText(
+      team.name || team.displayName || team.display_name || team.title ||
+      item.teamName || item.team_name || item.teamDisplayName || item.team_display_name ||
+      item.currentTeamName || item.current_team_name ||
+      item.name && (item.roster || item.players || item.members) ? item.name : ""
+    );
+    const safeName = name || (key ? key : `Equipe ${fallbackIndex}`);
+
+    return {
+      id: cleanText(key, cleanKey(safeName, `team-${fallbackIndex}`)),
+      slug: cleanText(team.slug || team.teamSlug || item.teamSlug || item.team_slug, cleanKey(safeName, `team-${fallbackIndex}`)),
+      name: safeName,
+      tag: cleanText(team.tag || team.teamTag || team.team_tag || item.teamTag || item.team_tag || item.currentTeamTag || item.current_team_tag)
+    };
+  }
+
+  function buildTeamBattleRosterMemberFromParticipant(participant = {}, fallbackIndex = 1) {
+    const item = asObject(participant);
+    const profile = asObject(item.profile || item.player || item.user || item.member || item.profileData || item.profile_data);
+    const name = cleanText(
+      profile.nickname || profile.nick || profile.name || profile.displayName || profile.display_name || profile.username ||
+      item.nickname || item.nick || item.playerName || item.player_name || item.name || item.displayName || item.display_name || item.username,
+      `Jogador ${fallbackIndex}`
+    );
+    const id = cleanText(
+      profile.id || profile.profileId || profile.profile_id || profile.slug || profile.authUserId || profile.auth_user_id ||
+      item.profileId || item.profile_id || item.playerId || item.player_id || item.authUserId || item.auth_user_id || item.slug,
+      cleanKey(name, `player-${fallbackIndex}`)
+    );
+
+    return normalizeRosterMember({
+      id,
+      profileId: cleanText(profile.id || item.profileId || item.profile_id),
+      slug: cleanText(profile.slug || item.profileSlug || item.profile_slug),
+      name,
+      nickname: cleanText(profile.nickname || item.nickname || name),
+      metadata: {
+        source: "tournament-participant",
+        checkedIn: isTeamBattleParticipantCheckedIn(item)
+      }
+    }, fallbackIndex);
+  }
+
+  function mergeTeamBattleRosterMembers(current = [], incoming = []) {
+    const seen = new Set();
+    return [...asArray(current), ...asArray(incoming)]
+      .map((member, index) => normalizeRosterMember(member, index + 1))
+      .filter((member) => {
+        const key = cleanKey(member.id || member.profileId || member.slug || member.name);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function buildTeamBattleConfirmedTeamsFromTournament(tournament = {}, options = {}) {
+    const source = asObject(tournament);
+    const checkinClosed = isTeamBattleCheckinClosed(source, options);
+    const participants = getTeamBattleParticipantSources(source);
+    const map = new Map();
+
+    asArray(participants).forEach((participant, index) => {
+      const item = asObject(participant);
+      const status = normalizeTeamBattleParticipantStatus(item);
+      if (status === "removed" || status === "waitlist") return;
+
+      const teamInfo = getTeamBattleParticipantTeamInfo(item, index + 1);
+      const teamKey = cleanKey(teamInfo.id || teamInfo.slug || teamInfo.name);
+      if (!teamKey) return;
+
+      const rosterSource = asArray(item.roster || item.players || item.members || item.teamRoster || item.team_roster);
+      const roster = rosterSource.length
+        ? rosterSource.map((member, memberIndex) => normalizeRosterMember(member, memberIndex + 1))
+        : [buildTeamBattleRosterMemberFromParticipant(item, index + 1)];
+      const checkedIn = isTeamBattleParticipantCheckedIn(item);
+      const current = map.get(teamKey) || {
+        ...teamInfo,
+        id: cleanText(teamInfo.id, teamKey),
+        slug: cleanText(teamInfo.slug, teamKey),
+        roster: [],
+        checkedInCount: 0,
+        participantCount: 0,
+        registrationStatus: status,
+        checkinClosed,
+        metadata: {
+          source: "confirmed-tournament-participants"
+        }
+      };
+
+      current.roster = mergeTeamBattleRosterMembers(current.roster, roster);
+      current.checkedInCount += checkedIn || status === "confirmed" ? 1 : 0;
+      current.participantCount += 1;
+      current.registrationStatus = current.registrationStatus === "confirmed" || status === "confirmed" ? "confirmed" : current.registrationStatus;
+      current.ready = checkinClosed && current.roster.length >= DEFAULT_CONFIG.teamSize && current.checkedInCount > 0;
+      current.metadata = {
+        ...asObject(current.metadata),
+        participantCount: current.participantCount,
+        checkedInCount: current.checkedInCount,
+        rosterCount: current.roster.length,
+        checkinClosed
+      };
+      map.set(teamKey, current);
+    });
+
+    const teams = Array.from(map.values())
+      .map((team, index) => normalizeTeamEntry({
+        ...team,
+        seed: team.seed || index + 1,
+        roster: team.roster.slice(0, DEFAULT_CONFIG.teamSize),
+        metadata: {
+          ...asObject(team.metadata),
+          ready: team.ready === true,
+          registrationStatus: team.registrationStatus
+        }
+      }, index + 1, "division-unica"));
+
+    return teams.filter((team) => {
+      const meta = asObject(team.metadata);
+      return checkinClosed && meta.ready === true;
+    });
+  }
+
+  function getTeamBattleSavedMatchResults(tournament = {}) {
+    const source = asObject(tournament);
+    const settings = asObject(source.settings);
+    const metadata = asObject(source.metadata);
+    const teamBattle = asObject(metadata.teamBattleLeague || metadata.team_battle_league || settings.teamBattleLeague || settings.team_battle_league);
+    const resultSources = [
+      source.teamBattleMatches,
+      source.team_battle_matches,
+      source.teamMatches,
+      source.team_matches,
+      teamBattle.matches,
+      teamBattle.teamMatches,
+      teamBattle.team_matches,
+      teamBattle.results,
+      asObject(teamBattle.results).matches
+    ];
+
+    return resultSources.find((items) => Array.isArray(items)) || [];
+  }
+
+  function getTeamBattleMatchMergeKey(match = {}) {
+    const item = asObject(match);
+    const id = cleanText(item.id || item.matchId || item.match_id);
+    if (id) return `id:${id}`;
+    const home = cleanKey(item.homeTeamId || item.home_team_id || item.homeTeamSlug || item.home_team_slug || item.home?.id || item.home?.slug);
+    const away = cleanKey(item.awayTeamId || item.away_team_id || item.awayTeamSlug || item.away_team_slug || item.away?.id || item.away?.slug);
+    const round = cleanText(item.round || item.roundNumber || item.round_number || 1);
+    return `pair:${round}:${home}:${away}`;
+  }
+
+  function hydrateTeamBattleScheduledMatchesWithResults(rounds = [], savedMatches = []) {
+    const resultMap = new Map();
+    asArray(savedMatches).forEach((match) => {
+      const item = asObject(match);
+      resultMap.set(getTeamBattleMatchMergeKey(item), item);
+    });
+
+    return asArray(rounds).map((round) => ({
+      ...asObject(round),
+      matches: asArray(asObject(round).matches).map((match) => {
+        const item = asObject(match);
+        const saved = resultMap.get(getTeamBattleMatchMergeKey(item)) || null;
+        if (!saved) return item;
+        return finalizeTeamMatchResult({
+          ...item,
+          ...saved,
+          matches: asArray(saved.matches).length ? saved.matches : item.matches,
+          extraMatch: saved.extraMatch || saved.extra_match || item.extraMatch,
+          status: saved.status || item.status
+        });
+      })
+    }));
+  }
+
+  function buildTeamBattleLeagueBasicPublicState(tournament = {}, options = {}) {
+    const config = normalizeConfig({ ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const teams = buildTeamBattleConfirmedTeamsFromTournament(tournament, options);
+    const checkinClosed = isTeamBattleCheckinClosed(tournament, options);
+    const hasRealTeams = checkinClosed && teams.length >= config.minTeams;
+
+    if (!hasRealTeams) {
+      return {
+        ready: false,
+        checkinClosed,
+        teams,
+        standings: [],
+        matches: [],
+        summaryLabel: checkinClosed
+          ? "Aguardando pelo menos 2 equipes reais com check-in confirmado."
+          : "As equipes aparecem após o encerramento do check-in.",
+        emptyState: {
+          title: checkinClosed ? "Aguardando equipes confirmadas" : "Aguardando check-in das equipes",
+          description: checkinClosed
+            ? "Ainda não há equipes suficientes com elenco 4v4 confirmado para montar a Divisão Única."
+            : "As equipes reais confirmadas aparecerão nesta divisão após o encerramento do check-in.",
+          tableHint: "A tabela não usa equipes demo ou placeholders como participantes."
+        }
+      };
+    }
+
+    const division = createDivisionFromTeams(1, teams, {
+      id: "division-unica",
+      name: config.defaultDivisionName || "Divisão Única"
+    });
+    const scheduled = createDivisionSchedule(division, { config });
+    const savedMatches = getTeamBattleSavedMatchResults(tournament);
+    const hydratedRounds = hydrateTeamBattleScheduledMatchesWithResults(scheduled.rounds, savedMatches);
+    const hydratedDivision = {
+      ...scheduled,
+      rounds: hydratedRounds,
+      standings: calculateDivisionStandings({ ...scheduled, rounds: hydratedRounds })
+    };
+    const matches = flattenDivisionMatches(hydratedDivision);
+    const finished = matches.filter((match) => asObject(match).result?.finalized === true || asObject(match).status === TEAM_MATCH_STATUS.FINISHED).length;
+
+    return {
+      ready: true,
+      checkinClosed,
+      teams,
+      division: hydratedDivision,
+      standings: asArray(hydratedDivision.standings).map((row, index) => normalizeStandingRow(row, index + 1)),
+      matches,
+      finishedMatches: finished,
+      totalMatches: matches.length,
+      summaryLabel: `${teams.length} equipe${teams.length === 1 ? "" : "s"} confirmada${teams.length === 1 ? "" : "s"} · ${finished}/${matches.length} confronto${matches.length === 1 ? "" : "s"} finalizado${matches.length === 1 ? "" : "s"}`,
+      emptyState: null
+    };
+  }
+
 
   function buildTeamBattleLeagueVisualPreviewBoard(tournament = {}, options = {}) {
     const league = normalizeTeamBattleLeagueTournamentPayload(tournament, options);
     const mode = normalizeLeagueMode(league.leagueMode || options.leagueMode);
-    const publicOverview = buildTeamBattlePublicOverview(league, {
-      ...options,
-      includePlayoffs: false
-    });
-    const division = asArray(publicOverview.divisions)[0] || {};
-    const defaultTeams = [
-      { id: "team-a", name: "Equipe A", tag: "A", seed: 1 },
-      { id: "team-b", name: "Equipe B", tag: "B", seed: 2 },
-      { id: "team-c", name: "Equipe C", tag: "C", seed: 3 },
-      { id: "team-d", name: "Equipe D", tag: "D", seed: 4 }
-    ];
-    const teams = asArray(division.teams).length ? asArray(division.teams) : defaultTeams;
-    const standings = asArray(division.standings).length
-      ? asArray(division.standings).map((row, index) => normalizeStandingRow(row, index + 1))
-      : teams.map((team, index) => ({
-          position: index + 1,
-          teamId: cleanText(team.id || team.teamId, `team-${index + 1}`),
-          teamName: cleanText(team.name || team.teamName || team.label, `Equipe ${index + 1}`),
-          tag: cleanText(team.tag || team.teamTag || team.team_tag),
-          battlePoints: 0,
-          teamMatchWins: 0,
-          individualWins: 0,
-          battlePointDiff: 0,
-          source: "visual-preview"
-        }));
+    const operational = buildTeamBattleLeagueBasicPublicState(tournament, { ...options, leagueMode: mode });
+    const publicOverview = operational.ready
+      ? buildTeamBattlePublicOverview({
+          ...league,
+          teams: operational.teams,
+          divisions: [operational.division]
+        }, {
+          ...options,
+          includePlayoffs: false
+        })
+      : buildTeamBattlePublicOverview(league, {
+          ...options,
+          includePlayoffs: false
+        });
+    const division = operational.ready
+      ? operational.division
+      : (asArray(publicOverview.divisions)[0] || {});
+    const teams = operational.ready ? operational.teams : asArray(division.teams);
+    const hasRealTeams = operational.ready === true && teams.length > 0;
+    const standings = operational.ready
+      ? operational.standings
+      : (asArray(division.standings).length
+        ? asArray(division.standings).map((row, index) => normalizeStandingRow(row, index + 1))
+        : []);
     const firstRound = asArray(division.rounds)[0] || {};
-    const matchSource = asArray(firstRound.matches).length ? asArray(firstRound.matches) : [
-      {
-        id: "preview-match-1",
-        label: "Rodada 1 · Confronto 1",
-        homeTeamName: teams[0]?.label || teams[0]?.name || "Equipe A",
-        awayTeamName: teams[1]?.label || teams[1]?.name || "Equipe B",
-        statusLabel: "A definir"
-      },
-      {
-        id: "preview-match-2",
-        label: "Rodada 1 · Confronto 2",
-        homeTeamName: teams[2]?.label || teams[2]?.name || "Equipe C",
-        awayTeamName: teams[3]?.label || teams[3]?.name || "Equipe D",
-        statusLabel: "A definir"
-      }
-    ];
-    const matches = matchSource.slice(0, 4).map((match, index) => ({
-      id: cleanText(match.id || match.matchId, `preview-match-${index + 1}`),
-      label: cleanText(match.label || match.roundLabel, `Rodada 1 · Confronto ${index + 1}`),
-      homeTeamName: cleanText(match.homeTeamName || match.homeName || match.home?.name, index === 0 ? "Equipe A" : "Equipe C"),
-      awayTeamName: cleanText(match.awayTeamName || match.awayName || match.away?.name, index === 0 ? "Equipe B" : "Equipe D"),
-      statusLabel: cleanText(match.statusLabel || match.status || "A definir", "A definir")
-    }));
+    const matchSource = operational.ready ? operational.matches : asArray(firstRound.matches);
+    const matches = matchSource.slice(0, 8).map((match, index) => {
+      const item = asObject(match);
+      const homeTeam = findTeamReference(teams, item.homeTeamId || item.home_team_id);
+      const awayTeam = findTeamReference(teams, item.awayTeamId || item.away_team_id);
+      const result = asObject(item.result);
+      const scoreLabel = result.finalized || result.played
+        ? `${result.homePoints || 0} x ${result.awayPoints || 0}`
+        : "Aguardando resultado";
+      const statusLabel = result.finalized
+        ? `Finalizado · ${scoreLabel}`
+        : hasRealTeams
+          ? "Aguardando resultado"
+          : cleanText(item.statusLabel || item.status || "Aguardando equipes", "Aguardando equipes");
+
+      return {
+        id: cleanText(item.id || item.matchId, `team-battle-match-${index + 1}`),
+        label: cleanText(item.label || item.roundLabel || `Rodada ${item.round || 1} · Confronto ${index + 1}`),
+        homeTeamName: getTeamDisplayLabel(homeTeam || item.home || item.homeTeam || item.home_team, "Equipe confirmada"),
+        awayTeamName: getTeamDisplayLabel(awayTeam || item.away || item.awayTeam || item.away_team, "Equipe confirmada"),
+        statusLabel,
+        scoreLabel,
+        finalized: result.finalized === true,
+        winnerSide: cleanText(result.winnerSide)
+      };
+    });
+    const emptyState = operational.emptyState || {
+      title: "Aguardando check-in das equipes",
+      description: "As equipes reais confirmadas aparecerão nesta divisão após o encerramento do check-in. A plataforma -SBW- não usa equipes demo para preencher a tabela.",
+      tableHint: "Posição, equipe, pontos, vitórias e saldo serão calculados somente com equipes reais."
+    };
 
     return {
       formatKey: FORMAT_KEY,
-      schemaVersion: `${SCHEMA_VERSION}.visual-board.v1`,
+      schemaVersion: `${SCHEMA_VERSION}.visual-board.v3`,
       leagueMode: mode,
       leagueModeLabel: getLeagueModeLabel(mode),
       divisionName: cleanText(division.name || division.label, mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Divisão A"),
-      summaryLabel: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION
-        ? "Prévia da liga básica com todas as equipes em uma divisão única."
-        : "Prévia do modo avançado com múltiplas divisões.",
-      standings: standings.slice(0, 6),
+      summaryLabel: hasRealTeams
+        ? operational.summaryLabel
+        : "Molde da liga básica: a tabela fica vazia até o encerramento do check-in.",
+      hasRealTeams,
+      checkinClosed: operational.checkinClosed === true,
+      emptyState,
+      standings: standings.slice(0, 12),
       matches,
       statusCards: [
         { label: "Modo", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Básico" : "Avançado", detail: getLeagueModeLabel(mode) },
         { label: "Divisões", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "1" : String(Math.max(2, publicOverview.divisionCount || 2)), detail: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Múltiplas divisões" },
-        { label: "Elenco", value: "4v4", detail: "3 titulares + 1 reserva" },
-        { label: "Pontuação", value: "10/10/20", detail: "+10 no extra se empatar" }
+        { label: "Equipes", value: hasRealTeams ? String(teams.length) : "Após check-in", detail: hasRealTeams ? "Equipes reais confirmadas" : "Sem equipes demo" },
+        { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Confrontos da divisão única" : "Após equipes reais" }
       ],
-      notes: [
-        "Modelo visual para validação antes da criação real do formato.",
-        "A versão básica deve ser a primeira a entrar em teste controlado.",
-        "Nomes, equipes e rodadas reais serão preenchidos quando o formato for liberado."
+      notes: hasRealTeams ? [
+        "A Divisão Única foi montada com equipes reais confirmadas no check-in.",
+        "Os confrontos básicos são gerados somente entre equipes reais.",
+        "A classificação usa resultados registrados nos metadados do torneio quando disponíveis."
+      ] : [
+        "Na criação do torneio aparece apenas a configuração do formato.",
+        "Depois de criado, a página do torneio mostra o molde da Divisão Única.",
+        "As equipes só aparecem na tabela após check-in confirmado."
+      ]
+    };
+  }
+
+  function buildTeamBattleLeagueEfficientFlowSummary(tournament = {}, options = {}) {
+    const setup = buildTeamBattleLeagueBasicMvpSetupPreview(tournament, options);
+    const board = buildTeamBattleLeagueVisualPreviewBoard(tournament, options);
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.efficient-flow.v1`,
+      title: "Fluxo eficiente do Team Battle League 4v4 básico",
+      modeLabel: "Básica · divisão única",
+      creationStep: "Na criação, o organizador configura apenas o formato, sem equipes fictícias.",
+      postCreationStep: "Depois de criado, a página pública mostra o molde da Divisão Única vazio.",
+      checkinStep: "Após o check-in, somente equipes reais confirmadas entram na tabela.",
+      noDemoData: true,
+      setup,
+      board,
+      steps: [
+        { key: "create", label: "Criar torneio", description: "Escolher Team Battle League 4v4 básica e revisar regras principais." },
+        { key: "empty-table", label: "Molde da liga", description: "Exibir Divisão Única vazia na página do torneio." },
+        { key: "checkin", label: "Check-in", description: "Preencher a tabela apenas com equipes reais confirmadas." },
+        { key: "matches", label: "Confrontos", description: "Gerar rodadas, resultados e classificação na próxima etapa funcional." }
       ]
     };
   }
@@ -3172,6 +3583,286 @@
       warnings: scenario.warnings,
       errors: scenario.errors,
       scenario
+    };
+  }
+
+
+  function buildTeamBattleLeagueBasicMvpConfigModel(tournament = {}, options = {}) {
+    const source = asObject(options);
+    const league = Object.keys(asObject(tournament)).length
+      ? normalizeTeamBattleLeagueTournamentPayload(tournament)
+      : buildTeamBattleLeagueBasicInternalTestScenario({ withResults: false }).draftLeague;
+    const config = normalizeConfig(source.config || league?.config || league || {});
+    const snapshot = buildTeamBattleLeagueOperationalSnapshot(league, { leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const teams = getLeagueSourceTeams(league);
+    const minimumTeams = Number(config.minTeams || DEFAULT_CONFIG.minTeams || 2);
+    const readyTeams = teams.filter((team) => validateRoster(team?.roster || team?.players || []).valid);
+    const approvedRegistrations = getApprovedTeamRegistrationEntries(league?.registrations || league?.teamRegistrations || []);
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.basic-mvp-config.v1`,
+      title: "MVP básico · Team Battle League 4v4",
+      releaseLabel: "Liberação controlada planejada",
+      status: "locked-preview",
+      modeKey: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+      modeLabel: "Básica · divisão única",
+      summary: "Primeira versão funcional planejada para operar com uma divisão única, equipes 4v4, rodada todos contra todos e classificação simples.",
+      cards: [
+        { key: "division", label: "Estrutura inicial", value: "Divisão única", detail: "Todas as equipes ficam no mesmo grupo competitivo." },
+        { key: "teams", label: "Equipes mínimas", value: `${minimumTeams}+ equipes`, detail: "A liga precisa de equipes aprovadas com elenco 4v4 válido." },
+        { key: "roster", label: "Elenco por equipe", value: "4 jogadores", detail: "3 titulares e 1 reserva para cada confronto." },
+        { key: "scoring", label: "Pontuação", value: "10 / 10 / 20 / +10", detail: "A partida extra vale 10 pontos somente em caso de empate." }
+      ],
+      requiredData: [
+        { key: "teams", label: "Equipes aprovadas", current: teams.length || approvedRegistrations.length || 0, required: minimumTeams, ok: (teams.length || approvedRegistrations.length || 0) >= minimumTeams },
+        { key: "rosters", label: "Elencos 4v4 válidos", current: readyTeams.length, required: minimumTeams, ok: readyTeams.length >= minimumTeams },
+        { key: "single-division", label: "Divisão única configurada", current: Number(snapshot?.totals?.divisions || 0), required: 1, ok: Number(snapshot?.totals?.divisions || 0) === 1 },
+        { key: "schedule", label: "Calendário base gerado", current: Number(snapshot?.totals?.matches || 0), required: 1, ok: Number(snapshot?.totals?.matches || 0) > 0 }
+      ],
+      adminActions: [
+        "Criar rascunho da liga no modo básico.",
+        "Aprovar equipes com elenco 4v4 completo.",
+        "Gerar rodada todos contra todos da divisão única.",
+        "Validar escalação 3 titulares + 1 reserva antes de cada confronto.",
+        "Registrar resultados das partidas 10/10/20 e extra se houver empate."
+      ],
+      publicMilestones: [
+        "Mostrar equipes aprovadas.",
+        "Exibir classificação da divisão única.",
+        "Exibir rodadas e confrontos por equipe.",
+        "Mostrar placar individual de cada confronto.",
+        "Atualizar resumo público da liga após resultados."
+      ],
+      releaseGuards: [
+        "Continuar bloqueado para criação pública enquanto não existir tela real de gestão.",
+        "Não ativar várias divisões no MVP básico.",
+        "Não misturar o fluxo com o bracket Double Elimination.",
+        "Não criar dados pessoais adicionais fora dos participantes/equipes já necessários ao torneio."
+      ],
+      snapshot,
+      readyForBasicMvp: Boolean(
+        (teams.length || approvedRegistrations.length || 0) >= minimumTeams &&
+        readyTeams.length >= minimumTeams &&
+        Number(snapshot?.totals?.divisions || 0) === 1 &&
+        Number(snapshot?.totals?.matches || 0) > 0
+      )
+    };
+  }
+
+  function buildTeamBattleLeagueBasicMvpAdminSummary(tournament = {}, options = {}) {
+    const model = buildTeamBattleLeagueBasicMvpConfigModel(tournament, options);
+    const pending = asArray(model.requiredData).filter((item) => item.ok !== true);
+
+    return {
+      ...model,
+      statusLabel: model.readyForBasicMvp ? "Pronto para teste interno" : "Preparando MVP básico",
+      pendingCount: pending.length,
+      pendingItems: pending,
+      nextAction: pending[0]
+        ? `Resolver: ${pending[0].label}`
+        : "Executar teste interno completo antes de liberar criação real."
+    };
+  }
+
+
+  function buildTeamBattleLeagueBasicMvpSetupDefaults(overrides = {}) {
+    const source = asObject(overrides);
+    const config = normalizeConfig(source.config || source);
+    const minTeams = clampNumber(source.minTeams || source.min_teams || config.minTeams, 2, 32, DEFAULT_CONFIG.minTeams);
+    const maxTeams = clampNumber(source.maxTeams || source.max_teams || source.teamLimit || source.team_limit || config.recommendedMaxTeamsBasic, minTeams, 64, DEFAULT_CONFIG.recommendedMaxTeamsBasic);
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.basic-mvp-setup.v1`,
+      modeKey: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+      modeLabel: getLeagueModeLabel(LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION),
+      title: cleanText(source.title || source.name, "Team Battle League 4v4 básica"),
+      divisionName: cleanText(source.divisionName || source.division_name || source.groupName || source.group_name, "Divisão Única"),
+      minTeams,
+      maxTeams,
+      rosterSize: DEFAULT_CONFIG.rosterSize,
+      startersPerMatch: DEFAULT_CONFIG.startersPerTeamMatch,
+      reservesPerMatch: DEFAULT_CONFIG.reservesPerTeamMatch,
+      scheduleMode: cleanText(source.scheduleMode || source.schedule_mode, "round_robin"),
+      registrationMode: cleanText(source.registrationMode || source.registration_mode, "team_roster_approval"),
+      checkinMode: cleanText(source.checkinMode || source.checkin_mode, "team_lineup_checkin"),
+      resultsMode: cleanText(source.resultsMode || source.results_mode, "manual_match_results"),
+      standingsMode: cleanText(source.standingsMode || source.standings_mode, "battle_points_table"),
+      allowPlayoffs: source.allowPlayoffs === true || source.allow_playoffs === true,
+      publicRosters: source.publicRosters === true || source.public_rosters === true,
+      lockedForRealCreation: true,
+      scoring: {
+        mainMatches: config.mainMatchPointsBySlot.map((points, index) => ({
+          slot: index + 1,
+          label: `Partida ${index + 1}`,
+          points
+        })),
+        extraMatch: {
+          enabled: Boolean(config.extraMatchOnDraw),
+          label: "Partida extra",
+          points: config.defaultExtraMatchPoints,
+          condition: "Somente em caso de empate após as 3 partidas principais."
+        }
+      }
+    };
+  }
+
+  function validateTeamBattleLeagueBasicMvpSetup(setup = {}, options = {}) {
+    const source = buildTeamBattleLeagueBasicMvpSetupDefaults({ ...asObject(options), ...asObject(setup) });
+    const errors = [];
+    const warnings = [];
+
+    if (source.modeKey !== LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION) {
+      errors.push("O MVP básico deve permanecer no modo Divisão Única.");
+    }
+
+    if (Number(source.minTeams || 0) < 2) {
+      errors.push("A liga básica precisa permitir pelo menos 2 equipes.");
+    }
+
+    if (Number(source.maxTeams || 0) < Number(source.minTeams || 0)) {
+      errors.push("O limite máximo de equipes não pode ser menor que o mínimo.");
+    }
+
+    if (Number(source.rosterSize || 0) !== 4) {
+      errors.push("O elenco do Team Battle League 4v4 básico deve ter exatamente 4 jogadores por equipe.");
+    }
+
+    if (Number(source.startersPerMatch || 0) !== 3 || Number(source.reservesPerMatch || 0) !== 1) {
+      errors.push("Cada confronto precisa de 3 titulares e 1 reserva por equipe.");
+    }
+
+    if (source.scheduleMode !== "round_robin") {
+      warnings.push("Para o MVP básico, a recomendação é usar calendário todos contra todos na Divisão Única.");
+    }
+
+    if (source.allowPlayoffs) {
+      warnings.push("Playoffs podem ser preparados, mas a primeira liberação deve validar a tabela da Divisão Única antes.");
+    }
+
+    if (source.publicRosters) {
+      warnings.push("Elencos públicos devem respeitar somente dados competitivos necessários e já exibidos pela plataforma.");
+    }
+
+    return {
+      ...source,
+      valid: errors.length === 0,
+      readyForControlledDraft: errors.length === 0,
+      errors,
+      warnings
+    };
+  }
+
+  function buildTeamBattleLeagueBasicMvpSetupDraft(tournament = {}, options = {}) {
+    const source = asObject(options);
+    const tournamentData = asObject(tournament);
+    const existing = getTeamBattleLeagueDataFromTournament(tournamentData);
+    const setup = validateTeamBattleLeagueBasicMvpSetup({
+      ...asObject(existing.config || existing),
+      ...source,
+      title: source.title || existing.title || tournamentData.title || tournamentData.name || "Team Battle League 4v4 básica"
+    });
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.basic-mvp-setup-draft.v1`,
+      status: "locked-setup-preview",
+      title: setup.title,
+      modeKey: setup.modeKey,
+      modeLabel: setup.modeLabel,
+      setup,
+      metadataPreview: {
+        teamBattleLeague: {
+          schemaVersion: setup.schemaVersion,
+          formatKey: FORMAT_KEY,
+          status: "setup_preview",
+          leagueMode: setup.modeKey,
+          title: setup.title,
+          divisionName: setup.divisionName,
+          config: {
+            minTeams: setup.minTeams,
+            maxTeams: setup.maxTeams,
+            rosterSize: setup.rosterSize,
+            startersPerMatch: setup.startersPerMatch,
+            reservesPerMatch: setup.reservesPerMatch,
+            scheduleMode: setup.scheduleMode,
+            registrationMode: setup.registrationMode,
+            checkinMode: setup.checkinMode,
+            resultsMode: setup.resultsMode,
+            standingsMode: setup.standingsMode,
+            allowPlayoffs: setup.allowPlayoffs,
+            publicRosters: setup.publicRosters,
+            scoring: setup.scoring
+          }
+        }
+      },
+      safetyLocks: [
+        "Salvar apenas a configuração do formato nesta fase.",
+        "Manter criação real bloqueada enquanto o formato estiver em preparação.",
+        "Não ativar múltiplas divisões no MVP básico.",
+        "Não misturar com bracket Double Elimination."
+      ],
+      nextAction: setup.valid
+        ? "Configuração pronta para exibir o molde vazio após a criação do torneio."
+        : `Corrigir configuração: ${setup.errors[0] || "verificar campos obrigatórios"}`
+    };
+  }
+
+  function buildTeamBattleLeagueBasicMvpSetupPreview(tournament = {}, options = {}) {
+    const draft = buildTeamBattleLeagueBasicMvpSetupDraft(tournament, options);
+    const setup = draft.setup;
+    const validation = validateTeamBattleLeagueBasicMvpSetup(setup);
+
+    const cards = [
+      {
+        key: "mode",
+        label: "Modo do MVP",
+        value: "Divisão única",
+        detail: "Todas as equipes ficam em um único grupo competitivo."
+      },
+      {
+        key: "teams",
+        label: "Limite de equipes",
+        value: `${setup.minTeams} a ${setup.maxTeams}`,
+        detail: "Quantidade controlada para a primeira operação real."
+      },
+      {
+        key: "roster",
+        label: "Elenco",
+        value: "4 jogadores",
+        detail: "3 titulares + 1 reserva por confronto."
+      },
+      {
+        key: "scoring",
+        label: "Pontuação",
+        value: "10 / 10 / 20 / +10",
+        detail: "A partida extra só aparece se houver empate."
+      }
+    ];
+
+    const fields = [
+      { key: "divisionName", label: "Nome da divisão", value: setup.divisionName, locked: false },
+      { key: "minTeams", label: "Mínimo de equipes", value: setup.minTeams, locked: false },
+      { key: "maxTeams", label: "Máximo recomendado", value: setup.maxTeams, locked: false },
+      { key: "scheduleMode", label: "Calendário", value: "Todos contra todos", locked: true },
+      { key: "registrationMode", label: "Inscrição", value: "Equipe + elenco 4v4", locked: true },
+      { key: "checkinMode", label: "Check-in", value: "Equipe + escalação", locked: true },
+      { key: "resultsMode", label: "Resultados", value: "Manual por confronto", locked: true },
+      { key: "standingsMode", label: "Classificação", value: "Pontos de batalha", locked: true }
+    ];
+
+    return {
+      ...draft,
+      schemaVersion: `${SCHEMA_VERSION}.basic-mvp-setup-preview.v1`,
+      label: "Configuração do MVP básico",
+      badge: validation.valid ? "Configuração visual" : "Requer ajuste",
+      ready: validation.valid,
+      cards,
+      fields,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      previewNote: "Esta área configura o formato sem criar equipes demo. Após criar o torneio, a página exibirá a tabela vazia até o check-in confirmar equipes reais."
     };
   }
 
@@ -3718,6 +4409,214 @@
     };
   }
 
+  function buildTeamBattleLeagueBasicMvpRuntimeStatus(tournament = {}, options = {}) {
+    const publicState = buildTeamBattleLeagueBasicPublicState(tournament, options);
+    const flow = buildTeamBattleLeagueEfficientFlowSummary(tournament, options);
+    const checkinClosed = publicState.checkinClosed === true;
+    const realTeamsCount = Number(asArray(publicState.teams).length || 0);
+    const hasRealTeams = publicState.ready === true && realTeamsCount >= DEFAULT_CONFIG.minTeams;
+    const matchesCount = Number(asArray(publicState.matches).length || 0);
+    const finishedMatches = Number(publicState.finishedMatches || 0);
+    const standingsCount = Number(asArray(publicState.standings).length || 0);
+
+    const stages = [
+      {
+        key: "creation-config",
+        label: "Configuração do formato",
+        status: "ready",
+        description: "A criação do torneio mostra apenas as regras do Team Battle League 4v4 básico, sem equipes fictícias."
+      },
+      {
+        key: "public-mold",
+        label: "Molde da Divisão Única",
+        status: "ready",
+        description: "Depois de criado, o torneio pode exibir a tabela vazia enquanto aguarda check-in."
+      },
+      {
+        key: "real-teams-after-checkin",
+        label: "Equipes reais após check-in",
+        status: hasRealTeams ? "ready" : checkinClosed ? "waiting_real_teams" : "waiting_checkin",
+        description: hasRealTeams
+          ? `${realTeamsCount} equipe${realTeamsCount === 1 ? "" : "s"} real${realTeamsCount === 1 ? "" : "ais"} confirmada${realTeamsCount === 1 ? "" : "s"}.`
+          : checkinClosed
+            ? "Check-in encerrado, mas ainda faltam equipes reais suficientes com elenco 4v4 confirmado."
+            : "As equipes só entram na tabela após o encerramento do check-in."
+      },
+      {
+        key: "basic-matches",
+        label: "Confrontos da divisão única",
+        status: matchesCount ? "ready" : "waiting_teams",
+        description: matchesCount
+          ? `${matchesCount} confronto${matchesCount === 1 ? "" : "s"} gerado${matchesCount === 1 ? "" : "s"} entre equipes reais.`
+          : "Os confrontos só são montados quando houver equipes reais confirmadas."
+      },
+      {
+        key: "standings-results",
+        label: "Resultados e classificação",
+        status: finishedMatches ? "in_progress" : matchesCount ? "waiting_results" : "waiting_matches",
+        description: finishedMatches
+          ? `${finishedMatches}/${matchesCount} confronto${matchesCount === 1 ? "" : "s"} com resultado finalizado.`
+          : standingsCount
+            ? "Classificação preparada, aguardando resultados reais."
+            : "A classificação será calculada após confrontos reais e resultados registrados."
+      }
+    ];
+
+    const currentStage = stages.find((stage) => !["ready", "in_progress"].includes(stage.status)) || stages[stages.length - 1];
+
+    return {
+      key: "team-battle-basic-mvp-runtime-status",
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.basic-mvp-runtime.v1`,
+      title: "Status do MVP básico Team Battle League 4v4",
+      mode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+      modeLabel: "Básica · divisão única",
+      noDemoData: true,
+      canShowPublicMold: true,
+      canShowRealTeams: hasRealTeams,
+      checkinClosed,
+      realTeamsCount,
+      matchesCount,
+      finishedMatches,
+      summaryLabel: publicState.summaryLabel || flow.postCreationStep,
+      currentStage,
+      stages,
+      publicState,
+      flow
+    };
+  }
+
+  function buildTeamBattleLeagueBasicMvpClosureReport(tournament = {}, options = {}) {
+    const status = buildTeamBattleLeagueBasicMvpRuntimeStatus(tournament, options);
+    const readyStages = asArray(status.stages).filter((stage) => stage.status === "ready" || stage.status === "in_progress").length;
+
+    return {
+      key: "team-battle-basic-mvp-closure-report",
+      label: "Fechamento do MVP básico Team Battle League 4v4",
+      status: "prepared_for_controlled_validation",
+      noDemoData: true,
+      summary: "A fase prepara criação eficiente, molde público vazio, entrada de equipes reais após check-in, confrontos básicos e classificação inicial sem usar times demo.",
+      completedScope: [
+        "Configuração visual do formato na criação/edição do torneio.",
+        "Molde público da Divisão Única sem equipes fictícias.",
+        "Leitura de equipes reais confirmadas após check-in.",
+        "Geração básica de confrontos da Divisão Única.",
+        "Base de resultados e classificação do MVP básico."
+      ],
+      blockedScope: [
+        "Liberação pública do formato para criação real sem validação.",
+        "Inscrições reais específicas do Team Battle no banco.",
+        "Check-in real por equipe no banco.",
+        "Painel completo de lançamento de resultados por confronto.",
+        "Modo avançado com múltiplas divisões."
+      ],
+      validation: {
+        readyStages,
+        totalStages: asArray(status.stages).length,
+        currentStage: status.currentStage,
+        testPages: [
+          "/torneios/create-tournament/criar-torneio.html",
+          "/torneios/editar-organizador.html?slug=<slug-do-organizador>",
+          "/torneios/detalhe-torneio.html?id=<id-ou-slug-do-torneio>&view=visao-geral"
+        ]
+      },
+      nextRecommendedPhase: {
+        version: "v1.6.75",
+        label: "Integração real controlada Team Battle League 4v4",
+        goal: "Conectar o MVP básico a dados reais de inscrição/check-in/equipe sem usar placeholders."
+      },
+      status
+    };
+  }
+
+
+
+
+  function buildTeamBattleLeagueBasicControlledCreationPayload(context = {}, config = {}) {
+    const normalizedConfig = normalizeConfig({
+      ...config,
+      leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+      status: "beta_controlled"
+    });
+    const createdAt = new Date().toISOString();
+    const title = cleanText(context.title || context.tournamentTitle);
+    const game = cleanText(context.game || context.gameName);
+    const organizerName = cleanText(context.organizerName || context.organizer);
+
+    const payload = {
+      enabled: true,
+      formatKey: FORMAT_KEY,
+      schemaVersion: SCHEMA_VERSION,
+      status: "beta_controlled",
+      statusLabel: "Beta controlado",
+      leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+      leagueModeLabel: getLeagueModeLabel(LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION),
+      divisionName: normalizedConfig.defaultDivisionName,
+      maxDivisions: 1,
+      realTeamsOnly: true,
+      source: "real_checkin_only",
+      publicMoldBeforeCheckin: true,
+      checkinRequiredBeforeTeams: true,
+      teamSize: normalizedConfig.teamSize,
+      startersPerTeamMatch: normalizedConfig.startersPerTeamMatch,
+      reservePerTeamMatch: normalizedConfig.reservePerTeamMatch,
+      mainMatches: normalizedConfig.mainMatches,
+      mainMatchPointsBySlot: normalizedConfig.mainMatchPointsBySlot,
+      defaultExtraMatchPoints: normalizedConfig.defaultExtraMatchPoints,
+      extraMatchOnDraw: normalizedConfig.extraMatchOnDraw,
+      createdAt,
+      notes: [
+        "A criação controlada libera apenas o MVP básico com Divisão Única.",
+        "A tabela pública permanece vazia até o encerramento do check-in.",
+        "Somente equipes reais confirmadas devem preencher o grupo/tabela."
+      ]
+    };
+
+    return {
+      settings: payload,
+      metadata: {
+        ...payload,
+        title,
+        game,
+        organizerName,
+        rankingEnabled: context.rankingEnabled !== false
+      },
+      publicState: buildTeamBattleLeagueBasicPublicState({
+        metadata: { teamBattleLeague: payload },
+        settings: { teamBattleLeague: payload }
+      }, { checkinClosed: false }),
+      adminSummary: buildTeamBattleLeagueBasicMvpAdminSummary({
+        title,
+        game,
+        metadata: { teamBattleLeague: payload },
+        settings: { teamBattleLeague: payload }
+      }, normalizedConfig)
+    };
+  }
+
+  function buildTeamBattleLeagueControlledCreationNotice(tournament = {}, config = {}) {
+    const payload = normalizeTeamBattleLeagueTournamentPayload(tournament, config);
+    const checkinClosed = isTeamBattleCheckinClosed(tournament);
+    const publicState = buildTeamBattleLeagueBasicPublicState(tournament, { ...config, checkinClosed });
+    const confirmedTeams = Array.isArray(publicState?.confirmedTeams) ? publicState.confirmedTeams.length : 0;
+
+    return {
+      label: "MVP básico em beta controlado",
+      mode: getLeagueModeLabel(payload.config?.leagueMode || LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION),
+      readyForPublicTeams: checkinClosed && confirmedTeams >= DEFAULT_CONFIG.minTeams,
+      confirmedTeams,
+      message: checkinClosed
+        ? "Check-in encerrado: a tabela pode ser preenchida com equipes reais confirmadas."
+        : "A tabela fica vazia até o encerramento do check-in. Nenhuma equipe demo deve ser exibida.",
+      rules: [
+        "Divisão Única no MVP básico.",
+        "Equipes reais somente após check-in.",
+        "Elenco 4v4: 3 titulares + 1 reserva.",
+        "Pontuação 10 / 10 / 20 / +10 em caso de empate."
+      ]
+    };
+  }
+
   window.SBWTeamBattleLeague = Object.freeze({
     FORMAT_KEY,
     SCHEMA_VERSION,
@@ -3776,6 +4675,15 @@
     buildTeamBattleLeagueAdminSectionModel,
     buildTeamBattleLeaguePublicSectionModel,
     buildTeamBattleLeagueVisualPreviewBoard,
+    buildTeamBattleConfirmedTeamsFromTournament,
+    buildTeamBattleLeagueBasicPublicState,
+    isTeamBattleCheckinClosed,
+    getTeamBattleSavedMatchResults,
+    buildTeamBattleLeagueEfficientFlowSummary,
+    buildTeamBattleLeagueBasicMvpRuntimeStatus,
+    buildTeamBattleLeagueBasicMvpClosureReport,
+    buildTeamBattleLeagueBasicControlledCreationPayload,
+    buildTeamBattleLeagueControlledCreationNotice,
     buildTeamBattleLeagueImplementationPlan,
     buildTeamBattleLeagueConsolidatedModel,
     createTeamBattleLeagueInternalTestRoster,
@@ -3794,6 +4702,12 @@
     buildTeamBattleLeagueBasicImplementationPackage,
     buildTeamBattleLeagueControlledTestGates,
     buildTeamBattleLeagueControlledTestPackage,
+    buildTeamBattleLeagueBasicMvpConfigModel,
+    buildTeamBattleLeagueBasicMvpAdminSummary,
+    buildTeamBattleLeagueBasicMvpSetupDefaults,
+    validateTeamBattleLeagueBasicMvpSetup,
+    buildTeamBattleLeagueBasicMvpSetupDraft,
+    buildTeamBattleLeagueBasicMvpSetupPreview,
     buildTeamBattleLeagueIntegrationContract,
     buildTeamBattleLeaguePreReleaseChecklist,
     buildTeamBattleLeagueNextImplementationBatches,
