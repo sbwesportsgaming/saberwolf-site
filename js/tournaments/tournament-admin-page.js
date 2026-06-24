@@ -24,19 +24,108 @@ let requestedOrganizerKey = "";
       "double-elimination": {
         title: "Double Elimination",
         description:
-          "Formato FGC com Winners Bracket, Losers Bracket, Grand Final e possível reset."
+          "Formato FGC com Winners Bracket, Losers Bracket, Grand Final e possível reset.",
+        family: "bracket",
+        category: "core",
+        status: "active",
+        teamMode: "solo"
       },
       "groups-playoffs": {
         title: "Grupos + Playoffs",
         description:
-          "Formato guiado pela plataforma. O sistema libera apenas modelos matemáticos válidos."
+          "Formato guiado pela plataforma. O sistema libera apenas modelos matemáticos válidos.",
+        family: "hybrid",
+        category: "core",
+        status: "active",
+        teamMode: "solo"
       },
       "league": {
         title: "Pontos Corridos / Liga",
         description:
-          "Formato com tabela, rodadas e classificação geral. Não possui chave final."
+          "Formato com tabela, rodadas e classificação geral. Não possui chave final.",
+        family: "league",
+        category: "core",
+        status: "active",
+        teamMode: "solo"
       }
     };
+
+    function getTournamentFormatDefinition(format) {
+      const registry = window.SBWTournamentFormats;
+      const registered = registry && typeof registry.get === "function" ? registry.get(format) : null;
+
+      if (registered) {
+        return {
+          title: registered.label || registered.shortLabel || format,
+          description: registered.description || registered.publicNote || "Formato competitivo da plataforma -SBW-.",
+          family: registered.family || "custom",
+          category: registered.category || "custom",
+          status: registered.status || "custom",
+          teamMode: registered.teamMode || "solo",
+          publicNote: registered.publicNote || ""
+        };
+      }
+
+      return formatDescriptions[format] || {
+        title: String(format || "Formato").trim() || "Formato",
+        description: "Formato competitivo personalizado.",
+        family: "custom",
+        category: "custom",
+        status: "custom",
+        teamMode: "solo",
+        publicNote: ""
+      };
+    }
+
+    function getTournamentFormatLabelFromValue(format) {
+      return getTournamentFormatDefinition(format).title || String(format || "Formato").trim() || "Formato";
+    }
+
+    function getTournamentFormatMetadata(format) {
+      const registry = window.SBWTournamentFormats;
+
+      if (registry && typeof registry.toMetadata === "function") {
+        return registry.toMetadata(format);
+      }
+
+      const definition = getTournamentFormatDefinition(format);
+      return {
+        key: String(format || "").trim(),
+        label: definition.title,
+        family: definition.family,
+        category: definition.category,
+        status: definition.status,
+        teamMode: definition.teamMode,
+        publicNote: definition.publicNote || ""
+      };
+    }
+
+    function isTournamentFormatAvailableForCreation(format) {
+      const registry = window.SBWTournamentFormats;
+
+      if (registry && typeof registry.canCreate === "function") {
+        return registry.canCreate(format);
+      }
+
+      return getTournamentFormatDefinition(format).status === "active";
+    }
+
+    function getTournamentFormatCreationBlockReason(format) {
+      const registry = window.SBWTournamentFormats;
+
+      if (registry && typeof registry.getCreationBlockReason === "function") {
+        const reason = registry.getCreationBlockReason(format);
+        if (reason) return reason;
+      }
+
+      const definition = getTournamentFormatDefinition(format);
+
+      if (definition.status === "planned") {
+        return `${definition.title} está em preparação e ainda não deve ser usado para criação real de torneios.`;
+      }
+
+      return `${definition.title} ainda não está disponível para criação real de torneios.`;
+    }
 
     const form = document.getElementById("tournamentForm");
     const creatorArea = document.getElementById("creatorArea");
@@ -45,6 +134,7 @@ let requestedOrganizerKey = "";
     const formatSelect = document.getElementById("format");
     const organizerSelect = document.getElementById("organizerSelect");
     const formatInfo = document.getElementById("formatInfo");
+    const advancedFormatPanel = document.getElementById("advancedFormatPanel");
     const dynamicSettings = document.getElementById("dynamicSettings");
     const previewOutput = document.getElementById("previewOutput");
     const successMessage = document.getElementById("successMessage");
@@ -291,7 +381,7 @@ async function initAccessControl() {
     }
 
     function getTournamentFormatLabel(tournament) {
-      return tournament?.formatLabel || formatDescriptions[tournament?.format]?.title || tournament?.format || "Formato";
+      return tournament?.formatLabel || getTournamentFormatLabelFromValue(tournament?.format) || tournament?.format || "Formato";
     }
 
     function getParticipantCheckinValue(participant) {
@@ -745,15 +835,72 @@ async function initAccessControl() {
       return availableTournamentOrganizers;
     }
 
-        function updateFormatInfo() {
-      const selectedFormat = formatSelect.value;
-      const info = formatDescriptions[selectedFormat];
+        function renderAdvancedFormatsPanel() {
+      if (!advancedFormatPanel) return;
 
-      formatInfo.innerHTML = `
-        <strong>${info.title}</strong>
-        <span>${info.description}</span>
+      const registry = window.SBWTournamentFormats;
+      const advancedFormats = registry && typeof registry.list === "function"
+        ? registry.list().filter((format) => format.category === "advanced")
+        : [{
+            key: "team-battle-league-4v4",
+            label: "Team Battle League 4v4",
+            status: "planned",
+            publicNote: "Formato avançado futuro com equipes de 4 jogadores, divisões, confrontos por escalação, partidas individuais e playoffs."
+          }];
+
+      advancedFormatPanel.innerHTML = `
+        <div class="advanced-format-panel__head">
+          <div>
+            <strong>Formatos avançados da plataforma -SBW-</strong>
+            <span>Esta base prepara formatos especiais sem liberar estruturas incompletas no torneio real.</span>
+          </div>
+          <span class="advanced-format-pill">Roadmap competitivo</span>
+        </div>
+        <div class="advanced-format-grid">
+          ${advancedFormats.map((format) => `
+            <article class="advanced-format-card">
+              <strong>${escapeHTML(format.label || format.key || "Formato avançado")}</strong>
+              <span>${format.status === "active" ? "Disponível" : "Em preparação"}</span>
+              <p>${escapeHTML(format.publicNote || format.description || "Formato planejado para fases futuras da plataforma.")}</p>
+            </article>
+          `).join("")}
+        </div>
       `;
+    }
 
+
+    function renderFormatInfoDetails(info) {
+      const features = Array.isArray(info.features) ? info.features.slice(0, 5) : [];
+      const requirements = Array.isArray(info.requirements) ? info.requirements.slice(0, 5) : [];
+      const statusLabel = info.status === "planned" ? "Em preparação" : info.status === "active" ? "Disponível" : "Customizado";
+      const categoryLabel = info.category === "advanced" ? "Formato avançado" : info.category === "core" ? "Formato base" : "Formato customizado";
+      const notice = info.status === "planned"
+        ? "Este formato aparece no roadmap da plataforma -SBW-, mas ainda não deve ser usado para criação real de torneio."
+        : "Formato disponível para criação dentro da estrutura atual da plataforma -SBW-.";
+
+      return `
+        <div class="format-box__title">
+          <strong>${escapeHTML(info.title)}</strong>
+          <span class="format-box__meta">${escapeHTML(categoryLabel)} · ${escapeHTML(statusLabel)}</span>
+        </div>
+        <span>${escapeHTML(info.description)}</span>
+        ${features.length ? `<div class="format-box__chips">${features.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}</div>` : ""}
+        ${requirements.length ? `
+          <ul class="format-box__list">
+            ${requirements.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}
+          </ul>
+        ` : ""}
+        <div class="format-box__notice">${escapeHTML(notice)}</div>
+      `;
+    }
+
+    function updateFormatInfo() {
+      const selectedFormat = formatSelect.value;
+      const info = getTournamentFormatDefinition(selectedFormat);
+
+      formatInfo.innerHTML = renderFormatInfoDetails(info);
+
+      renderAdvancedFormatsPanel();
       renderDynamicSettings(selectedFormat);
       applyPhaseRulesPreset();
     }
@@ -997,6 +1144,18 @@ async function initAccessControl() {
         return false;
       }
 
+      const selectedFormat = document.getElementById("format")?.value || "";
+
+      if (!isTournamentFormatAvailableForCreation(selectedFormat)) {
+        alert(getTournamentFormatCreationBlockReason(selectedFormat));
+        if (formatSelect) {
+          formatSelect.value = "double-elimination";
+          updateFormatInfo();
+          formatSelect.focus();
+        }
+        return false;
+      }
+
       const maxPlayers = Number(document.getElementById("maxPlayers").value);
 
         if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 256) {
@@ -1016,6 +1175,8 @@ async function initAccessControl() {
       const organizerName = selectedOrganizer?.name || selectedOrganizer?.displayName || currentUser.name;
       const matchPhaseRules = getMatchPhaseRules();
       const rankingEnabled = document.getElementById("rankingEnabled")?.value !== "false";
+      const formatDefinition = getTournamentFormatDefinition(format);
+      const formatMetadata = getTournamentFormatMetadata(format);
 
       return {
         id: `sbw-${Date.now()}`,
@@ -1024,7 +1185,10 @@ async function initAccessControl() {
         game,
         platform: document.getElementById("platform").value,
         format,
-        formatLabel: formatDescriptions[format].title,
+        formatLabel: formatDefinition.title,
+        formatFamily: formatDefinition.family,
+        formatStatus: formatDefinition.status,
+        advancedFormatKey: formatDefinition.category === "advanced" ? format : "",
         status: document.getElementById("status").value,
 
         organizerId: selectedOrganizer?.id || currentUser.id,
@@ -1053,6 +1217,10 @@ async function initAccessControl() {
           checkInRequired: true,
           phaseRules: matchPhaseRules,
           matchPhaseRules,
+          formatFamily: formatDefinition.family,
+          formatStatus: formatDefinition.status,
+          teamMode: formatDefinition.teamMode,
+          formatConfig: formatMetadata,
           rankingEnabled,
           ranking_enabled: rankingEnabled,
           countsForRanking: rankingEnabled,
@@ -1070,6 +1238,7 @@ async function initAccessControl() {
         },
 
         metadata: {
+          format: formatMetadata,
           ranking: {
             enabled: rankingEnabled,
             countsForRanking: rankingEnabled,

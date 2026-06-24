@@ -14,7 +14,7 @@
 
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../css/layout/sbw-sidebar.css">
-  <link rel="stylesheet" href="../css/torneios.css?v=1.6.67.3">
+  <link rel="stylesheet" href="../css/torneios.css">
 
   <link
     rel="stylesheet"
@@ -208,23 +208,29 @@
       </aside>
     </section>
 
-    <section class="sbw-tournaments-format-strip" aria-label="Formatos competitivos suportados">
+    <section class="sbw-tournaments-format-strip" aria-label="Formatos competitivos suportados e planejados">
       <article>
-        <span>01</span>
+        <span>01 · Ativo</span>
         <h3>Grupos + Playoffs</h3>
         <p>Fase de grupos com classificados avançando para o mata-mata.</p>
       </article>
 
       <article>
-        <span>02</span>
+        <span>02 · Ativo</span>
         <h3>Double Elimination</h3>
-        <p>Modelo clássico de FGC com Winners, Losers e Grand Final.</p>
+        <p>Modelo clássico de FGC com Winners, Lower, Grand Final e possível reset.</p>
       </article>
 
       <article>
-        <span>03</span>
+        <span>03 · Ativo</span>
         <h3>Liga / Pontos Corridos</h3>
         <p>Tabela contínua, rodadas e classificação geral por pontuação.</p>
+      </article>
+
+      <article class="is-planned">
+        <span>04 · Planejado</span>
+        <h3>Team Battle League 4v4</h3>
+        <p>Formato avançado futuro com equipes de 4 jogadores, divisões, escalações e playoffs.</p>
       </article>
     </section>
   </main>
@@ -239,12 +245,13 @@
 
   <script src="../js/tournaments/tournaments-config.js"></script>
   <script src="../js/tournaments/tournaments-demo-data.js"></script>
+  <script src="../js/tournaments/tournament-formats.js?v=1.6.71"></script>
   <script src="../js/tournaments/tournaments-utils.js"></script>
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournaments-storage.js"></script>
   <script src="../js/rankings/rankings-storage.js"></script>
   <script src="../js/core/sbw-page-state.js"></script>
-  <script src="../js/tournaments/tournaments-list-page.js?v=1.6.67.3"></script>
+  <script src="../js/tournaments/tournaments-list-page.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

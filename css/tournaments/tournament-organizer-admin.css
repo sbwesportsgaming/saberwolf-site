@@ -517,6 +517,92 @@
   cursor: pointer;
 }
 
+.organizer-admin-field-note {
+  color: rgba(148, 163, 184, 0.92);
+  font-size: 0.75rem;
+  line-height: 1.42;
+}
+
+
+
+.organizer-admin-format-preview {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.34);
+}
+
+.organizer-admin-format-preview__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.organizer-admin-format-preview__head strong {
+  display: block;
+  margin-top: 3px;
+  color: #f8fafc;
+  font-size: 0.95rem;
+}
+
+.organizer-admin-format-preview__head > span {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.08);
+  color: #7dd3fc;
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.organizer-admin-format-preview p,
+.organizer-admin-format-preview ul {
+  margin: 0;
+  color: rgba(148, 163, 184, 0.94);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.organizer-admin-format-preview ul {
+  padding-left: 18px;
+}
+
+.organizer-admin-format-preview__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.organizer-admin-format-preview__chips span {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(226, 232, 240, 0.92);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.organizer-admin-format-preview__warning {
+  padding: 10px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a !important;
+  font-weight: 750;
+}
+
 .organizer-admin-message {
   display: none;
   padding: 13px 14px;
@@ -2479,595 +2565,76 @@
   }
 }
 
-/* v1.6.69.0 — temporadas reais do organizador */
-.organizer-admin-card-head--season {
-  align-items: flex-start;
-}
-
-.organizer-admin-card-subtitle {
-  margin: 6px 0 0;
-  max-width: 760px;
-  color: rgba(203, 213, 225, 0.72);
-  font-size: 0.84rem;
-  line-height: 1.55;
-}
-
-.organizer-admin-season-guard {
-  margin-top: 16px;
-}
-
-.organizer-admin-season-panel {
-  border: 1px solid rgba(56, 189, 248, 0.16);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.12), transparent 34%),
-    rgba(2, 6, 23, 0.42);
-  padding: 16px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.organizer-admin-season-panel--danger {
-  border-color: rgba(248, 113, 113, 0.32);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(248, 113, 113, 0.14), transparent 34%),
-    rgba(2, 6, 23, 0.44);
-}
-
-.organizer-admin-season-panel-head {
+/* v1.6.71.5 — selos de formato nos torneios do painel do organizador */
+.organizer-admin-tournament-meta-row {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 6px;
 }
 
-.organizer-admin-season-panel-head strong {
-  display: block;
-  margin-top: 4px;
-  color: #f8fafc;
-  font-size: 1.05rem;
+.organizer-admin-tournament-meta-row small {
+  margin-top: 0;
 }
 
-.organizer-admin-season-panel-head small {
-  display: block;
-  margin-top: 4px;
-  color: rgba(203, 213, 225, 0.68);
-  font-size: 0.78rem;
-}
-
-.organizer-admin-season-duration {
-  flex: 0 0 auto;
-  border: 1px solid rgba(56, 189, 248, 0.22);
+.organizer-admin-format-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
   border-radius: 999px;
   background: rgba(56, 189, 248, 0.08);
-  color: #bae6fd;
-  padding: 7px 10px;
-  font-size: 0.72rem;
+  color: #7dd3fc;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.organizer-admin-format-badge strong {
+  display: inline-block;
+  color: inherit;
+  font-size: 0.66rem;
   font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.organizer-admin-season-panel--danger .organizer-admin-season-duration {
-  border-color: rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.10);
-  color: #fecaca;
-}
-
-.organizer-admin-season-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.organizer-admin-season-metrics span {
-  min-height: 58px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.45);
-  padding: 10px;
-  color: rgba(203, 213, 225, 0.72);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-.organizer-admin-season-metrics strong {
-  display: block;
-  margin-bottom: 3px;
-  color: #f8fafc;
-  font-size: 1.1rem;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.organizer-admin-season-linked-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.organizer-admin-season-linked-list article,
-.organizer-admin-season-empty-note {
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 14px;
-  background: rgba(2, 6, 23, 0.35);
-  padding: 10px 12px;
-}
-
-.organizer-admin-season-linked-list article strong {
-  display: block;
-  color: #e2e8f0;
-  font-size: 0.84rem;
-}
-
-.organizer-admin-season-linked-list article small,
-.organizer-admin-season-empty-note,
-.organizer-admin-season-linked-list p {
-  color: rgba(203, 213, 225, 0.66);
-  font-size: 0.75rem;
-}
-
-.organizer-admin-season-linked-list p {
-  margin: 2px 0 0;
-  text-align: center;
-}
-
-@media (max-width: 760px) {
-  .organizer-admin-season-form {
-    grid-template-columns: 1fr;
-  }
-
-  .organizer-admin-season-panel-head {
-    flex-direction: column;
-  }
-
-  .organizer-admin-season-metrics {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* v1.6.69.1 — vínculo de torneios e pontuação por temporada */
-.organizer-admin-season-tournaments {
-  margin-top: 16px;
-}
-
-.organizer-admin-season-tournaments-panel {
-  border: 1px solid rgba(56, 189, 248, 0.16);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 88% 0%, rgba(129, 140, 248, 0.12), transparent 34%),
-    rgba(2, 6, 23, 0.42);
-  padding: 16px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.organizer-admin-season-tournaments-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.organizer-admin-season-tournaments-head strong {
-  display: block;
-  margin-top: 4px;
-  color: #f8fafc;
-  font-size: 1rem;
-}
-
-.organizer-admin-season-tournaments-head p {
-  margin: 5px 0 0;
-  color: rgba(203, 213, 225, 0.68);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.organizer-admin-season-tournaments-summary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.organizer-admin-season-tournaments-summary span,
-.organizer-admin-season-tournament-flags span,
-.organizer-admin-season-tournament-status {
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.55);
-  color: rgba(226, 232, 240, 0.74);
-  padding: 6px 9px;
-  font-size: 0.68rem;
-  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  white-space: nowrap;
 }
 
-.organizer-admin-season-tournaments-summary strong {
-  color: #f8fafc;
-}
-
-.organizer-admin-season-tournaments-summary .is-warning,
-.organizer-admin-season-tournament-flags .is-warning {
-  border-color: rgba(251, 191, 36, 0.28);
-  background: rgba(251, 191, 36, 0.08);
-  color: #fde68a;
-}
-
-.organizer-admin-season-tournament-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.organizer-admin-season-tournament-item {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 16px;
-  background: rgba(2, 6, 23, 0.36);
-  padding: 12px;
-}
-
-.organizer-admin-season-tournament-item.is-linked {
-  border-color: rgba(34, 211, 238, 0.22);
-  background:
-    linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 42%),
-    rgba(2, 6, 23, 0.40);
-}
-
-.organizer-admin-season-tournament-item.is-outside {
-  opacity: 0.74;
-}
-
-.organizer-admin-season-tournament-main strong,
-.organizer-admin-season-tournament-main small {
-  display: block;
-}
-
-.organizer-admin-season-tournament-main strong {
-  margin-top: 7px;
-  color: #e2e8f0;
-  font-size: 0.88rem;
-}
-
-.organizer-admin-season-tournament-main small {
-  margin-top: 3px;
-  color: rgba(203, 213, 225, 0.62);
-  font-size: 0.74rem;
-}
-
-.organizer-admin-season-tournament-status {
-  display: inline-flex;
-  padding: 5px 8px;
-}
-
-.organizer-admin-season-tournament-item.is-linked .organizer-admin-season-tournament-status {
-  border-color: rgba(34, 211, 238, 0.30);
-  background: rgba(34, 211, 238, 0.10);
-  color: #a5f3fc;
-}
-
-.organizer-admin-season-tournament-item.is-eligible .organizer-admin-season-tournament-status {
-  border-color: rgba(96, 165, 250, 0.26);
-  background: rgba(96, 165, 250, 0.08);
-  color: #bfdbfe;
-}
-
-.organizer-admin-season-tournament-flags,
-.organizer-admin-season-tournament-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.organizer-admin-season-tournament-flags .is-on {
-  border-color: rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.09);
-  color: #bbf7d0;
-}
-
-.organizer-admin-season-tournament-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-@media (max-width: 900px) {
-  .organizer-admin-season-tournament-item {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .organizer-admin-season-tournament-flags,
-  .organizer-admin-season-tournament-actions,
-  .organizer-admin-season-tournaments-summary {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 760px) {
-  .organizer-admin-season-tournaments-head {
-    flex-direction: column;
-  }
-}
-
-
-/* v1.6.69.3 — auditoria visual de temporada */
-.organizer-admin-season-audit {
-  margin-top: 16px;
-}
-
-.organizer-admin-season-audit-panel {
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(34, 197, 94, 0.10), transparent 34%),
-    rgba(2, 6, 23, 0.40);
-  padding: 16px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.organizer-admin-season-audit-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.organizer-admin-season-audit-head strong {
-  display: block;
-  margin-top: 4px;
-  color: #f8fafc;
-  font-size: 1rem;
-}
-
-.organizer-admin-season-audit-head p {
-  margin: 5px 0 0;
-  max-width: 620px;
-  color: rgba(203, 213, 225, 0.68);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.organizer-admin-season-audit-head > span {
-  flex: 0 0 auto;
-  border: 1px solid rgba(34, 197, 94, 0.22);
-  border-radius: 999px;
-  background: rgba(34, 197, 94, 0.08);
-  color: #bbf7d0;
-  padding: 7px 10px;
-  font-size: 0.68rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.organizer-admin-season-audit-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.organizer-admin-season-audit-item {
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.42);
-  padding: 11px 12px;
-}
-
-.organizer-admin-season-audit-item span {
-  display: inline-flex;
-  border: 1px solid rgba(34, 211, 238, 0.20);
-  border-radius: 999px;
-  background: rgba(34, 211, 238, 0.08);
-  color: #a5f3fc;
-  padding: 4px 7px;
+.organizer-admin-format-badge small {
+  display: inline-block;
+  margin: 0;
+  color: rgba(186, 230, 253, 0.72);
   font-size: 0.62rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.organizer-admin-season-audit-item strong,
-.organizer-admin-season-audit-item small {
-  display: block;
-}
-
-.organizer-admin-season-audit-item strong {
-  margin-top: 8px;
-  color: #e2e8f0;
-  font-size: 0.86rem;
-}
-
-.organizer-admin-season-audit-item small {
-  margin-top: 4px;
-  color: rgba(203, 213, 225, 0.64);
-  font-size: 0.73rem;
-  line-height: 1.45;
-}
-
-@media (max-width: 760px) {
-  .organizer-admin-season-audit-head {
-    flex-direction: column;
-  }
-}
-
-
-/* v1.6.69.4 — filtros de torneios da temporada */
-.organizer-admin-season-toolbar {
-  display: grid;
-  gap: 12px;
-  margin: 16px 0 14px;
-  padding: 14px;
-  border: 1px solid rgba(111, 226, 255, 0.12);
-  border-radius: 18px;
-  background: rgba(6, 14, 26, 0.46);
-}
-
-.organizer-admin-season-search {
-  display: grid;
-  gap: 6px;
-}
-
-.organizer-admin-season-search span,
-.organizer-admin-season-toolbar > small {
-  color: rgba(225, 244, 255, 0.62);
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.organizer-admin-season-search input {
-  width: 100%;
-  min-height: 42px;
-  border: 1px solid rgba(111, 226, 255, 0.18);
-  border-radius: 14px;
-  background: rgba(2, 7, 17, 0.72);
-  color: #f2fbff;
-  padding: 0 12px;
-  outline: none;
-}
-
-.organizer-admin-season-search input:focus {
-  border-color: rgba(111, 226, 255, 0.48);
-  box-shadow: 0 0 0 3px rgba(17, 194, 255, 0.10);
-}
-
-.organizer-admin-season-filter-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.organizer-admin-season-filter-list button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid rgba(126, 146, 176, 0.2);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  color: rgba(235, 248, 255, 0.74);
-  cursor: pointer;
-  font-size: 0.78rem;
   font-weight: 800;
-  padding: 8px 11px;
-  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease, transform 0.18s ease;
-}
-
-.organizer-admin-season-filter-list button:hover,
-.organizer-admin-season-filter-list button.is-active {
-  border-color: rgba(111, 226, 255, 0.46);
-  background: rgba(17, 194, 255, 0.12);
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-
-.organizer-admin-season-filter-list strong {
-  color: #73e6ff;
-  font-size: 0.74rem;
-}
-
-@media (min-width: 820px) {
-  .organizer-admin-season-toolbar {
-    grid-template-columns: minmax(220px, 0.85fr) 1.45fr;
-    align-items: end;
-  }
-
-  .organizer-admin-season-toolbar > small {
-    grid-column: 1 / -1;
-  }
-}
-
-/* v1.6.69.5 — status automático da temporada */
-.organizer-admin-season-head-badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.organizer-admin-season-status {
-  flex: 0 0 auto;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.62);
-  color: #cbd5e1;
-  padding: 7px 10px;
-  font-size: 0.72rem;
-  font-weight: 950;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
-.organizer-admin-season-status--active,
-.organizer-admin-season-status--scheduled {
-  border-color: rgba(56, 189, 248, 0.3);
-  background: rgba(56, 189, 248, 0.1);
-  color: #bae6fd;
+.organizer-admin-format-badge--planned {
+  border-color: rgba(168, 85, 247, 0.26);
+  background: rgba(88, 28, 135, 0.18);
+  color: #d8b4fe;
 }
 
-.organizer-admin-season-status--finished {
-  border-color: rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.1);
-  color: #bbf7d0;
+.organizer-admin-format-badge--advanced {
+  border-color: rgba(99, 102, 241, 0.26);
+  background: rgba(49, 46, 129, 0.18);
 }
 
-.organizer-admin-season-status--danger {
-  border-color: rgba(248, 113, 113, 0.38);
-  background: rgba(248, 113, 113, 0.1);
-  color: #fecaca;
+.organizer-admin-season-tournament-flags .organizer-admin-format-badge {
+  margin-right: 0;
 }
 
-.organizer-admin-season-next-action {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-  border: 1px solid rgba(56, 189, 248, 0.12);
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.42);
-  padding: 10px 12px;
-}
-
-.organizer-admin-season-next-action strong {
-  color: #e2e8f0;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.organizer-admin-season-next-action span {
-  color: rgba(203, 213, 225, 0.72);
-  font-size: 0.78rem;
-  line-height: 1.45;
-  text-align: right;
-}
-
-@media (max-width: 760px) {
-  .organizer-admin-season-head-badges,
-  .organizer-admin-season-next-action {
-    justify-content: flex-start;
-  }
-
-  .organizer-admin-season-next-action {
+@media (max-width: 640px) {
+  .organizer-admin-tournament-meta-row {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .organizer-admin-season-next-action span {
-    text-align: left;
+  .organizer-admin-format-badge strong {
+    white-space: normal;
   }
 }

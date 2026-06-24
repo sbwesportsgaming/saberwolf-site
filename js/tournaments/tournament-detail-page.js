@@ -544,16 +544,33 @@ function hasGeneratedStructure(tournament) {
 
 function getTournamentFormat(tournament) {
   const structure = getTournamentStructure(tournament);
+  const settings = tournament?.settings || {};
+  const metadata = tournament?.metadata || {};
+  const formatMeta = metadata.format || metadata.tournamentFormat || metadata.tournament_format || settings.formatMeta || settings.formatMetadata || settings.format_metadata || {};
 
   const rawFormat =
-    tournament.format ||
-    tournament.type ||
-    tournament.settings?.format ||
+    formatMeta.key ||
+    formatMeta.formatKey ||
+    formatMeta.format_key ||
+    tournament?.formatKey ||
+    tournament?.format_key ||
+    tournament?.format ||
+    tournament?.type ||
+    settings.formatKey ||
+    settings.format_key ||
+    settings.format ||
     structure?.type ||
     structure?.format ||
     "";
 
   const normalized = String(rawFormat).toLowerCase().trim();
+
+  if (window.SBWTournamentFormats?.get) {
+    const registered = window.SBWTournamentFormats.get(normalized || rawFormat);
+    if (registered?.key) {
+      return registered.key;
+    }
+  }
 
   if (
     normalized === "groups-playoffs" ||
@@ -598,6 +615,11 @@ function getTournamentFormat(tournament) {
 }
 
   function getFormatLabel(format) {
+    if (window.SBWTournamentFormats?.getLabel) {
+      const label = window.SBWTournamentFormats.getLabel(format, "");
+      if (label) return label;
+    }
+
     const labels = {
       "groups-playoffs": "Grupos + Playoffs",
       league: "Liga / Pontos Corridos",
@@ -606,6 +628,142 @@ function getTournamentFormat(tournament) {
     };
 
     return labels[format] || format || "Formato não definido";
+  }
+
+  function sbwGetTournamentFormatDefinition(format) {
+    const registry = window.SBWTournamentFormats;
+    const registered = registry && typeof registry.get === "function" ? registry.get(format) : null;
+
+    if (registered) {
+      return {
+        key: registered.key || format,
+        label: registered.label || registered.shortLabel || getFormatLabel(format),
+        shortLabel: registered.shortLabel || registered.label || getFormatLabel(format),
+        family: registered.family || "custom",
+        category: registered.category || "custom",
+        status: registered.status || "custom",
+        teamMode: registered.teamMode || "solo",
+        description: registered.description || registered.publicNote || "Formato competitivo da plataforma -SBW-.",
+        publicNote: registered.publicNote || registered.description || "",
+        flowTitle: registered.flowTitle || "Fluxo competitivo",
+        flowDescription: registered.flowDescription || registered.publicNote || registered.description || "O fluxo aparece conforme a estrutura publicada pelo organizador.",
+        features: Array.isArray(registered.features) ? registered.features : [],
+        specs: Array.isArray(registered.specs) ? registered.specs : [],
+        capabilities: registered.capabilities && typeof registered.capabilities === "object" ? registered.capabilities : {}
+      };
+    }
+
+    const label = getFormatLabel(format);
+
+    return {
+      key: String(format || "custom").trim() || "custom",
+      label,
+      shortLabel: label,
+      family: "custom",
+      category: "custom",
+      status: "custom",
+      teamMode: "solo",
+      description: "Formato competitivo configurado pelo organizador.",
+      publicNote: "As informações públicas serão exibidas conforme o organizador configurar a estrutura.",
+      flowTitle: "Formato personalizado",
+      flowDescription: "A estrutura do torneio será exibida nas abas públicas quando estiver disponível.",
+      features: ["Configuração do organizador", "Informações públicas do torneio"],
+      specs: [
+        { label: "Estrutura", value: "Definida pelo organizador" },
+        { label: "Exibição", value: "As abas públicas aparecem conforme a configuração disponível" }
+      ],
+      capabilities: {}
+    };
+  }
+
+  function sbwGetTournamentFormatStatusLabel(status) {
+    const labels = {
+      active: "Disponível",
+      planned: "Planejado",
+      custom: "Personalizado",
+      draft: "Em preparação"
+    };
+
+    return labels[String(status || "").toLowerCase()] || "Formato";
+  }
+
+  function sbwGetTournamentFormatCategoryLabel(category) {
+    const labels = {
+      core: "Formato base",
+      advanced: "Formato avançado",
+      custom: "Formato personalizado"
+    };
+
+    return labels[String(category || "").toLowerCase()] || "Formato competitivo";
+  }
+
+  function sbwGetTournamentFormatTeamModeLabel(teamMode) {
+    const labels = {
+      solo: "Individual",
+      team: "Equipes",
+      team_4v4: "Equipes 4v4"
+    };
+
+    return labels[String(teamMode || "").toLowerCase()] || "Competitivo";
+  }
+
+  function sbwRenderTournamentFormatSpecs(format) {
+    const specs = Array.isArray(format?.specs)
+      ? format.specs
+          .filter((item) => item && typeof item === "object")
+          .map((item) => ({
+            label: String(item.label || "").trim(),
+            value: String(item.value || "").trim()
+          }))
+          .filter((item) => item.label && item.value)
+      : [];
+
+    if (!specs.length) return "";
+
+    return `
+      <div class="overview-format-guide-specs" aria-label="Matriz técnica do formato competitivo">
+        ${specs.slice(0, 6).map((item) => `
+          <span>
+            <small>${escapeHTML(item.label)}</small>
+            <strong>${escapeHTML(item.value)}</strong>
+          </span>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function sbwRenderTournamentFormatGuide(tournament) {
+    const formatKey = getTournamentFormat(tournament);
+    const format = sbwGetTournamentFormatDefinition(formatKey);
+    const features = Array.isArray(format.features) && format.features.length
+      ? format.features.slice(0, 5)
+      : [sbwGetTournamentFormatCategoryLabel(format.category), sbwGetTournamentFormatTeamModeLabel(format.teamMode)];
+    const isPlanned = String(format.status || "").toLowerCase() === "planned";
+
+    return `
+      <article class="overview-format-guide-card ${isPlanned ? "is-planned" : ""}">
+        <div class="overview-format-guide-head">
+          <div>
+            <span>Formato competitivo</span>
+            <h4>${escapeHTML(format.label)}</h4>
+            <p>${escapeHTML(format.description || format.publicNote || "Formato competitivo da plataforma -SBW-.")}</p>
+          </div>
+          <div class="overview-format-guide-badges">
+            <em>${escapeHTML(sbwGetTournamentFormatStatusLabel(format.status))}</em>
+            <em>${escapeHTML(sbwGetTournamentFormatCategoryLabel(format.category))}</em>
+            <em>${escapeHTML(sbwGetTournamentFormatTeamModeLabel(format.teamMode))}</em>
+          </div>
+        </div>
+        <div class="overview-format-guide-flow">
+          <strong>${escapeHTML(format.flowTitle || "Fluxo competitivo")}</strong>
+          <p>${escapeHTML(format.flowDescription || format.publicNote || "O fluxo do torneio aparece conforme a estrutura publicada pelo organizador.")}</p>
+        </div>
+        <div class="overview-format-guide-features" aria-label="Recursos do formato">
+          ${features.map((feature) => `<span>${escapeHTML(feature)}</span>`).join("")}
+        </div>
+        ${sbwRenderTournamentFormatSpecs(format)}
+      </article>
+    `;
   }
 
   function getStatusInfo(status) {
@@ -5094,6 +5252,8 @@ function renderTournamentOverviewCards(tournament, availability) {
             </div>
             ${sbwRenderOverviewQuickActions(tournament)}
           </article>
+
+          ${sbwRenderTournamentFormatGuide(tournament)}
 
           <div class="overview-match-grid">
             ${sbwRenderOverviewMatchPreview(featuredMatch ? { ...featuredMatch, tournament } : null)}

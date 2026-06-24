@@ -33,6 +33,7 @@ const sbwOrganizerTournamentEditId = document.getElementById("organizerTournamen
 const sbwOrganizerTournamentEditName = document.getElementById("organizerTournamentEditName");
 const sbwOrganizerTournamentEditGame = document.getElementById("organizerTournamentEditGame");
 const sbwOrganizerTournamentEditFormat = document.getElementById("organizerTournamentEditFormat");
+const sbwOrganizerTournamentEditFormatPreview = document.getElementById("organizerTournamentEditFormatPreview");
 const sbwOrganizerTournamentEditStatus = document.getElementById("organizerTournamentEditStatus");
 const sbwOrganizerTournamentEditStartDate = document.getElementById("organizerTournamentEditStartDate");
 const sbwOrganizerTournamentEditStartTime = document.getElementById("organizerTournamentEditStartTime");
@@ -93,6 +94,201 @@ function sbwOrganizerEditorEscape(value) {
 
 function sbwOrganizerEditorAsObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+
+function sbwOrganizerEditorGetFormatMetadata(format) {
+  const registry = window.SBWTournamentFormats;
+
+  if (registry && typeof registry.toMetadata === "function") {
+    return registry.toMetadata(format);
+  }
+
+  const key = String(format || "").trim() || "double-elimination";
+  const labels = {
+    "double-elimination": "Double Elimination",
+    "single-elimination": "Single Elimination",
+    "groups-playoffs": "Grupos + Playoffs",
+    "round-robin": "Pontos Corridos",
+    league: "Liga",
+    "team-battle-league-4v4": "Team Battle League 4v4"
+  };
+
+  return {
+    key,
+    label: labels[key] || key,
+    family: key === "team-battle-league-4v4" ? "team-league" : "core",
+    category: key === "team-battle-league-4v4" ? "advanced" : "core",
+    status: key === "team-battle-league-4v4" ? "planned" : "active",
+    teamMode: key === "team-battle-league-4v4" ? "team_4v4" : "solo",
+    description: key === "team-battle-league-4v4"
+      ? "Formato avançado futuro com equipes de 4 jogadores, divisões, escalações e confrontos por equipe."
+      : "Formato competitivo base da plataforma -SBW-.",
+    features: key === "team-battle-league-4v4"
+      ? ["Equipes de 4", "Divisões", "Escalações", "Team matches"]
+      : [],
+    requirements: key === "team-battle-league-4v4"
+      ? ["Elenco de 4 jogadores", "Divisões", "Rodadas", "Sistema de escalação"]
+      : []
+  };
+}
+
+
+function sbwOrganizerEditorGetTournamentFormatValue(tournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const raw = sbwOrganizerEditorAsObject(tournament?.raw);
+  const rawMetadata = sbwOrganizerEditorAsObject(raw?.metadata);
+  const rawSettings = sbwOrganizerEditorAsObject(raw?.settings);
+  const metadataFormat = sbwOrganizerEditorAsObject(metadata.format || metadata.tournamentFormat || metadata.tournament_format);
+  const settingsFormat = sbwOrganizerEditorAsObject(settings.format || settings.formatMeta || settings.format_meta || settings.formatConfig || settings.format_config);
+  const rawMetadataFormat = sbwOrganizerEditorAsObject(rawMetadata.format || rawMetadata.tournamentFormat || rawMetadata.tournament_format);
+  const rawSettingsFormat = sbwOrganizerEditorAsObject(rawSettings.format || rawSettings.formatMeta || rawSettings.format_meta || rawSettings.formatConfig || rawSettings.format_config);
+
+  return String(
+    tournament?.format ||
+    tournament?.formatKey ||
+    tournament?.format_key ||
+    tournament?.tournamentFormat ||
+    tournament?.tournament_format ||
+    metadataFormat.key ||
+    metadataFormat.value ||
+    settingsFormat.key ||
+    settingsFormat.value ||
+    raw?.format ||
+    raw?.format_key ||
+    rawMetadataFormat.key ||
+    rawMetadataFormat.value ||
+    rawSettingsFormat.key ||
+    rawSettingsFormat.value ||
+    "double-elimination"
+  ).trim() || "double-elimination";
+}
+
+function sbwOrganizerEditorIsFormatAvailableForSave(format) {
+  const registry = window.SBWTournamentFormats;
+
+  if (registry && typeof registry.canCreate === "function") {
+    return registry.canCreate(format);
+  }
+
+  return sbwOrganizerEditorGetFormatMetadata(format).status === "active";
+}
+
+function sbwOrganizerEditorGetFormatBlockReason(format) {
+  const registry = window.SBWTournamentFormats;
+
+  if (registry && typeof registry.getCreationBlockReason === "function") {
+    const reason = registry.getCreationBlockReason(format);
+    if (reason) return reason;
+  }
+
+  const metadata = sbwOrganizerEditorGetFormatMetadata(format);
+
+  if (metadata.status === "planned") {
+    return `${metadata.label || "Este formato"} está em preparação e ainda não deve ser usado em torneios reais.`;
+  }
+
+  return `${metadata.label || "Este formato"} ainda não está disponível para torneios reais.`;
+}
+
+function sbwOrganizerEditorGetTournamentFormatMetadata(tournament) {
+  const value = sbwOrganizerEditorGetTournamentFormatValue(tournament);
+  const metadata = sbwOrganizerEditorGetFormatMetadata(value);
+  const tournamentMetadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const raw = sbwOrganizerEditorAsObject(tournament?.raw);
+  const rawMetadata = sbwOrganizerEditorAsObject(raw?.metadata);
+  const rawSettings = sbwOrganizerEditorAsObject(raw?.settings);
+  const saved = sbwOrganizerEditorAsObject(
+    tournamentMetadata.format ||
+    tournamentMetadata.tournamentFormat ||
+    settings.format ||
+    settings.formatMeta ||
+    settings.formatConfig ||
+    rawMetadata.format ||
+    rawSettings.format ||
+    rawSettings.formatMeta ||
+    rawSettings.formatConfig
+  );
+
+  return {
+    ...metadata,
+    ...saved,
+    key: metadata.key || saved.key || value,
+    label: saved.label || saved.name || metadata.label || value,
+    shortLabel: saved.shortLabel || saved.short_label || metadata.shortLabel || saved.label || metadata.label || value,
+    status: saved.status || metadata.status || "active",
+    category: saved.category || metadata.category || "core",
+    family: saved.family || metadata.family || "core",
+    teamMode: saved.teamMode || saved.team_mode || metadata.teamMode || "solo"
+  };
+}
+
+function sbwOrganizerEditorGetFormatStatusLabel(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "planned") return "Em preparação";
+  if (normalized === "active") return "Disponível";
+  if (normalized === "custom") return "Customizado";
+  return "Formato";
+}
+
+function sbwOrganizerEditorGetFormatCategoryLabel(category) {
+  const normalized = String(category || "").toLowerCase();
+  if (normalized === "advanced") return "Avançado";
+  if (normalized === "core") return "Base";
+  if (normalized === "custom") return "Custom";
+  return "Formato";
+}
+
+function sbwOrganizerEditorRenderFormatBadge(tournament, options = {}) {
+  const metadata = sbwOrganizerEditorGetTournamentFormatMetadata(tournament);
+  const status = String(metadata.status || "active").toLowerCase();
+  const category = String(metadata.category || "core").toLowerCase();
+  const label = options.short
+    ? (metadata.shortLabel || metadata.label || "Formato")
+    : (metadata.label || "Formato competitivo");
+  const statusLabel = sbwOrganizerEditorGetFormatStatusLabel(status);
+  const categoryLabel = sbwOrganizerEditorGetFormatCategoryLabel(category);
+
+  return `
+    <span class="organizer-admin-format-badge organizer-admin-format-badge--${sbwOrganizerEditorEscape(status)} organizer-admin-format-badge--${sbwOrganizerEditorEscape(category)}" title="${sbwOrganizerEditorEscape(categoryLabel)} · ${sbwOrganizerEditorEscape(statusLabel)}">
+      <strong>${sbwOrganizerEditorEscape(label)}</strong>
+      ${options.compact ? "" : `<small>${sbwOrganizerEditorEscape(categoryLabel)} · ${sbwOrganizerEditorEscape(statusLabel)}</small>`}
+    </span>
+  `;
+}
+
+
+function sbwOrganizerEditorRenderFormatPreview(formatValue = sbwOrganizerTournamentEditFormat?.value) {
+  if (!sbwOrganizerTournamentEditFormatPreview) return;
+
+  const metadata = sbwOrganizerEditorGetFormatMetadata(formatValue || "double-elimination");
+  const features = Array.isArray(metadata.features) ? metadata.features.slice(0, 5) : [];
+  const requirements = Array.isArray(metadata.requirements) ? metadata.requirements.slice(0, 5) : [];
+  const statusLabel = metadata.status === "planned" ? "Em preparação" : metadata.status === "active" ? "Disponível" : "Customizado";
+  const categoryLabel = metadata.category === "advanced" ? "Formato avançado" : metadata.category === "core" ? "Formato base" : "Formato customizado";
+  const unavailableReason = sbwOrganizerEditorIsFormatAvailableForSave(formatValue || "double-elimination")
+    ? ""
+    : sbwOrganizerEditorGetFormatBlockReason(formatValue || metadata.key);
+
+  sbwOrganizerTournamentEditFormatPreview.innerHTML = `
+    <div class="organizer-admin-format-preview__head">
+      <div>
+        <span class="organizer-admin-eyebrow">Formato competitivo</span>
+        <strong>${sbwOrganizerEditorEscape(metadata.label || "Formato")}</strong>
+      </div>
+      <span>${sbwOrganizerEditorEscape(categoryLabel)} · ${sbwOrganizerEditorEscape(statusLabel)}</span>
+    </div>
+    ${metadata.description ? `<p>${sbwOrganizerEditorEscape(metadata.description)}</p>` : ""}
+    ${features.length ? `<div class="organizer-admin-format-preview__chips">${features.map((item) => `<span>${sbwOrganizerEditorEscape(item)}</span>`).join("")}</div>` : ""}
+    ${requirements.length ? `
+      <ul>
+        ${requirements.map((item) => `<li>${sbwOrganizerEditorEscape(item)}</li>`).join("")}
+      </ul>
+    ` : ""}
+    ${unavailableReason ? `<p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(unavailableReason)}</p>` : ""}
+  `;
 }
 
 function sbwOrganizerEditorClampNumber(value, min, max, fallback) {
@@ -1783,7 +1979,8 @@ function sbwOrganizerEditorOpenTournamentEditForm(tournament) {
   if (sbwOrganizerTournamentEditId) sbwOrganizerTournamentEditId.value = key;
   if (sbwOrganizerTournamentEditName) sbwOrganizerTournamentEditName.value = sbwOrganizerEditorGetTournamentTitle(tournament);
   if (sbwOrganizerTournamentEditGame) sbwOrganizerTournamentEditGame.value = sbwOrganizerEditorGetTournamentGame(tournament);
-  if (sbwOrganizerTournamentEditFormat) sbwOrganizerTournamentEditFormat.value = tournament?.format || tournament?.raw?.format || "double-elimination";
+  if (sbwOrganizerTournamentEditFormat) sbwOrganizerTournamentEditFormat.value = sbwOrganizerEditorGetTournamentFormatValue(tournament);
+  sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat?.value);
   if (sbwOrganizerTournamentEditStatus) sbwOrganizerTournamentEditStatus.value = tournament?.status || tournament?.raw?.status || "draft";
   if (sbwOrganizerTournamentEditStartDate) sbwOrganizerTournamentEditStartDate.value = sbwOrganizerEditorFormatInputDate(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.date);
   if (sbwOrganizerTournamentEditStartTime) sbwOrganizerTournamentEditStartTime.value = sbwOrganizerEditorFormatInputTime(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.time);
@@ -1851,6 +2048,11 @@ function sbwOrganizerEditorBindTournamentEditor() {
     sbwOrganizerTournamentEditCancel.addEventListener("click", sbwOrganizerEditorHideTournamentEditForm);
   }
 
+  if (sbwOrganizerTournamentEditFormat && sbwOrganizerTournamentEditFormat.dataset.boundFormatPreview !== "true") {
+    sbwOrganizerTournamentEditFormat.dataset.boundFormatPreview = "true";
+    sbwOrganizerTournamentEditFormat.addEventListener("change", () => sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat.value));
+  }
+
   if (sbwOrganizerTournamentEditForm && sbwOrganizerTournamentEditForm.dataset.bound !== "true") {
     sbwOrganizerTournamentEditForm.dataset.bound = "true";
 
@@ -1887,6 +2089,15 @@ function sbwOrganizerEditorBindTournamentEditor() {
         : "";
 
       const tournamentId = sbwOrganizerTournamentEditId?.value || sbwOrganizerEditorGetTournamentKey(sbwOrganizerEditorEditingTournament);
+      const selectedFormat = sbwOrganizerTournamentEditFormat?.value || "double-elimination";
+      const formatMetadata = sbwOrganizerEditorGetFormatMetadata(selectedFormat);
+
+      if (!sbwOrganizerEditorIsFormatAvailableForSave(selectedFormat)) {
+        sbwOrganizerEditorRenderFormatPreview(selectedFormat);
+        sbwOrganizerEditorSetTournamentEditMessage(sbwOrganizerEditorGetFormatBlockReason(selectedFormat), "error");
+        sbwOrganizerTournamentEditFormat?.focus();
+        return;
+      }
 
       try {
         if (sbwOrganizerTournamentEditSave) sbwOrganizerTournamentEditSave.disabled = true;
@@ -1900,13 +2111,24 @@ function sbwOrganizerEditorBindTournamentEditor() {
             name: title,
             gameName: game,
             game_name: game,
-            format: sbwOrganizerTournamentEditFormat?.value || "double-elimination",
+            format: selectedFormat,
+            formatLabel: formatMetadata.label,
+            format_label: formatMetadata.label,
             status: sbwOrganizerTournamentEditStatus?.value || "draft",
             starts_at: startsAt,
             max_participants: sbwOrganizerTournamentEditMax?.value || null,
             cover_url: sbwOrganizerTournamentEditCover?.value || "",
             description: sbwOrganizerTournamentEditDescription?.value || "",
             rules: sbwOrganizerTournamentEditRules?.value || "",
+            settings: {
+              formatConfig: formatMetadata,
+              formatFamily: formatMetadata.family,
+              formatStatus: formatMetadata.status,
+              teamMode: formatMetadata.teamMode
+            },
+            metadata: {
+              format: formatMetadata
+            },
             tournamentAssets: {
               cover: {
                 ...sbwOrganizerEditorGetTournamentCoverFrameForm(),
@@ -1975,13 +2197,17 @@ async function sbwOrganizerEditorLoadTournaments() {
       const participants = typeof sbwGetParticipantsLabel === "function"
         ? sbwGetParticipantsLabel(tournament)
         : `${tournament?.currentParticipants || tournament?.current_participants || 0} / ${tournament?.maxParticipants || tournament?.max_participants || "—"}`;
+      const formatBadge = sbwOrganizerEditorRenderFormatBadge(tournament, { short: true, compact: true });
 
       return `
         <article class="organizer-admin-tournament-row">
           <div>
             <span class="organizer-admin-eyebrow">${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentGame(tournament))}</span>
             <strong>${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentTitle(tournament))}</strong>
-            <small>${sbwOrganizerEditorEscape(participants)} · ${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentDate(tournament))}</small>
+            <div class="organizer-admin-tournament-meta-row">
+              ${formatBadge}
+              <small>${sbwOrganizerEditorEscape(participants)} · ${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentDate(tournament))}</small>
+            </div>
           </div>
           <span class="status-pill ${sbwOrganizerEditorEscape(status.className || "open")}">${sbwOrganizerEditorEscape(status.label || "Ativo")}</span>
           <div class="organizer-admin-tournament-actions">
@@ -2563,8 +2789,9 @@ function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganiz
     const state = sbwOrganizerEditorGetTournamentSeasonStatus(tournament, season);
     const title = sbwOrganizerEditorGetTournamentTitle(tournament);
     const game = sbwOrganizerEditorGetTournamentGame(tournament);
-    const searchableText = `${title} ${game} ${state.dateLabel}`.toLowerCase();
-    return { tournament, state, title, game, searchableText };
+    const formatMeta = sbwOrganizerEditorGetTournamentFormatMetadata(tournament);
+    const searchableText = `${title} ${game} ${state.dateLabel} ${formatMeta.label || ""} ${formatMeta.shortLabel || ""}`.toLowerCase();
+    return { tournament, state, title, game, formatMeta, searchableText };
   });
 
   const linkedCount = decoratedCandidates.filter((item) => item.state.linked).length;
@@ -2647,6 +2874,7 @@ function sbwOrganizerEditorRenderSeasonTournamentsManager(organizer = sbwOrganiz
                     <small>${sbwOrganizerEditorEscape(game)} · ${sbwOrganizerEditorEscape(state.dateLabel)}</small>
                   </div>
                   <div class="organizer-admin-season-tournament-flags">
+                    ${sbwOrganizerEditorRenderFormatBadge(tournament, { short: true, compact: true })}
                     <span class="${state.pointable ? "is-on" : ""}">${state.pointable ? "Pontuável" : "Não pontua"}</span>
                     ${!state.insidePeriod ? `<span class="is-warning">fora do período</span>` : ""}
                   </div>

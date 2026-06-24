@@ -2847,7 +2847,7 @@ body.sbw-has-sidebar .sbw-tournaments-hub {
 
 .sbw-tournaments-format-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 22px;
   padding: 14px;
@@ -2859,6 +2859,17 @@ body.sbw-has-sidebar .sbw-tournaments-hub {
   border: 1px solid rgba(76, 202, 255, 0.10);
   border-radius: 20px;
   background: rgba(2, 8, 20, 0.48);
+}
+
+.sbw-tournaments-format-strip article.is-planned {
+  border-color: rgba(173, 116, 255, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(173, 116, 255, 0.14), transparent 12rem),
+    rgba(2, 8, 20, 0.48);
+}
+
+.sbw-tournaments-format-strip article.is-planned span {
+  color: #cba7ff;
 }
 
 .sbw-tournaments-format-strip span {
@@ -2905,6 +2916,10 @@ body.sbw-has-sidebar .sbw-tournaments-hub {
   .sbw-tournaments-side-column {
     position: static;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sbw-tournaments-format-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

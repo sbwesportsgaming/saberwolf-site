@@ -49,16 +49,33 @@ function sbwGetTournamentFormat(tournament) {
   }
 
   const structure = sbwGetTournamentStructure(tournament);
+  const settings = tournament.settings || {};
+  const metadata = tournament.metadata || {};
+  const formatMeta = metadata.format || metadata.tournamentFormat || metadata.tournament_format || settings.formatMeta || settings.formatMetadata || settings.format_metadata || {};
 
   const rawFormat =
+    formatMeta.key ||
+    formatMeta.formatKey ||
+    formatMeta.format_key ||
+    tournament.formatKey ||
+    tournament.format_key ||
     tournament.format ||
     tournament.type ||
-    tournament.settings?.format ||
+    settings.formatKey ||
+    settings.format_key ||
+    settings.format ||
     structure?.type ||
     structure?.format ||
     "";
 
   const normalized = String(rawFormat).toLowerCase().trim();
+
+  if (window.SBWTournamentFormats?.get) {
+    const registered = window.SBWTournamentFormats.get(normalized || rawFormat);
+    if (registered?.key) {
+      return registered.key;
+    }
+  }
 
   if (
     normalized === "groups-playoffs" ||
@@ -103,6 +120,11 @@ function sbwGetTournamentFormat(tournament) {
 }
 
 function sbwGetFormatLabel(format) {
+  if (window.SBWTournamentFormats?.getLabel) {
+    const label = window.SBWTournamentFormats.getLabel(format, "");
+    if (label) return label;
+  }
+
   const labels = {
     "groups-playoffs": "Grupos + Playoffs",
     league: "Liga / Pontos Corridos",
