@@ -34,6 +34,13 @@
     playoffFirstToAdvancedGrandFinal: 90,
     playoffExtraMatchOnDraw: false,
     playoffRequireEveryPlayerEveryTwoSets: true,
+    organizerManagedSchedule: true,
+    scheduleMode: "organizer_per_match",
+    scheduleTimezone: "America/Sao_Paulo",
+    allowRoundSchedule: true,
+    allowMatchScheduleOverride: true,
+    allowReschedule: true,
+    longFormLeague: true,
     mainMatchPointsBySlot: [10, 10, 20],
     defaultMainMatchPoints: 10,
     defaultExtraMatchPoints: 10,
@@ -99,6 +106,15 @@
     BLOCKED: "blocked"
   });
 
+  const MATCH_SCHEDULE_STATUS = Object.freeze({
+    TO_DEFINE: "to_define",
+    SCHEDULED: "scheduled",
+    LIVE: "live",
+    POSTPONED: "postponed",
+    FINISHED: "finished",
+    CANCELLED: "cancelled"
+  });
+
   function asObject(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
@@ -127,6 +143,183 @@
     const number = Number(value);
     if (!Number.isFinite(number)) return fallback;
     return Math.min(max, Math.max(min, number));
+  }
+
+  function normalizeScheduleStatus(value) {
+    const normalized = cleanKey(value, MATCH_SCHEDULE_STATUS.TO_DEFINE);
+
+    if (["scheduled", "agendado", "marcado", "ready", "confirmado"].includes(normalized)) return MATCH_SCHEDULE_STATUS.SCHEDULED;
+    if (["live", "ao-vivo", "em-andamento", "running"].includes(normalized)) return MATCH_SCHEDULE_STATUS.LIVE;
+    if (["postponed", "adiado", "remarcado", "delayed"].includes(normalized)) return MATCH_SCHEDULE_STATUS.POSTPONED;
+    if (["finished", "finalizado", "completed", "concluido"].includes(normalized)) return MATCH_SCHEDULE_STATUS.FINISHED;
+    if (["cancelled", "canceled", "cancelado"].includes(normalized)) return MATCH_SCHEDULE_STATUS.CANCELLED;
+
+    return MATCH_SCHEDULE_STATUS.TO_DEFINE;
+  }
+
+  function getScheduleStatusLabel(value) {
+    const status = normalizeScheduleStatus(value);
+
+    if (status === MATCH_SCHEDULE_STATUS.SCHEDULED) return "Agendado";
+    if (status === MATCH_SCHEDULE_STATUS.LIVE) return "Ao vivo";
+    if (status === MATCH_SCHEDULE_STATUS.POSTPONED) return "Adiado/remarcando";
+    if (status === MATCH_SCHEDULE_STATUS.FINISHED) return "Finalizado";
+    if (status === MATCH_SCHEDULE_STATUS.CANCELLED) return "Cancelado";
+
+    return "A definir pelo organizador";
+  }
+
+  function normalizeScheduleDate(value) {
+    const text = cleanText(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    if (/^\d{4}-\d{2}-\d{2}T/.test(text)) return text.slice(0, 10);
+    return "";
+  }
+
+  function normalizeScheduleTime(value) {
+    const text = cleanText(value);
+    if (/^\d{2}:\d{2}/.test(text)) return text.slice(0, 5);
+    if (/T\d{2}:\d{2}/.test(text)) return text.split("T")[1].slice(0, 5);
+    return "";
+  }
+
+  function getScheduleSource(source = {}) {
+    const item = asObject(source);
+    const metadata = asObject(item.metadata);
+
+    return asObject(
+      item.schedule ||
+      item.scheduling ||
+      item.matchSchedule ||
+      item.match_schedule ||
+      metadata.schedule ||
+      metadata.scheduling ||
+      metadata.matchSchedule ||
+      metadata.match_schedule
+    );
+  }
+
+  function normalizeMatchSchedule(match = {}, options = {}) {
+    const source = asObject(match);
+    const config = normalizeConfig(options.config || options);
+    const raw = getScheduleSource(source);
+    const scheduledAt = cleanText(raw.scheduledAt || raw.scheduled_at || source.scheduledAt || source.scheduled_at);
+    const date = normalizeScheduleDate(raw.date || raw.scheduledDate || raw.scheduled_date || source.scheduledDate || source.scheduled_date || scheduledAt);
+    const time = normalizeScheduleTime(raw.time || raw.scheduledTime || raw.scheduled_time || source.scheduledTime || source.scheduled_time || scheduledAt);
+    const status = normalizeScheduleStatus(raw.status || raw.scheduleStatus || raw.schedule_status || source.scheduleStatus || source.schedule_status);
+    const timezone = cleanText(raw.timezone || raw.scheduleTimezone || raw.schedule_timezone || source.timezone, config.scheduleTimezone);
+    const rawLabel = cleanText(raw.label || raw.scheduleLabel || raw.schedule_label);
+    const sourceLabel = cleanText(source.scheduleLabel || source.schedule_label);
+    const finalScheduledAt = cleanText(scheduledAt, date ? `${date}T${time || "00:00"}:00` : "");
+    const dateTimeLabel = date
+      ? `${date.split("-").reverse().join("/")}${time ? ` · ${time}` : ""}`
+      : "";
+    const label = rawLabel || (!dateTimeLabel ? sourceLabel : "");
+
+    return {
+      organizerManaged: raw.organizerManaged !== false && raw.organizer_managed !== false && config.organizerManagedSchedule !== false,
+      mode: cleanText(raw.mode || raw.scheduleMode || raw.schedule_mode, config.scheduleMode),
+      status,
+      statusLabel: getScheduleStatusLabel(status),
+      label: cleanText(label, dateTimeLabel || getScheduleStatusLabel(status)),
+      date,
+      time,
+      scheduledAt: finalScheduledAt,
+      timezone,
+      note: cleanText(raw.note || raw.notes || raw.observation || raw.observations || source.scheduleNote || source.schedule_note),
+      streamUrl: cleanText(raw.streamUrl || raw.stream_url || raw.broadcastUrl || raw.broadcast_url || source.streamUrl || source.stream_url),
+      publicVisible: raw.publicVisible !== false && raw.public_visible !== false,
+      editableByOrganizer: raw.editableByOrganizer !== false && raw.editable_by_organizer !== false,
+      allowReschedule: raw.allowReschedule !== false && raw.allow_reschedule !== false && config.allowReschedule !== false,
+      metadata: asObject(raw.metadata)
+    };
+  }
+
+  function attachScheduleToTeamMatch(teamMatch = {}, schedule = {}, options = {}) {
+    const source = asObject(teamMatch);
+    const normalized = normalizeMatchSchedule({ ...source, schedule }, options);
+
+    return {
+      ...source,
+      schedule: normalized,
+      scheduling: normalized,
+      scheduleStatus: normalized.status,
+      scheduleLabel: normalized.label,
+      scheduledAt: normalized.scheduledAt,
+      scheduledDate: normalized.date,
+      scheduledTime: normalized.time,
+      timezone: normalized.timezone,
+      streamUrl: normalized.streamUrl,
+      metadata: {
+        ...asObject(source.metadata),
+        scheduling: normalized,
+        organizerManagedSchedule: normalized.organizerManaged === true
+      }
+    };
+  }
+
+  function buildTeamBattleScheduleAutonomySummary(tournament = {}, options = {}) {
+    const league = normalizeTeamBattleLeagueTournamentPayload(tournament, options);
+    const config = normalizeConfig(options.config || league.config || options);
+    const divisions = getLeagueSourceDivisions(league, { ...options, config });
+    const rounds = divisions.flatMap((division) => asArray(division.rounds).map((round) => ({ ...round, divisionId: division.id || division.divisionId, divisionName: division.name || division.label })));
+    const matches = rounds.flatMap((round) => asArray(round.matches).map((match) => ({ ...asObject(match), roundLabel: round.label || round.name, divisionId: round.divisionId, divisionName: round.divisionName })));
+    const schedules = matches.map((match) => normalizeMatchSchedule(match, { ...options, config }));
+    const scheduledCount = schedules.filter((item) => item.status === MATCH_SCHEDULE_STATUS.SCHEDULED || item.date || item.time).length;
+    const postponedCount = schedules.filter((item) => item.status === MATCH_SCHEDULE_STATUS.POSTPONED).length;
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.schedule-autonomy.v1`,
+      title: "Agenda livre de partidas",
+      badge: "Controle do organizador",
+      description: "Por ser uma liga longa, o organizador define datas e horários por rodada ou por confronto, sem depender do horário único do torneio.",
+      organizerManaged: config.organizerManagedSchedule !== false,
+      mode: config.scheduleMode,
+      timezone: config.scheduleTimezone,
+      allowRoundSchedule: config.allowRoundSchedule !== false,
+      allowMatchScheduleOverride: config.allowMatchScheduleOverride !== false,
+      allowReschedule: config.allowReschedule !== false,
+      longFormLeague: config.longFormLeague !== false,
+      totalMatches: matches.length,
+      scheduledCount,
+      pendingCount: Math.max(0, matches.length - scheduledCount),
+      postponedCount,
+      cards: [
+        { label: "Tipo de agenda", value: "Livre por confronto", detail: "Cada confronto pode ter data e horário próprios." },
+        { label: "Controle", value: "Organizador", detail: "O criador do torneio gerencia ajustes e remarcações." },
+        { label: "Formato longo", value: "Liga", detail: "Não obriga todas as partidas no mesmo dia." },
+        { label: "Status", value: matches.length ? `${scheduledCount}/${matches.length}` : "A definir", detail: matches.length ? "confrontos com agenda definida" : "aparece quando as rodadas reais forem geradas" }
+      ],
+      rules: [
+        "Data e horário podem ser definidos por rodada ou por confronto.",
+        "Remarcações ficam sob controle do organizador.",
+        "A data inicial do torneio serve como referência pública, não como trava única de todas as partidas.",
+        "A classificação e os playoffs usam os resultados reais, independentemente da ordem de agenda definida."
+      ],
+      rounds: rounds.slice(0, 12).map((round) => ({
+        id: cleanText(round.id, `round-${round.round || 1}`),
+        label: cleanText(round.label || round.name, `Rodada ${round.round || 1}`),
+        divisionId: cleanText(round.divisionId),
+        divisionName: cleanText(round.divisionName),
+        matches: asArray(round.matches).map((match, index) => {
+          const schedule = normalizeMatchSchedule(match, { ...options, config });
+          return {
+            id: cleanText(match?.id, `${round.id || "round"}-match-${index + 1}`),
+            label: cleanText(match?.label || match?.roundLabel, `Confronto ${index + 1}`),
+            scheduleLabel: schedule.label,
+            scheduleStatus: schedule.status,
+            scheduleStatusLabel: schedule.statusLabel,
+            scheduledAt: schedule.scheduledAt,
+            scheduledDate: schedule.date,
+            scheduledTime: schedule.time,
+            timezone: schedule.timezone,
+            streamUrl: schedule.streamUrl,
+            note: schedule.note
+          };
+        })
+      }))
+    };
   }
 
   function normalizeLeagueMode(value) {
@@ -192,6 +385,13 @@
       playoffFirstToAdvancedGrandFinal: clampNumber(source.playoffFirstToAdvancedGrandFinal || source.playoff_first_to_advanced_grand_final, 10, 300, DEFAULT_CONFIG.playoffFirstToAdvancedGrandFinal),
       playoffExtraMatchOnDraw: source.playoffExtraMatchOnDraw === true,
       playoffRequireEveryPlayerEveryTwoSets: source.playoffRequireEveryPlayerEveryTwoSets !== false,
+      organizerManagedSchedule: source.organizerManagedSchedule !== false && source.organizer_managed_schedule !== false,
+      scheduleMode: cleanText(source.scheduleMode || source.schedule_mode, DEFAULT_CONFIG.scheduleMode),
+      scheduleTimezone: cleanText(source.scheduleTimezone || source.schedule_timezone || source.timezone, DEFAULT_CONFIG.scheduleTimezone),
+      allowRoundSchedule: source.allowRoundSchedule !== false && source.allow_round_schedule !== false,
+      allowMatchScheduleOverride: source.allowMatchScheduleOverride !== false && source.allow_match_schedule_override !== false,
+      allowReschedule: source.allowReschedule !== false && source.allow_reschedule !== false,
+      longFormLeague: source.longFormLeague !== false && source.long_form_league !== false,
       defaultWinCondition: cleanText(source.defaultWinCondition, DEFAULT_CONFIG.defaultWinCondition),
       status: cleanText(source.status, DEFAULT_CONFIG.status)
     };
@@ -277,6 +477,7 @@
   function createTeamMatchSeed(overrides = {}, config = {}) {
     const source = asObject(overrides);
     const normalizedConfig = normalizeConfig(config);
+    const schedule = normalizeMatchSchedule(source, { config: normalizedConfig });
     const mainMatches = Array.from({ length: normalizedConfig.mainMatches }, (_, index) => {
       return createMatchSlot(index + 1, MATCH_SLOT_TYPES.MAIN, asArray(source.matches)[index], normalizedConfig);
     });
@@ -294,7 +495,20 @@
       awayLineup: asArray(source.awayLineup).slice(0, normalizedConfig.teamSize),
       matches: mainMatches,
       extraMatch: source.extraMatch ? createMatchSlot(4, MATCH_SLOT_TYPES.EXTRA, source.extraMatch, normalizedConfig) : null,
-      metadata: asObject(source.metadata)
+      schedule,
+      scheduling: schedule,
+      scheduleStatus: schedule.status,
+      scheduleLabel: schedule.label,
+      scheduledAt: schedule.scheduledAt,
+      scheduledDate: schedule.date,
+      scheduledTime: schedule.time,
+      timezone: schedule.timezone,
+      streamUrl: schedule.streamUrl,
+      metadata: {
+        ...asObject(source.metadata),
+        scheduling: schedule,
+        organizerManagedSchedule: schedule.organizerManaged === true
+      }
     };
   }
 
@@ -1814,6 +2028,7 @@
     const publicResult = buildTeamMatchPublicResult(source, options.config || options);
     const mainMatches = asArray(source.matches).map(buildMatchSlotPublicSummary);
     const extraMatch = source.extraMatch ? buildMatchSlotPublicSummary(source.extraMatch) : null;
+    const schedule = normalizeMatchSchedule(source, options.config || options);
 
     return {
       id: cleanText(source.id),
@@ -1834,6 +2049,14 @@
       finalized: publicResult.finalized,
       mainMatches,
       extraMatch,
+      schedule,
+      scheduleLabel: schedule.label,
+      scheduleStatusLabel: schedule.statusLabel,
+      scheduledAt: schedule.scheduledAt,
+      scheduledDate: schedule.date,
+      scheduledTime: schedule.time,
+      timezone: schedule.timezone,
+      streamUrl: schedule.streamUrl,
       metadata: {
         source: "team-battle-public-summary",
         updatedAt: new Date().toISOString()
@@ -3286,6 +3509,7 @@
         "Se houver empate após as partidas principais, a partida extra decide o confronto.",
         "O modo básico usa divisão única; o modo avançado usa várias divisões.",
         "Nos playoffs SFL, não há partida extra: a série continua por sets 10/10/20 até atingir a meta.",
+        "O organizador controla datas e horários de rodadas/confrontos, por ser um campeonato longo.",
         "No MVP básico, o Top 4 entra em escada: 3º x 4º, vencedor contra 2º, vencedor contra 1º."
       ]
     };
@@ -3298,6 +3522,7 @@
     const readiness = buildTeamBattleLeagueReadinessReport(league, options);
     const badge = getTeamBattleLeagueAvailabilityBadge(league, options);
     const rulebook = buildTeamBattleLeagueRulebookSummary(league.config);
+    const scheduleSummary = buildTeamBattleScheduleAutonomySummary(tournament, { ...options, config: league.config });
 
     return {
       formatKey: FORMAT_KEY,
@@ -3308,6 +3533,7 @@
       preview,
       modeComparison: buildTeamBattleLeagueModeComparison(),
       rulebook,
+      scheduleSummary,
       cards: [
         {
           key: "mode",
@@ -3326,6 +3552,12 @@
           label: "Confrontos",
           value: String(snapshot.totals.matches || 0),
           description: "Confrontos entre equipes previstos na estrutura da liga."
+        },
+        {
+          key: "schedule",
+          label: "Agenda",
+          value: scheduleSummary.organizerManaged ? "Livre" : "Padrão",
+          description: "Datas e horários podem ser gerenciados por rodada ou confronto."
         },
         {
           key: "status",
@@ -3388,6 +3620,7 @@
     const publicOverview = buildTeamBattlePublicOverview(league, options);
     const badge = getTeamBattleLeagueAvailabilityBadge(league, options);
     const rulebook = buildTeamBattleLeagueRulebookSummary(league.config);
+    const scheduleSummary = buildTeamBattleScheduleAutonomySummary(tournament, { ...options, config: league.config });
 
     return {
       formatKey: FORMAT_KEY,
@@ -3400,15 +3633,18 @@
       description: getLeagueModeDescription(mode),
       publicOverview,
       rulebook,
+      scheduleSummary,
       highlights: [
         "Equipes com 4 jogadores",
         "3 partidas principais por confronto",
         "Reserva para partida extra em caso de empate",
         "Pontuação por partidas individuais",
+        "Agenda de partidas controlada pelo organizador",
         mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Liga básica com divisão única" : "Liga avançada com várias divisões"
       ],
       transparencyNotes: [
         "Formato ainda em preparação na plataforma -SBW-.",
+        "A agenda de rodadas e confrontos é definida pelo organizador por ser uma liga longa.",
         "A primeira versão funcional deve priorizar a liga básica com divisão única.",
         "O modo avançado com várias divisões fica reservado para uma etapa posterior."
       ],
@@ -3859,6 +4095,8 @@
           ? "Aguardando resultado"
           : cleanText(item.statusLabel || item.status || "Aguardando equipes", "Aguardando equipes");
 
+      const schedule = normalizeMatchSchedule(item, { ...options, config });
+
       return {
         id: cleanText(item.id || item.matchId, `team-battle-match-${index + 1}`),
         label: cleanText(item.label || item.roundLabel || `Rodada ${item.round || 1} · Confronto ${index + 1}`),
@@ -3866,6 +4104,12 @@
         awayTeamName: getTeamDisplayLabel(awayTeam || item.away || item.awayTeam || item.away_team, "Equipe confirmada"),
         statusLabel,
         scoreLabel,
+        schedule,
+        scheduleLabel: schedule.label,
+        scheduleStatusLabel: schedule.statusLabel,
+        scheduledAt: schedule.scheduledAt,
+        scheduledDate: schedule.date,
+        scheduledTime: schedule.time,
         finalized: result.finalized === true,
         winnerSide: cleanText(result.winnerSide)
       };
@@ -3897,11 +4141,13 @@
       byes,
       hasOddTeamCount: operational.hasOddTeamCount === true || byes.length > 0,
       playoffPreview,
+      scheduleSummary: buildTeamBattleScheduleAutonomySummary(tournament, { ...options, config }),
       statusCards: [
         { label: "Modo", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Básico" : "Avançado", detail: getLeagueModeLabel(mode) },
         { label: "Divisões", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "1" : String(Math.max(2, publicOverview.divisionCount || 2)), detail: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Múltiplas divisões" },
         { label: "Equipes", value: hasRealTeams ? String(teams.length) : "Após check-in", detail: hasRealTeams ? (byes.length ? "Ímpar com folga técnica" : "Equipes reais confirmadas") : "Sem equipes demo" },
         { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Confrontos reais; folga não pontua" : "Após equipes reais" },
+        { label: "Agenda", value: "Livre", detail: "Organizador define datas e horários" },
         { label: "Playoffs", value: hasRealTeams ? playoffPreview.statusLabel : "Após tabela", detail: playoffPreview.rulesetLabel }
       ],
       notes: hasRealTeams ? [
@@ -4491,7 +4737,8 @@
       { key: "divisionName", label: "Nome da divisão", value: setup.divisionName, locked: false },
       { key: "minTeams", label: "Mínimo de equipes", value: setup.minTeams, locked: false },
       { key: "maxTeams", label: "Máximo recomendado", value: setup.maxTeams, locked: false },
-      { key: "scheduleMode", label: "Calendário", value: "Todos contra todos", locked: true },
+      { key: "scheduleMode", label: "Calendário", value: "Todos contra todos + agenda livre", locked: false },
+      { key: "matchScheduling", label: "Agenda das partidas", value: "Organizador define datas/horários", locked: false },
       { key: "registrationMode", label: "Inscrição", value: "Equipe + elenco 4v4", locked: true },
       { key: "checkinMode", label: "Check-in", value: "Equipe + escalação", locked: true },
       { key: "resultsMode", label: "Resultados", value: "Manual por confronto", locked: true },
@@ -5210,11 +5457,28 @@
       mainMatchPointsBySlot: normalizedConfig.mainMatchPointsBySlot,
       defaultExtraMatchPoints: normalizedConfig.defaultExtraMatchPoints,
       extraMatchOnDraw: normalizedConfig.extraMatchOnDraw,
+      organizerManagedSchedule: true,
+      longFormLeague: true,
+      scheduleMode: normalizedConfig.scheduleMode,
+      scheduleTimezone: normalizedConfig.scheduleTimezone,
+      allowRoundSchedule: true,
+      allowMatchScheduleOverride: true,
+      allowReschedule: true,
+      matchScheduling: {
+        organizerManaged: true,
+        mode: normalizedConfig.scheduleMode,
+        timezone: normalizedConfig.scheduleTimezone,
+        allowRoundSchedule: true,
+        allowMatchScheduleOverride: true,
+        allowReschedule: true,
+        publicLabel: "Datas e horários definidos pelo organizador"
+      },
       createdAt,
       notes: [
         "A criação controlada libera apenas o MVP básico com Divisão Única.",
         "A tabela pública permanece vazia até o encerramento do check-in.",
-        "Somente equipes reais confirmadas devem preencher o grupo/tabela."
+        "Somente equipes reais confirmadas devem preencher o grupo/tabela.",
+        "Datas e horários das partidas são gerenciados pelo organizador, confronto por confronto."
       ]
     };
 
@@ -5276,6 +5540,7 @@
     TEAM_REGISTRATION_STATUS,
     TEAM_CHECKIN_STATUS,
     LEAGUE_OPERATION_STATUS,
+    MATCH_SCHEDULE_STATUS,
     normalizeLeagueMode,
     isAdvancedLeagueMode,
     getLeagueModeLabel,
@@ -5331,6 +5596,11 @@
     buildTeamBattleLeagueBasicMvpClosureReport,
     buildTeamBattleLeagueBasicControlledCreationPayload,
     buildTeamBattleLeagueControlledCreationNotice,
+    normalizeScheduleStatus,
+    getScheduleStatusLabel,
+    normalizeMatchSchedule,
+    attachScheduleToTeamMatch,
+    buildTeamBattleScheduleAutonomySummary,
     buildTeamBattleLeagueImplementationPlan,
     buildTeamBattleLeagueConsolidatedModel,
     createTeamBattleLeagueInternalTestRoster,

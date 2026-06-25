@@ -794,6 +794,11 @@ function getTournamentFormat(tournament) {
     const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 4) : [];
     const playoffTeams = Array.isArray(playoffPreview?.qualifiedTeams) ? playoffPreview.qualifiedTeams.slice(0, 4) : [];
     const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
+    const scheduleSummary = board?.scheduleSummary || model?.scheduleSummary || (window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary === "function"
+      ? window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary(tournament || {}, { leagueMode: "basic_single_division" })
+      : null);
+    const scheduleCards = Array.isArray(scheduleSummary?.cards) ? scheduleSummary.cards.slice(0, 4) : [];
+    const scheduleRules = Array.isArray(scheduleSummary?.rules) ? scheduleSummary.rules.slice(0, 4) : [];
     const emptyState = board?.emptyState || {
       title: "Aguardando check-in das equipes",
       description: "As equipes reais confirmadas aparecerão nesta divisão após o encerramento do check-in.",
@@ -803,8 +808,9 @@ function getTournamentFormat(tournament) {
       { label: "1", title: "Criação do torneio", text: "O organizador escolhe o Team Battle League 4v4 básico e revisa as regras principais." },
       { label: "2", title: "Molde da Divisão Única", text: "Depois de criado, o torneio mostra a tabela vazia e a estrutura de pontuação." },
       { label: "3", title: "Check-in de equipes", text: "Somente equipes reais confirmadas entram no grupo e nos confrontos." },
-      { label: "4", title: "Rodadas e resultados", text: "Confrontos, pontos e classificação alimentam a fase final." },
-      { label: "5", title: "Playoffs SFL", text: "Top 4 da Divisão Única entra na escada SFL: 3º x 4º, vencedor contra 2º e Grande Final contra 1º." }
+      { label: "4", title: "Agenda livre", text: "O organizador define datas e horários por rodada/confronto, sem prender tudo ao mesmo dia." },
+      { label: "5", title: "Rodadas e resultados", text: "Confrontos, pontos e classificação alimentam a fase final." },
+      { label: "6", title: "Playoffs SFL", text: "Top 4 da Divisão Única entra na escada SFL: 3º x 4º, vencedor contra 2º e Grande Final contra 1º." }
     ];
 
     return `
@@ -883,6 +889,34 @@ function getTournamentFormat(tournament) {
           </div>
         </div>
 
+        ${scheduleSummary ? `
+          <div class="overview-team-battle-schedule" aria-label="Agenda das partidas Team Battle League 4v4">
+            <div class="overview-team-battle-schedule__head">
+              <div>
+                <small>${escapeHTML(scheduleSummary.badge || "Controle do organizador")}</small>
+                <strong>${escapeHTML(scheduleSummary.title || "Agenda livre de partidas")}</strong>
+                <p>${escapeHTML(scheduleSummary.description || "Datas e horários dos confrontos são definidos pelo organizador.")}</p>
+              </div>
+              <span>${escapeHTML(scheduleSummary.timezone || "America/Sao_Paulo")}</span>
+            </div>
+            <div class="overview-team-battle-schedule__grid">
+              ${(scheduleCards.length ? scheduleCards : [
+                { label: "Tipo", value: "Por confronto", detail: "Cada partida pode ter agenda própria." },
+                { label: "Controle", value: "Organizador", detail: "Remarcações são gerenciadas pelo torneio." }
+              ]).map((card) => `
+                <article>
+                  <small>${escapeHTML(card.label || "Item")}</small>
+                  <strong>${escapeHTML(card.value || "—")}</strong>
+                  <p>${escapeHTML(card.detail || "A definir pelo organizador.")}</p>
+                </article>
+              `).join("")}
+            </div>
+            <div class="overview-team-battle-schedule__rules">
+              ${(scheduleRules.length ? scheduleRules : ["Datas por rodada/confronto", "Remarcação pelo organizador", "Data inicial é referência", "Resultados alimentam a tabela"]).map((rule) => `<span>${escapeHTML(rule)}</span>`).join("")}
+            </div>
+          </div>
+        ` : ""}
+
         <div class="overview-team-battle-public-preview__steps" aria-label="Fluxo eficiente do Team Battle League 4v4">
           ${publicSteps.map((step) => `
             <article>
@@ -900,7 +934,7 @@ function getTournamentFormat(tournament) {
               <article>
                 <small>${escapeHTML(match.label || "Confronto")}</small>
                 <div><span>${escapeHTML(match.homeTeamName || "Equipe confirmada")}</span><em>vs</em><span>${escapeHTML(match.awayTeamName || "Equipe confirmada")}</span></div>
-                <p>${escapeHTML(match.statusLabel || "Aguardando equipes")}</p>
+                <p>${escapeHTML(match.statusLabel || "Aguardando equipes")} · ${escapeHTML(match.scheduleLabel || match.scheduleStatusLabel || "data a definir pelo organizador")}</p>
               </article>
             `).join("")}
             ${boardByes.map((bye) => `
@@ -2427,6 +2461,9 @@ function getTournamentFormat(tournament) {
                       const playerA = getLeagueMatchPlayer(match, "A");
                       const playerB = getLeagueMatchPlayer(match, "B");
                       const status = getMatchPublicStatus(match);
+                      const schedule = window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.normalizeMatchSchedule === "function"
+                        ? window.SBWTeamBattleLeague.normalizeMatchSchedule(match, { leagueMode: "basic_single_division" })
+                        : null;
                       const winnerSide = getMatchWinnerSide(match);
                       const scoreA = getMatchScore(match, "scoreA");
                       const scoreB = getMatchScore(match, "scoreB");
@@ -2442,6 +2479,7 @@ function getTournamentFormat(tournament) {
                           <strong class="player-b ${winnerSide === "B" ? "winner" : ""}">${escapeHTML(getPlayerName(playerB))}</strong>
 
                           <span class="league-match-status-pill ${status.className}">${escapeHTML(status.label)}</span>
+                          ${schedule ? `<small class="league-match-schedule-pill">${escapeHTML(schedule.label || schedule.statusLabel || "Data a definir pelo organizador")}</small>` : ""}
                         </div>
                       `;
                     }).join("")

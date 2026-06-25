@@ -6959,3 +6959,119 @@
 .league-match-row.bye .player-b {
   color: rgba(248, 250, 252, 0.92);
 }
+
+/* v1.6.76.3 — Agenda livre do Team Battle League 4v4 */
+.overview-team-battle-schedule {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(8, 13, 28, 0.94), rgba(14, 21, 42, 0.84));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+}
+
+.overview-team-battle-schedule__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.overview-team-battle-schedule__head small,
+.overview-team-battle-schedule__grid small {
+  display: block;
+  margin-bottom: 5px;
+  color: rgba(34, 211, 238, 0.88);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.overview-team-battle-schedule__head strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 1.08rem;
+}
+
+.overview-team-battle-schedule__head p,
+.overview-team-battle-schedule__grid p {
+  margin: 6px 0 0;
+  color: rgba(226, 232, 240, 0.72);
+  line-height: 1.55;
+}
+
+.overview-team-battle-schedule__head > span {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  border-radius: 999px;
+  color: #e9d5ff;
+  background: rgba(88, 28, 135, 0.22);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.overview-team-battle-schedule__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-team-battle-schedule__grid article {
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.74);
+}
+
+.overview-team-battle-schedule__grid strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.overview-team-battle-schedule__rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.overview-team-battle-schedule__rules span,
+.league-match-schedule-pill {
+  padding: 7px 10px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 999px;
+  color: rgba(226, 232, 240, 0.82);
+  background: rgba(2, 6, 23, 0.42);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.league-match-schedule-pill {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+@media (max-width: 920px) {
+  .overview-team-battle-schedule__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .overview-team-battle-schedule__head {
+    flex-direction: column;
+  }
+
+  .overview-team-battle-schedule__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .league-match-schedule-pill {
+    justify-self: stretch;
+    text-align: center;
+  }
+}

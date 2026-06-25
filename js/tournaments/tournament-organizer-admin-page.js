@@ -320,6 +320,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const operations = [
     { label: "Configuração", value: "Divisão única", detail: "Criar a liga básica com todas as equipes no mesmo grupo." },
     { label: "Inscrições", value: "Equipes aprovadas", detail: "Validar equipes com elenco mínimo de 4 jogadores." },
+    { label: "Agenda", value: "Livre por confronto", detail: "Organizador define datas e horários por rodada/confronto." },
     { label: "Escalações", value: "3 + 1", detail: "Confirmar titulares e reserva antes do confronto." },
     { label: "Rodadas", value: "Round-robin", detail: "Gerar confrontos da divisão única e acompanhar resultados." }
   ];
@@ -327,6 +328,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
     "Formato em beta controlado para criação do MVP básico.",
     "Primeira liberação deve usar somente divisão única.",
     "Playoffs básicos seguem a escada SFL: Top 4, FT50/FT70, sem partida extra.",
+    "Agenda das partidas fica sob controle do organizador por ser campeonato longo.",
     "Modo com várias divisões fica reservado para etapa avançada com Top 3 por divisão."
   ];
   const visualBoard = helper && typeof helper.buildTeamBattleLeagueVisualPreviewBoard === "function"
@@ -352,6 +354,11 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const playoffPreview = visualBoard?.playoffPreview || null;
   const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 3) : [];
   const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
+  const scheduleSummary = model?.scheduleSummary || visualBoard?.scheduleSummary || (helper && typeof helper.buildTeamBattleScheduleAutonomySummary === "function"
+    ? helper.buildTeamBattleScheduleAutonomySummary(tournament || {}, { leagueMode: "basic_single_division" })
+    : null);
+  const scheduleCards = Array.isArray(scheduleSummary?.cards) ? scheduleSummary.cards.slice(0, 4) : [];
+  const scheduleRules = Array.isArray(scheduleSummary?.rules) ? scheduleSummary.rules.slice(0, 4) : [];
 
   return `
     <section class="organizer-admin-team-battle-preview" aria-label="Prévia administrativa Team Battle League 4v4">
@@ -401,6 +408,34 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
           </article>
         `).join("")}
       </div>
+
+      ${scheduleSummary ? `
+        <div class="organizer-admin-team-battle-schedule" aria-label="Agenda livre de partidas Team Battle League 4v4">
+          <div class="organizer-admin-team-battle-schedule__head">
+            <div>
+              <small>${sbwOrganizerEditorEscape(scheduleSummary.badge || "Controle do organizador")}</small>
+              <strong>${sbwOrganizerEditorEscape(scheduleSummary.title || "Agenda livre de partidas")}</strong>
+              <p>${sbwOrganizerEditorEscape(scheduleSummary.description || "Datas e horários dos confrontos são definidos pelo organizador.")}</p>
+            </div>
+            <span>${sbwOrganizerEditorEscape(scheduleSummary.timezone || "America/Sao_Paulo")}</span>
+          </div>
+          <div class="organizer-admin-team-battle-schedule__grid">
+            ${(scheduleCards.length ? scheduleCards : [
+              { label: "Tipo", value: "Livre por confronto", detail: "Cada rodada/confronto pode ter agenda própria." },
+              { label: "Controle", value: "Organizador", detail: "Remarcações não dependem do formato rápido." }
+            ]).map((card) => `
+              <article>
+                <small>${sbwOrganizerEditorEscape(card.label || "Item")}</small>
+                <strong>${sbwOrganizerEditorEscape(card.value || "—")}</strong>
+                <p>${sbwOrganizerEditorEscape(card.detail || "Gerenciado pelo organizador.")}</p>
+              </article>
+            `).join("")}
+          </div>
+          <div class="organizer-admin-team-battle-schedule__rules">
+            ${(scheduleRules.length ? scheduleRules : ["Datas por rodada/confronto", "Remarcação livre pelo organizador", "Data inicial é referência pública", "Resultados alimentam a classificação"]).map((rule) => `<span>${sbwOrganizerEditorEscape(rule)}</span>`).join("")}
+          </div>
+        </div>
+      ` : ""}
 
       ${mvpModel ? `
         <div class="organizer-admin-team-battle-mvp" aria-label="MVP básico Team Battle League 4v4">
@@ -2548,6 +2583,16 @@ function sbwOrganizerEditorBindTournamentEditor() {
               participantCapacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
               capacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
               ...(isTeamBattleLeagueTournament ? {
+                matchScheduling: teamBattleLeagueDraft?.settings?.matchScheduling || {
+                  organizerManaged: true,
+                  mode: "organizer_per_match",
+                  timezone: "America/Sao_Paulo",
+                  allowRoundSchedule: true,
+                  allowMatchScheduleOverride: true,
+                  allowReschedule: true
+                },
+                organizerManagedSchedule: true,
+                longFormLeague: true,
                 maxTeams: capacityValue,
                 teamLimit: capacityValue,
                 teamCapacity: capacityValue
@@ -2564,6 +2609,16 @@ function sbwOrganizerEditorBindTournamentEditor() {
                 unit: isTeamBattleLeagueTournament ? "teams" : "participants",
                 evenOnly: true
               },
+              ...(isTeamBattleLeagueTournament ? {
+                matchScheduling: teamBattleLeagueDraft?.metadata?.matchScheduling || teamBattleLeagueDraft?.settings?.matchScheduling || {
+                  organizerManaged: true,
+                  mode: "organizer_per_match",
+                  timezone: "America/Sao_Paulo",
+                  allowRoundSchedule: true,
+                  allowMatchScheduleOverride: true,
+                  allowReschedule: true
+                }
+              } : {}),
               ...(teamBattleLeagueDraft ? {
                 teamBattleLeague: teamBattleLeagueDraft.metadata,
                 team_battle_league: teamBattleLeagueDraft.metadata

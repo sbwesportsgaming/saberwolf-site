@@ -1375,6 +1375,22 @@ async function initAccessControl() {
         reservePerTeamMatch: 1,
         mainMatchPointsBySlot: [10, 10, 20],
         defaultExtraMatchPoints: 10,
+        organizerManagedSchedule: true,
+        longFormLeague: true,
+        scheduleMode: "organizer_per_match",
+        scheduleTimezone: "America/Sao_Paulo",
+        allowRoundSchedule: true,
+        allowMatchScheduleOverride: true,
+        allowReschedule: true,
+        matchScheduling: {
+          organizerManaged: true,
+          mode: "organizer_per_match",
+          timezone: "America/Sao_Paulo",
+          allowRoundSchedule: true,
+          allowMatchScheduleOverride: true,
+          allowReschedule: true,
+          publicLabel: "Datas e horários definidos pelo organizador"
+        },
         createdAt
       };
 
@@ -1447,6 +1463,16 @@ async function initAccessControl() {
           participantCapacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
           capacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
           ...(isTeamBattleLeagueTournament ? {
+            matchScheduling: teamBattleLeagueDraft?.settings?.matchScheduling || {
+              organizerManaged: true,
+              mode: "organizer_per_match",
+              timezone: "America/Sao_Paulo",
+              allowRoundSchedule: true,
+              allowMatchScheduleOverride: true,
+              allowReschedule: true
+            },
+            organizerManagedSchedule: true,
+            longFormLeague: true,
             maxTeams: tournamentCapacity,
             teamLimit: tournamentCapacity,
             teamCapacity: tournamentCapacity
@@ -1486,6 +1512,16 @@ async function initAccessControl() {
             unit: isTeamBattleLeagueTournament ? "teams" : "participants",
             evenOnly: true
           },
+          ...(isTeamBattleLeagueTournament ? {
+            matchScheduling: teamBattleLeagueDraft?.metadata?.matchScheduling || teamBattleLeagueDraft?.settings?.matchScheduling || {
+              organizerManaged: true,
+              mode: "organizer_per_match",
+              timezone: "America/Sao_Paulo",
+              allowRoundSchedule: true,
+              allowMatchScheduleOverride: true,
+              allowReschedule: true
+            }
+          } : {}),
           ...(teamBattleLeagueDraft ? {
             teamBattleLeague: teamBattleLeagueDraft.metadata,
             team_battle_league: teamBattleLeagueDraft.metadata
