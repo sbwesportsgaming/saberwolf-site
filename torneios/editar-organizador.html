@@ -167,7 +167,8 @@
 
               <div class="organizer-admin-field">
                 <label for="organizerTournamentEditMax">Limite de participantes</label>
-                <input id="organizerTournamentEditMax" type="number" min="2" step="1" placeholder="Ex: 32">
+                <input id="organizerTournamentEditMax" type="number" min="2" max="256" step="2" placeholder="Ex: 32">
+                <small id="organizerTournamentEditMaxNote" class="organizer-admin-field-note">Use capacidade em número par. Se o torneio terminar com número ímpar de inscritos reais, a bracket usa bye/encaixe normalmente.</small>
               </div>
 
               <div class="organizer-admin-field organizer-admin-field--wide">

@@ -789,6 +789,7 @@ function getTournamentFormat(tournament) {
       : null;
     const standings = Array.isArray(board?.standings) ? board.standings : [];
     const matches = Array.isArray(board?.matches) ? board.matches : [];
+    const boardByes = Array.isArray(board?.byes) ? board.byes.slice(0, 4) : [];
     const playoffPreview = board?.playoffPreview || null;
     const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 4) : [];
     const playoffTeams = Array.isArray(playoffPreview?.qualifiedTeams) ? playoffPreview.qualifiedTeams.slice(0, 4) : [];
@@ -892,7 +893,7 @@ function getTournamentFormat(tournament) {
           `).join("")}
         </div>
 
-        ${matches.length ? `
+        ${(matches.length || boardByes.length) ? `
           <div class="overview-team-battle-round-preview">
             <strong>Rodada gerada</strong>
             ${matches.map((match) => `
@@ -900,6 +901,13 @@ function getTournamentFormat(tournament) {
                 <small>${escapeHTML(match.label || "Confronto")}</small>
                 <div><span>${escapeHTML(match.homeTeamName || "Equipe confirmada")}</span><em>vs</em><span>${escapeHTML(match.awayTeamName || "Equipe confirmada")}</span></div>
                 <p>${escapeHTML(match.statusLabel || "Aguardando equipes")}</p>
+              </article>
+            `).join("")}
+            ${boardByes.map((bye) => `
+              <article class="is-bye">
+                <small>${escapeHTML(bye.label || "Folga da rodada")}</small>
+                <div><span>${escapeHTML(bye.teamLabel || bye.teamName || "Equipe em folga")}</span><em>folga</em><span>sem adversário fake</span></div>
+                <p>${escapeHTML(bye.description || "Folga técnica por quantidade ímpar de equipes; não soma pontos automaticamente.")}</p>
               </article>
             `).join("")}
           </div>
@@ -2404,6 +2412,9 @@ function getTournamentFormat(tournament) {
           const matches = Array.isArray(round.matches)
             ? round.matches
             : [];
+          const byes = Array.isArray(round.byes)
+            ? round.byes
+            : (Array.isArray(round.byeTeams) ? round.byeTeams : []);
 
           return `
             <div class="league-round-card">
@@ -2442,6 +2453,14 @@ function getTournamentFormat(tournament) {
                       </div>
                     `
                 }
+                ${byes.length ? byes.map((bye) => `
+                  <div class="league-match-row bye">
+                    <strong>${escapeHTML(bye.teamLabel || bye.teamName || bye.name || "Equipe em folga")}</strong>
+                    <span class="league-match-score">folga</span>
+                    <strong class="player-b">Sem adversário fake</strong>
+                    <span class="league-match-status-pill bye">Folga técnica</span>
+                  </div>
+                `).join("") : ""}
               </div>
             </div>
           `;

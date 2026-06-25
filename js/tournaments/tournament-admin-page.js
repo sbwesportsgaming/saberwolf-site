@@ -20,6 +20,35 @@ let requestedOrganizerKey = "";
         let activePlayoffMatchId = null;
         let activeMatchChatId = null;
 
+    const TEAM_BATTLE_LEAGUE_4V4_FORMAT = "team-battle-league-4v4";
+
+    function isTeamBattleLeague4v4Format(format) {
+      return String(format || "").trim().toLowerCase() === TEAM_BATTLE_LEAGUE_4V4_FORMAT;
+    }
+
+    function normalizeEvenTournamentCapacity(value, options = {}) {
+      const min = Number(options.min || 2);
+      const max = Number(options.max || 256);
+      const fallback = Number(options.fallback || min);
+      let number = Number.parseInt(value, 10);
+
+      if (!Number.isFinite(number)) {
+        number = fallback;
+      }
+
+      number = Math.max(min, Math.min(max, number));
+
+      if (number % 2 !== 0) {
+        number += 1;
+      }
+
+      if (number > max) {
+        number = max % 2 === 0 ? max : max - 1;
+      }
+
+      return Math.max(min, number);
+    }
+
     const formatDescriptions = {
       "double-elimination": {
         title: "Double Elimination",
@@ -157,6 +186,8 @@ let requestedOrganizerKey = "";
     const successMessage = document.getElementById("successMessage");
     const savedList = document.getElementById("savedList");
     const maxPlayersInput = document.getElementById("maxPlayers");
+    const maxPlayersLabel = document.querySelector('label[for="maxPlayers"]');
+    const maxPlayersHint = document.getElementById("maxPlayersHint");
 
     const managerArea = document.getElementById("managerArea");
     const managerTitle = document.getElementById("managerTitle");
@@ -999,6 +1030,48 @@ async function initAccessControl() {
       `;
     }
 
+    function applyTournamentCapacityMode(format = formatSelect?.value || "") {
+      if (!maxPlayersInput) return;
+
+      const isTeamBattle = isTeamBattleLeague4v4Format(format);
+      maxPlayersInput.min = "2";
+      maxPlayersInput.max = "256";
+      maxPlayersInput.step = "2";
+      maxPlayersInput.placeholder = isTeamBattle ? "Ex: 8 equipes" : "Ex: 32";
+
+      if (maxPlayersLabel) {
+        maxPlayersLabel.textContent = isTeamBattle ? "Limite de equipes *" : "Limite de participantes *";
+      }
+
+      if (maxPlayersHint) {
+        maxPlayersHint.textContent = isTeamBattle
+          ? "Neste formato, o limite representa equipes reais 4v4. Use sempre número par; se a quantidade final confirmada for ímpar, a tabela/bracket aplica bye/encaixe conforme planejado."
+          : "Use capacidade em número par. Se o torneio terminar com número ímpar de inscritos reais, a bracket usa bye/encaixe normalmente.";
+        maxPlayersHint.classList.toggle("is-team-mode", isTeamBattle);
+      }
+
+      if (String(maxPlayersInput.value || "").trim()) {
+        const normalized = normalizeEvenTournamentCapacity(maxPlayersInput.value, {
+          fallback: isTeamBattle ? 8 : 32
+        });
+        if (String(normalized) !== String(maxPlayersInput.value)) {
+          maxPlayersInput.value = normalized;
+        }
+      }
+    }
+
+    function getTournamentCapacityFromInput(format = formatSelect?.value || "") {
+      const normalized = normalizeEvenTournamentCapacity(maxPlayersInput?.value, {
+        fallback: isTeamBattleLeague4v4Format(format) ? 8 : 32
+      });
+
+      if (maxPlayersInput) {
+        maxPlayersInput.value = normalized;
+      }
+
+      return normalized;
+    }
+
     function updateFormatInfo() {
       const selectedFormat = formatSelect.value;
       const info = getTournamentFormatDefinition(selectedFormat);
@@ -1007,6 +1080,7 @@ async function initAccessControl() {
 
       renderAdvancedFormatsPanel();
       renderDynamicSettings(selectedFormat);
+      applyTournamentCapacityMode(selectedFormat);
       applyPhaseRulesPreset();
     }
 
@@ -1261,12 +1335,13 @@ async function initAccessControl() {
         return false;
       }
 
-      const maxPlayers = Number(document.getElementById("maxPlayers").value);
+      const maxPlayers = getTournamentCapacityFromInput(selectedFormat);
+      const capacityLabel = isTeamBattleLeague4v4Format(selectedFormat) ? "equipes" : "participantes";
 
-        if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 256) {
-          alert("O limite de participantes precisa estar entre 2 e 256.");
-          document.getElementById("maxPlayers").focus();
-          return false;
+      if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 256 || maxPlayers % 2 !== 0) {
+        alert(`O limite de ${capacityLabel} precisa estar entre 2 e 256 e sempre em número par.`);
+        document.getElementById("maxPlayers").focus();
+        return false;
       }
 
       return true;
@@ -1330,6 +1405,8 @@ async function initAccessControl() {
         organizerName,
         rankingEnabled
       });
+      const tournamentCapacity = getTournamentCapacityFromInput(format);
+      const isTeamBattleLeagueTournament = isTeamBattleLeague4v4Format(format);
 
       return {
         id: `sbw-${Date.now()}`,
@@ -1365,7 +1442,15 @@ async function initAccessControl() {
         },
 
         settings: {
-          maxPlayers: Number(document.getElementById("maxPlayers").value),
+          maxPlayers: tournamentCapacity,
+          maxParticipants: tournamentCapacity,
+          participantCapacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
+          capacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
+          ...(isTeamBattleLeagueTournament ? {
+            maxTeams: tournamentCapacity,
+            teamLimit: tournamentCapacity,
+            teamCapacity: tournamentCapacity
+          } : {}),
           matchFormat: matchPhaseRules.defaultFormat,
           checkInRequired: true,
           phaseRules: matchPhaseRules,
@@ -1396,6 +1481,11 @@ async function initAccessControl() {
 
         metadata: {
           format: formatMetadata,
+          capacity: {
+            value: tournamentCapacity,
+            unit: isTeamBattleLeagueTournament ? "teams" : "participants",
+            evenOnly: true
+          },
           ...(teamBattleLeagueDraft ? {
             teamBattleLeague: teamBattleLeagueDraft.metadata,
             team_battle_league: teamBattleLeagueDraft.metadata
@@ -1509,6 +1599,9 @@ async function initAccessControl() {
               : (Array.isArray(tournament.participants) ? tournament.participants.length : 0)
           );
           const maxPlayers = getTournamentMaxPlayers(tournament);
+          const isTeamBattleLeagueTournament = isTeamBattleLeague4v4Format(tournament?.format || tournament?.formatKey || tournament?.settings?.formatConfig?.key || tournament?.metadata?.format?.key);
+          const capacityUnitLabel = isTeamBattleLeagueTournament ? "equipes" : "participantes";
+          const manageUnitLabel = isTeamBattleLeagueTournament ? "Gerenciar equipes" : "Gerenciar inscritos";
           const hasStructure = tournament.structure ? " | Estrutura gerada" : "";
           const sourceLabel = isSupabaseTournament(tournament) ? "Supabase" : "Local";
           const lookupValue = getTournamentLookupValue(tournament);
@@ -1541,7 +1634,7 @@ async function initAccessControl() {
                     ${escapeHTML(tournament.game || tournament.gameName || "Jogo")} |
                     ${escapeHTML(getTournamentFormatLabel(tournament))} |
                     ${escapeHTML(tournament.status)} |
-                    ${participantsCount}/${maxPlayers || "?"} participantes |
+                    ${participantsCount}/${maxPlayers || "?"} ${capacityUnitLabel} |
                     ${sourceLabel}
                     ${hasStructure}
                   </span>
@@ -1554,7 +1647,7 @@ async function initAccessControl() {
                   data-action="manage-tournament"
                   data-id="${escapeHTML(lookupValue)}"
                 >
-                  Gerenciar inscritos
+                  ${escapeHTML(manageUnitLabel)}
                 </button>
               </div>
             </div>
@@ -7031,6 +7124,17 @@ function renderDoubleEliminationStructure(structure) {
       if (formatSelect.value === "groups-playoffs") {
         updateGroupMathHint();
       }
+    });
+
+    maxPlayersInput.addEventListener("change", function() {
+      getTournamentCapacityFromInput(formatSelect.value);
+      if (formatSelect.value === "groups-playoffs") {
+        updateGroupMathHint();
+      }
+    });
+
+    maxPlayersInput.addEventListener("blur", function() {
+      getTournamentCapacityFromInput(formatSelect.value);
     });
 
     structureOutput.addEventListener("input", function(event) {

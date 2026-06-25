@@ -38,6 +38,8 @@ const sbwOrganizerTournamentEditStatus = document.getElementById("organizerTourn
 const sbwOrganizerTournamentEditStartDate = document.getElementById("organizerTournamentEditStartDate");
 const sbwOrganizerTournamentEditStartTime = document.getElementById("organizerTournamentEditStartTime");
 const sbwOrganizerTournamentEditMax = document.getElementById("organizerTournamentEditMax");
+const sbwOrganizerTournamentEditMaxLabel = document.querySelector('label[for="organizerTournamentEditMax"]');
+const sbwOrganizerTournamentEditMaxNote = document.getElementById("organizerTournamentEditMaxNote");
 const sbwOrganizerTournamentEditCover = document.getElementById("organizerTournamentEditCover");
 const sbwOrganizerTournamentEditCoverManual = document.getElementById("organizerTournamentEditCoverManual");
 const sbwOrganizerTournamentCoverFile = document.getElementById("organizerTournamentCoverFile");
@@ -71,6 +73,35 @@ let sbwOrganizerEditorManagingTournament = null;
 let sbwOrganizerEditorParticipantsCache = [];
 let sbwOrganizerSeasonTournamentFilter = "all";
 let sbwOrganizerSeasonTournamentSearch = "";
+
+const SBW_ORGANIZER_TEAM_BATTLE_4V4_FORMAT = "team-battle-league-4v4";
+
+function sbwOrganizerEditorIsTeamBattleLeague4v4Format(format) {
+  return String(format || "").trim().toLowerCase() === SBW_ORGANIZER_TEAM_BATTLE_4V4_FORMAT;
+}
+
+function sbwOrganizerEditorNormalizeEvenCapacity(value, options = {}) {
+  const min = Number(options.min || 2);
+  const max = Number(options.max || 256);
+  const fallback = Number(options.fallback || min);
+  let number = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(number)) {
+    number = fallback;
+  }
+
+  number = Math.max(min, Math.min(max, number));
+
+  if (number % 2 !== 0) {
+    number += 1;
+  }
+
+  if (number > max) {
+    number = max % 2 === 0 ? max : max - 1;
+  }
+
+  return Math.max(min, number);
+}
 
 const sbwOrganizerEditorAssetConfig = {
   bucket: "sbw-team-assets",
@@ -317,6 +348,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const setupCards = Array.isArray(setupPreview?.cards) ? setupPreview.cards.slice(0, 4) : [];
   const boardStandings = Array.isArray(visualBoard?.standings) ? visualBoard.standings.slice(0, 4) : [];
   const boardMatches = Array.isArray(visualBoard?.matches) ? visualBoard.matches.slice(0, 2) : [];
+  const boardByes = Array.isArray(visualBoard?.byes) ? visualBoard.byes.slice(0, 2) : [];
   const playoffPreview = visualBoard?.playoffPreview || null;
   const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 3) : [];
   const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
@@ -454,13 +486,22 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
             </div>
             <div class="organizer-admin-team-battle-round-preview">
               <strong>Rodada inicial</strong>
-              ${boardMatches.length ? boardMatches.map((match) => `
-                <article>
-                  <small>${sbwOrganizerEditorEscape(match.label || "Confronto")}</small>
-                  <div><span>${sbwOrganizerEditorEscape(match.homeTeamName || "Equipe confirmada")}</span><em>vs</em><span>${sbwOrganizerEditorEscape(match.awayTeamName || "Equipe confirmada")}</span></div>
-                  <p>${sbwOrganizerEditorEscape(match.statusLabel || "A definir")}</p>
-                </article>
-              `).join("") : `<p>Os confrontos serão gerados quando houver equipes reais confirmadas.</p>`}
+              ${(boardMatches.length || boardByes.length) ? `
+                ${boardMatches.map((match) => `
+                  <article>
+                    <small>${sbwOrganizerEditorEscape(match.label || "Confronto")}</small>
+                    <div><span>${sbwOrganizerEditorEscape(match.homeTeamName || "Equipe confirmada")}</span><em>vs</em><span>${sbwOrganizerEditorEscape(match.awayTeamName || "Equipe confirmada")}</span></div>
+                    <p>${sbwOrganizerEditorEscape(match.statusLabel || "A definir")}</p>
+                  </article>
+                `).join("")}
+                ${boardByes.map((bye) => `
+                  <article class="is-bye">
+                    <small>${sbwOrganizerEditorEscape(bye.label || "Folga da rodada")}</small>
+                    <div><span>${sbwOrganizerEditorEscape(bye.teamLabel || bye.teamName || "Equipe em folga")}</span><em>folga</em><span>sem equipe fake</span></div>
+                    <p>${sbwOrganizerEditorEscape(bye.description || "Folga técnica quando a quantidade confirmada de equipes for ímpar.")}</p>
+                  </article>
+                `).join("")}
+              ` : `<p>Os confrontos serão gerados quando houver equipes reais confirmadas.</p>`}
             </div>
           </div>
         </div>
@@ -564,6 +605,89 @@ function sbwOrganizerEditorClampNumber(value, min, max, fallback) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, number));
+}
+
+function sbwOrganizerEditorApplyTournamentCapacityMode(formatValue = sbwOrganizerTournamentEditFormat?.value || "") {
+  if (!sbwOrganizerTournamentEditMax) return;
+
+  const isTeamBattle = sbwOrganizerEditorIsTeamBattleLeague4v4Format(formatValue);
+  sbwOrganizerTournamentEditMax.min = "2";
+  sbwOrganizerTournamentEditMax.max = "256";
+  sbwOrganizerTournamentEditMax.step = "2";
+  sbwOrganizerTournamentEditMax.placeholder = isTeamBattle ? "Ex: 8 equipes" : "Ex: 32";
+
+  if (sbwOrganizerTournamentEditMaxLabel) {
+    sbwOrganizerTournamentEditMaxLabel.textContent = isTeamBattle ? "Limite de equipes" : "Limite de participantes";
+  }
+
+  if (sbwOrganizerTournamentEditMaxNote) {
+    sbwOrganizerTournamentEditMaxNote.textContent = isTeamBattle
+      ? "No Team Battle League 4v4, este campo representa equipes reais. Use sempre número par; se a quantidade final confirmada for ímpar, a tabela/bracket aplica bye/encaixe conforme planejado."
+      : "Use capacidade em número par. Se o torneio terminar com número ímpar de inscritos reais, a bracket usa bye/encaixe normalmente.";
+  }
+
+  if (String(sbwOrganizerTournamentEditMax.value || "").trim()) {
+    const normalized = sbwOrganizerEditorNormalizeEvenCapacity(sbwOrganizerTournamentEditMax.value, {
+      fallback: isTeamBattle ? 8 : 32
+    });
+    if (String(normalized) !== String(sbwOrganizerTournamentEditMax.value)) {
+      sbwOrganizerTournamentEditMax.value = normalized;
+    }
+  }
+}
+
+function sbwOrganizerEditorGetTournamentCapacityInputValue(formatValue = sbwOrganizerTournamentEditFormat?.value || "") {
+  const normalized = sbwOrganizerEditorNormalizeEvenCapacity(sbwOrganizerTournamentEditMax?.value, {
+    fallback: sbwOrganizerEditorIsTeamBattleLeague4v4Format(formatValue) ? 8 : 32
+  });
+
+  if (sbwOrganizerTournamentEditMax) {
+    sbwOrganizerTournamentEditMax.value = normalized;
+  }
+
+  return normalized;
+}
+
+function sbwOrganizerEditorBuildTeamBattleLeagueSettings(formatValue, context = {}) {
+  if (!sbwOrganizerEditorIsTeamBattleLeague4v4Format(formatValue)) return null;
+
+  const helper = window.SBWTeamBattleLeague;
+
+  if (helper && typeof helper.buildTeamBattleLeagueBasicControlledCreationPayload === "function") {
+    return helper.buildTeamBattleLeagueBasicControlledCreationPayload(context, {
+      leagueMode: "basic_single_division"
+    });
+  }
+
+  const createdAt = new Date().toISOString();
+  const payload = {
+    enabled: true,
+    formatKey: SBW_ORGANIZER_TEAM_BATTLE_4V4_FORMAT,
+    schemaVersion: "tbleague4v4.v1",
+    status: "beta_controlled",
+    leagueMode: "basic_single_division",
+    divisionName: "Divisão Única",
+    source: "real_checkin_only",
+    realTeamsOnly: true,
+    publicMoldBeforeCheckin: true,
+    checkinRequiredBeforeTeams: true,
+    teamSize: 4,
+    startersPerTeamMatch: 3,
+    reservePerTeamMatch: 1,
+    mainMatchPointsBySlot: [10, 10, 20],
+    defaultExtraMatchPoints: 10,
+    createdAt
+  };
+
+  return {
+    settings: payload,
+    metadata: {
+      ...payload,
+      title: context.title || "",
+      game: context.game || "",
+      organizerName: context.organizerName || ""
+    }
+  };
 }
 
 function sbwOrganizerEditorStyleAttribute(...parts) {
@@ -2134,12 +2258,14 @@ function sbwOrganizerEditorOpenParticipantsPanel(tournament) {
   }
 
   if (sbwOrganizerTournamentParticipantsMeta) {
+    const isTeamBattleLeagueTournament = sbwOrganizerEditorIsTeamBattleLeague4v4Format(sbwOrganizerEditorGetTournamentFormatValue(tournament));
+    const unitLabel = isTeamBattleLeagueTournament ? "Equipes reais 4v4" : (typeof sbwGetParticipantsLabel === "function" ? sbwGetParticipantsLabel(tournament) : "Participantes");
     const meta = [
       sbwOrganizerEditorGetTournamentGame(tournament),
       sbwOrganizerEditorGetTournamentDate(tournament),
-      typeof sbwGetParticipantsLabel === "function" ? sbwGetParticipantsLabel(tournament) : "Participantes"
+      unitLabel
     ].filter(Boolean).join(" · ");
-    sbwOrganizerTournamentParticipantsMeta.textContent = meta || "Gerencie inscritos reais da plataforma -SBW-.";
+    sbwOrganizerTournamentParticipantsMeta.textContent = meta || (isTeamBattleLeagueTournament ? "Gerencie equipes reais da plataforma -SBW-." : "Gerencie inscritos reais da plataforma -SBW-.");
   }
 
   if (sbwOrganizerTournamentParticipantsPublicLink) {
@@ -2249,11 +2375,12 @@ function sbwOrganizerEditorOpenTournamentEditForm(tournament) {
   if (sbwOrganizerTournamentEditName) sbwOrganizerTournamentEditName.value = sbwOrganizerEditorGetTournamentTitle(tournament);
   if (sbwOrganizerTournamentEditGame) sbwOrganizerTournamentEditGame.value = sbwOrganizerEditorGetTournamentGame(tournament);
   if (sbwOrganizerTournamentEditFormat) sbwOrganizerTournamentEditFormat.value = sbwOrganizerEditorGetTournamentFormatValue(tournament);
-  sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat?.value);
   if (sbwOrganizerTournamentEditStatus) sbwOrganizerTournamentEditStatus.value = tournament?.status || tournament?.raw?.status || "draft";
   if (sbwOrganizerTournamentEditStartDate) sbwOrganizerTournamentEditStartDate.value = sbwOrganizerEditorFormatInputDate(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.date);
   if (sbwOrganizerTournamentEditStartTime) sbwOrganizerTournamentEditStartTime.value = sbwOrganizerEditorFormatInputTime(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.time);
   if (sbwOrganizerTournamentEditMax) sbwOrganizerTournamentEditMax.value = tournament?.maxParticipants || tournament?.max_participants || tournament?.raw?.max_participants || "";
+  sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat?.value);
+  sbwOrganizerEditorApplyTournamentCapacityMode(sbwOrganizerTournamentEditFormat?.value);
   sbwOrganizerEditorSetTournamentCoverFrameForm(sbwOrganizerEditorGetTournamentCoverFrame(tournament));
   sbwOrganizerEditorSetTournamentCoverUrl(tournament?.coverUrl || tournament?.cover_url || tournament?.raw?.cover_url || "");
   sbwOrganizerEditorSetTournamentCoverMessage("");
@@ -2319,7 +2446,16 @@ function sbwOrganizerEditorBindTournamentEditor() {
 
   if (sbwOrganizerTournamentEditFormat && sbwOrganizerTournamentEditFormat.dataset.boundFormatPreview !== "true") {
     sbwOrganizerTournamentEditFormat.dataset.boundFormatPreview = "true";
-    sbwOrganizerTournamentEditFormat.addEventListener("change", () => sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat.value));
+    sbwOrganizerTournamentEditFormat.addEventListener("change", () => {
+      sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat.value);
+      sbwOrganizerEditorApplyTournamentCapacityMode(sbwOrganizerTournamentEditFormat.value);
+    });
+  }
+
+  if (sbwOrganizerTournamentEditMax && sbwOrganizerTournamentEditMax.dataset.boundEvenCapacity !== "true") {
+    sbwOrganizerTournamentEditMax.dataset.boundEvenCapacity = "true";
+    sbwOrganizerTournamentEditMax.addEventListener("change", () => sbwOrganizerEditorGetTournamentCapacityInputValue(sbwOrganizerTournamentEditFormat?.value));
+    sbwOrganizerTournamentEditMax.addEventListener("blur", () => sbwOrganizerEditorGetTournamentCapacityInputValue(sbwOrganizerTournamentEditFormat?.value));
   }
 
   if (sbwOrganizerTournamentEditForm && sbwOrganizerTournamentEditForm.dataset.bound !== "true") {
@@ -2360,6 +2496,19 @@ function sbwOrganizerEditorBindTournamentEditor() {
       const tournamentId = sbwOrganizerTournamentEditId?.value || sbwOrganizerEditorGetTournamentKey(sbwOrganizerEditorEditingTournament);
       const selectedFormat = sbwOrganizerTournamentEditFormat?.value || "double-elimination";
       const formatMetadata = sbwOrganizerEditorGetFormatMetadata(selectedFormat);
+      const capacityValue = sbwOrganizerEditorGetTournamentCapacityInputValue(selectedFormat);
+      const isTeamBattleLeagueTournament = sbwOrganizerEditorIsTeamBattleLeague4v4Format(selectedFormat);
+      const teamBattleLeagueDraft = sbwOrganizerEditorBuildTeamBattleLeagueSettings(selectedFormat, {
+        title,
+        game,
+        organizerName: sbwOrganizerEditorCurrent?.name || sbwOrganizerEditorCurrent?.displayName || sbwOrganizerEditorCurrent?.slug || ""
+      });
+
+      if (!Number.isInteger(capacityValue) || capacityValue < 2 || capacityValue > 256 || capacityValue % 2 !== 0) {
+        sbwOrganizerEditorSetTournamentEditMessage(`O limite de ${isTeamBattleLeagueTournament ? "equipes" : "participantes"} precisa estar entre 2 e 256 e sempre em número par.`, "error");
+        sbwOrganizerTournamentEditMax?.focus();
+        return;
+      }
 
       if (!sbwOrganizerEditorIsFormatAvailableForSave(selectedFormat)) {
         sbwOrganizerEditorRenderFormatPreview(selectedFormat);
@@ -2385,7 +2534,7 @@ function sbwOrganizerEditorBindTournamentEditor() {
             format_label: formatMetadata.label,
             status: sbwOrganizerTournamentEditStatus?.value || "draft",
             starts_at: startsAt,
-            max_participants: sbwOrganizerTournamentEditMax?.value || null,
+            max_participants: capacityValue || null,
             cover_url: sbwOrganizerTournamentEditCover?.value || "",
             description: sbwOrganizerTournamentEditDescription?.value || "",
             rules: sbwOrganizerTournamentEditRules?.value || "",
@@ -2393,10 +2542,32 @@ function sbwOrganizerEditorBindTournamentEditor() {
               formatConfig: formatMetadata,
               formatFamily: formatMetadata.family,
               formatStatus: formatMetadata.status,
-              teamMode: formatMetadata.teamMode
+              teamMode: formatMetadata.teamMode,
+              maxPlayers: capacityValue,
+              maxParticipants: capacityValue,
+              participantCapacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
+              capacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
+              ...(isTeamBattleLeagueTournament ? {
+                maxTeams: capacityValue,
+                teamLimit: capacityValue,
+                teamCapacity: capacityValue
+              } : {}),
+              ...(teamBattleLeagueDraft ? {
+                teamBattleLeague: teamBattleLeagueDraft.settings,
+                team_battle_league: teamBattleLeagueDraft.settings
+              } : {})
             },
             metadata: {
-              format: formatMetadata
+              format: formatMetadata,
+              capacity: {
+                value: capacityValue,
+                unit: isTeamBattleLeagueTournament ? "teams" : "participants",
+                evenOnly: true
+              },
+              ...(teamBattleLeagueDraft ? {
+                teamBattleLeague: teamBattleLeagueDraft.metadata,
+                team_battle_league: teamBattleLeagueDraft.metadata
+              } : {})
             },
             tournamentAssets: {
               cover: {

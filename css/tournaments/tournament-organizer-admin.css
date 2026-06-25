@@ -3675,3 +3675,14 @@
     grid-template-columns: 1fr;
   }
 }
+
+.organizer-admin-team-battle-round-preview article.is-bye {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(168, 85, 247, 0.06));
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.organizer-admin-team-battle-round-preview article.is-bye em {
+  color: rgba(125, 211, 252, 0.95);
+}

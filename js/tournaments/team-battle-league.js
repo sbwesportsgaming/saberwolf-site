@@ -756,11 +756,43 @@
     };
   }
 
+  function createRoundByeEntry(team = {}, round = 1, order = 1, options = {}) {
+    const source = normalizeTeamEntry(team, order);
+    const safeRound = clampNumber(round, 1, 99, 1);
+    const safeOrder = clampNumber(order, 1, 999, 1);
+    const label = cleanText(options.label, `${source.name} — folga na rodada`);
+
+    return {
+      id: cleanText(options.id, `round-${safeRound}-bye-${source.id || safeOrder}`),
+      type: "bye",
+      status: "bye",
+      round: safeRound,
+      order: safeOrder,
+      teamId: source.id,
+      teamSlug: source.slug,
+      teamName: source.name,
+      teamTag: source.tag,
+      label,
+      description: cleanText(
+        options.description,
+        "Quantidade ímpar de equipes confirmadas: esta equipe descansa nesta rodada e não recebe pontos automáticos."
+      ),
+      isTechnicalBye: true,
+      countsAsMatch: false,
+      countsForStandings: false,
+      metadata: {
+        source: "team-battle-round-robin-bye",
+        reason: "odd-team-count",
+        noFakeTeam: true
+      }
+    };
+  }
+
   function buildRoundRobinPairings(teams = []) {
     const sourceTeams = asArray(teams).map((team, index) => normalizeTeamEntry(team, index + 1));
     const hasBye = sourceTeams.length % 2 !== 0;
     const rotationTeams = hasBye
-      ? [...sourceTeams, { id: "__bye__", name: "Folga", isBye: true }]
+      ? [...sourceTeams, { id: "__bye__", name: "Folga técnica", isBye: true }]
       : [...sourceTeams];
     const rounds = [];
     const roundsCount = Math.max(0, rotationTeams.length - 1);
@@ -769,12 +801,21 @@
 
     for (let roundIndex = 0; roundIndex < roundsCount; roundIndex += 1) {
       const matches = [];
+      const byes = [];
 
       for (let pairIndex = 0; pairIndex < half; pairIndex += 1) {
         const first = pool[pairIndex];
         const second = pool[pool.length - 1 - pairIndex];
 
-        if (!first || !second || first.isBye || second.isBye) continue;
+        if (!first || !second) continue;
+
+        if (first.isBye || second.isBye) {
+          const byeTeam = first.isBye ? second : first;
+          if (byeTeam && !byeTeam.isBye) {
+            byes.push(createRoundByeEntry(byeTeam, roundIndex + 1, byes.length + 1));
+          }
+          continue;
+        }
 
         const invertHomeAway = (roundIndex + pairIndex) % 2 === 1;
         matches.push({
@@ -789,7 +830,15 @@
         id: `round-${roundIndex + 1}`,
         round: roundIndex + 1,
         label: `Rodada ${roundIndex + 1}`,
-        matches
+        matches,
+        byes,
+        byeCount: byes.length,
+        hasBye: byes.length > 0,
+        metadata: {
+          source: "team-battle-round-robin",
+          hasOddTeamCount: hasBye,
+          noFakeTeam: true
+        }
       });
 
       pool = [pool[0], pool[pool.length - 1], ...pool.slice(1, pool.length - 1)];
@@ -805,6 +854,14 @@
     const pairingRounds = buildRoundRobinPairings(normalizedTeams);
 
     const rounds = pairingRounds.map((round) => {
+      const byes = asArray(round.byes).map((bye, byeIndex) => ({
+        ...bye,
+        id: cleanText(bye.id, `${source.id}-r${round.round}-bye-${byeIndex + 1}`),
+        divisionId: source.id,
+        round: round.round,
+        order: byeIndex + 1
+      }));
+
       return {
         ...round,
         divisionId: source.id,
@@ -815,7 +872,10 @@
           homeTeamId: match.homeTeamId,
           awayTeamId: match.awayTeamId,
           status: TEAM_MATCH_STATUS.DRAFT
-        }, config))
+        }, config)),
+        byes,
+        byeCount: byes.length,
+        hasBye: byes.length > 0
       };
     });
 
@@ -1781,12 +1841,50 @@
     };
   }
 
+  function buildRoundByePublicSummary(bye = {}, options = {}) {
+    const source = asObject(bye);
+    const teams = asArray(options.teams);
+    const team = findTeamReference(teams, source.teamId || source.team_id || source.id) || {
+      id: source.teamId || source.team_id,
+      slug: source.teamSlug || source.team_slug,
+      name: source.teamName || source.name || "Equipe em folga",
+      tag: source.teamTag || source.tag
+    };
+    const safeRound = clampNumber(source.round || options.round, 1, 99, 1);
+
+    return {
+      id: cleanText(source.id, `round-${safeRound}-bye-${source.teamId || source.teamName || "team"}`),
+      type: "bye",
+      status: "bye",
+      round: safeRound,
+      divisionId: cleanText(source.divisionId || options.divisionId),
+      teamId: cleanText(team.id || source.teamId || source.team_id),
+      teamSlug: cleanText(team.slug || source.teamSlug || source.team_slug),
+      teamName: cleanText(team.name || source.teamName || source.name, "Equipe em folga"),
+      teamLabel: getTeamDisplayLabel(team, cleanText(source.teamName || source.name, "Equipe em folga")),
+      label: cleanText(source.label, "Folga da rodada"),
+      description: cleanText(
+        source.description,
+        "Quantidade ímpar de equipes confirmadas: esta equipe descansa nesta rodada e não recebe pontos automáticos."
+      ),
+      countsAsMatch: false,
+      countsForStandings: false,
+      isTechnicalBye: true
+    };
+  }
+
   function buildRoundPublicSummary(round = {}, options = {}) {
     const source = asObject(round);
     const teams = asArray(options.teams);
     const matches = asArray(source.matches).map((match) => buildTeamMatchPublicSummary(match, {
       ...options,
       teams
+    }));
+    const byes = asArray(source.byes || source.byeTeams || source.bye_teams).map((bye) => buildRoundByePublicSummary(bye, {
+      ...options,
+      teams,
+      round: source.round,
+      divisionId: source.divisionId || options.divisionId
     }));
 
     return {
@@ -1795,6 +1893,9 @@
       label: cleanText(source.label, `Rodada ${source.round || 1}`),
       divisionId: cleanText(source.divisionId || options.divisionId),
       matches,
+      byes,
+      hasBye: byes.length > 0,
+      byeCount: byes.length,
       matchCount: matches.length,
       finishedCount: matches.filter((match) => match.finalized).length
     };
@@ -3676,6 +3777,7 @@
       standings: calculateDivisionStandings({ ...scheduled, rounds: hydratedRounds })
     };
     const matches = flattenDivisionMatches(hydratedDivision);
+    const byes = asArray(hydratedDivision.rounds).flatMap((round) => asArray(round.byes));
     const finished = matches.filter((match) => asObject(match).result?.finalized === true || asObject(match).status === TEAM_MATCH_STATUS.FINISHED).length;
     const playoffPlan = buildLeaguePlayoffPlan([hydratedDivision], { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
     if (!(finished >= matches.length && matches.length > 0)) {
@@ -3694,11 +3796,14 @@
       division: hydratedDivision,
       standings: asArray(hydratedDivision.standings).map((row, index) => normalizeStandingRow(row, index + 1)),
       matches,
+      byes,
+      hasOddTeamCount: teams.length % 2 !== 0,
       playoffPlan,
       playoffPreview: buildTeamBattleLeaguePlayoffPreview(playoffPlan),
       finishedMatches: finished,
       totalMatches: matches.length,
-      summaryLabel: `${teams.length} equipe${teams.length === 1 ? "" : "s"} confirmada${teams.length === 1 ? "" : "s"} · ${finished}/${matches.length} confronto${matches.length === 1 ? "" : "s"} finalizado${matches.length === 1 ? "" : "s"}`,
+      byeCount: byes.length,
+      summaryLabel: `${teams.length} equipe${teams.length === 1 ? "" : "s"} confirmada${teams.length === 1 ? "" : "s"} · ${finished}/${matches.length} confronto${matches.length === 1 ? "" : "s"} finalizado${matches.length === 1 ? "" : "s"}${byes.length ? ` · ${byes.length} folga${byes.length === 1 ? "" : "s"} técnica${byes.length === 1 ? "" : "s"}` : ""}`,
       emptyState: null
     };
   }
@@ -3733,6 +3838,13 @@
         : []);
     const firstRound = asArray(division.rounds)[0] || {};
     const matchSource = operational.ready ? operational.matches : asArray(firstRound.matches);
+    const byeSource = operational.ready ? asArray(firstRound.byes) : asArray(firstRound.byes || firstRound.byeTeams || firstRound.bye_teams);
+    const byes = byeSource.slice(0, 4).map((bye, index) => buildRoundByePublicSummary(bye, {
+      ...options,
+      teams,
+      round: firstRound.round || 1,
+      divisionId: division.id || division.divisionId
+    }));
     const matches = matchSource.slice(0, 8).map((match, index) => {
       const item = asObject(match);
       const homeTeam = findTeamReference(teams, item.homeTeamId || item.home_team_id);
@@ -3782,17 +3894,19 @@
       emptyState,
       standings: standings.slice(0, 12),
       matches,
+      byes,
+      hasOddTeamCount: operational.hasOddTeamCount === true || byes.length > 0,
       playoffPreview,
       statusCards: [
         { label: "Modo", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Básico" : "Avançado", detail: getLeagueModeLabel(mode) },
         { label: "Divisões", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "1" : String(Math.max(2, publicOverview.divisionCount || 2)), detail: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Múltiplas divisões" },
-        { label: "Equipes", value: hasRealTeams ? String(teams.length) : "Após check-in", detail: hasRealTeams ? "Equipes reais confirmadas" : "Sem equipes demo" },
-        { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Confrontos da divisão única" : "Após equipes reais" },
+        { label: "Equipes", value: hasRealTeams ? String(teams.length) : "Após check-in", detail: hasRealTeams ? (byes.length ? "Ímpar com folga técnica" : "Equipes reais confirmadas") : "Sem equipes demo" },
+        { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Confrontos reais; folga não pontua" : "Após equipes reais" },
         { label: "Playoffs", value: hasRealTeams ? playoffPreview.statusLabel : "Após tabela", detail: playoffPreview.rulesetLabel }
       ],
       notes: hasRealTeams ? [
         "A Divisão Única foi montada com equipes reais confirmadas no check-in.",
-        "Os confrontos básicos são gerados somente entre equipes reais.",
+        byes.length ? "Como a quantidade de equipes é ímpar, a rodada mostra folga técnica sem criar equipe fake." : "Os confrontos básicos são gerados somente entre equipes reais.",
         "A classificação usa resultados registrados nos metadados do torneio quando disponíveis."
       ] : [
         "Na criação do torneio aparece apenas a configuração do formato.",
@@ -5274,6 +5388,7 @@
     validateTeamMatchLineups,
     createTeamMatchFromTeams,
     validateRoster,
+    createRoundByeEntry,
     buildRoundRobinPairings,
     createDivisionSchedule,
     getLeagueSourceTeams,
@@ -5304,6 +5419,7 @@
     getTeamDisplayLabel,
     buildMatchSlotPublicSummary,
     buildTeamMatchPublicSummary,
+    buildRoundByePublicSummary,
     buildRoundPublicSummary,
     buildDivisionPublicSummary,
     buildLeaguePublicSummary,
