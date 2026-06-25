@@ -22,7 +22,7 @@ Capacidade do torneio: número par.
 Equipes confirmadas no check-in: podem terminar em número ímpar.
 Rodadas: usam folga técnica quando necessário.
 Classificação: ignora folgas.
-Playoffs SFL: continuam usando Top 4 real da Divisão Única.
+Playoffs -SBW-: continuam usando Top 4 real da Divisão Única.
 ```
 
 ## Exemplo

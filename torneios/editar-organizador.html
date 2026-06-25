@@ -282,6 +282,101 @@
 
             <div id="organizerTournamentParticipantsMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
           </section>
+
+
+          <section id="organizerTeamBattleSchedulePanel" class="organizer-admin-team-battle-schedule-panel" hidden>
+            <div class="organizer-admin-edit-form-head organizer-admin-participants-head">
+              <div>
+                <span class="organizer-admin-eyebrow">Agenda 4v4</span>
+                <h3 id="organizerTeamBattleScheduleTitle">Agenda do Team Battle League 4v4</h3>
+                <p id="organizerTeamBattleScheduleMeta">Defina datas, horários, status, observações e transmissão por confronto.</p>
+              </div>
+              <button id="organizerTeamBattleScheduleClose" class="organizer-admin-small-link" type="button">Fechar</button>
+            </div>
+
+            <div class="organizer-admin-participants-toolbar organizer-admin-team-battle-schedule-toolbar">
+              <p>Esse formato é uma liga longa. A data inicial do torneio é apenas referência pública; cada confronto pode ter agenda própria definida pelo organizador.</p>
+              <a id="organizerTeamBattleSchedulePublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
+            </div>
+
+            <form id="organizerTeamBattleScheduleForm" class="organizer-admin-team-battle-schedule-form">
+              <div id="organizerTeamBattleScheduleList" class="organizer-admin-team-battle-schedule-list">
+                <div class="organizer-admin-empty-row">Selecione um torneio Team Battle League 4v4 para carregar a agenda.</div>
+              </div>
+
+              <div class="organizer-admin-edit-actions organizer-admin-team-battle-schedule-actions">
+                <button id="organizerTeamBattleScheduleSave" class="organizer-admin-action-btn organizer-admin-action-btn--cyan" type="submit">
+                  <i class="fa-solid fa-calendar-check"></i>
+                  Salvar agenda das partidas
+                </button>
+              </div>
+            </form>
+
+            <div id="organizerTeamBattleScheduleMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+          </section>
+
+          <section id="organizerTeamBattleResultsPanel" class="organizer-admin-team-battle-results-panel" hidden>
+            <div class="organizer-admin-edit-form-head organizer-admin-participants-head">
+              <div>
+                <span class="organizer-admin-eyebrow">Resultados 4v4</span>
+                <h3 id="organizerTeamBattleResultsTitle">Resultados do Team Battle League 4v4</h3>
+                <p id="organizerTeamBattleResultsMeta">Lance os vencedores das partidas principais e da partida extra quando houver empate.</p>
+              </div>
+              <button id="organizerTeamBattleResultsClose" class="organizer-admin-small-link" type="button">Fechar</button>
+            </div>
+
+            <div class="organizer-admin-participants-toolbar organizer-admin-team-battle-results-toolbar">
+              <p>Use esta área para registrar os confrontos reais da liga. A pontuação segue 10 / 10 / 20 e +10 na partida extra somente em caso de empate.</p>
+              <a id="organizerTeamBattleResultsPublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
+            </div>
+
+            <form id="organizerTeamBattleResultsForm" class="organizer-admin-team-battle-results-form">
+              <div id="organizerTeamBattleResultsList" class="organizer-admin-team-battle-results-list">
+                <div class="organizer-admin-empty-row">Selecione um torneio Team Battle League 4v4 para lançar resultados.</div>
+              </div>
+
+              <div class="organizer-admin-edit-actions organizer-admin-team-battle-results-actions">
+                <button id="organizerTeamBattleResultsSave" class="organizer-admin-action-btn organizer-admin-action-btn--cyan" type="submit">
+                  <i class="fa-solid fa-square-poll-vertical"></i>
+                  Salvar resultados 4v4
+                </button>
+              </div>
+            </form>
+
+            <div id="organizerTeamBattleResultsMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+          </section>
+
+
+          <section id="organizerTeamBattlePlayoffsPanel" class="organizer-admin-team-battle-playoffs-panel" hidden>
+            <div class="organizer-admin-edit-form-head organizer-admin-participants-head">
+              <div>
+                <span class="organizer-admin-eyebrow">Playoffs 4v4</span>
+                <h3 id="organizerTeamBattlePlayoffsTitle">Playoffs do Team Battle League 4v4</h3>
+                <p id="organizerTeamBattlePlayoffsMeta">Libere a escada -SBW- a partir do Top 4 real da Divisão Única.</p>
+              </div>
+              <button id="organizerTeamBattlePlayoffsClose" class="organizer-admin-small-link" type="button">Fechar</button>
+            </div>
+
+            <div class="organizer-admin-participants-toolbar organizer-admin-team-battle-playoffs-toolbar">
+              <p>Os playoffs só devem ser liberados depois que todos os confrontos reais da fase classificatória estiverem finalizados. O sistema usa o Top 4 real, sem equipe fake/demo.</p>
+              <a id="organizerTeamBattlePlayoffsPublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
+            </div>
+
+            <form id="organizerTeamBattlePlayoffsForm" class="organizer-admin-team-battle-playoffs-form">
+              <div id="organizerTeamBattlePlayoffsList" class="organizer-admin-team-battle-playoffs-list">
+                <div class="organizer-admin-empty-row">Selecione um torneio Team Battle League 4v4 para liberar playoffs.</div>
+              </div>
+
+              <div class="organizer-admin-edit-actions organizer-admin-team-battle-playoffs-actions">
+                <button id="organizerTeamBattlePlayoffsSave" class="organizer-admin-action-btn organizer-admin-action-btn--cyan" type="submit">
+                  <i class="fa-solid fa-trophy"></i>
+                  Liberar playoffs -SBW-
+                </button>
+              </div>
+            </form>
+
+            <div id="organizerTeamBattlePlayoffsMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
+          </section>
         </article>
 
         <article id="organizerEditorRankings" class="organizer-admin-card organizer-admin-card--full" data-organizer-admin-panel="rankings" hidden>

@@ -6796,7 +6796,7 @@
   }
 }
 
-/* v1.6.76.0 — Playoffs SFL Capcom do Team Battle League 4v4 */
+/* v1.6.76.0 — Playoffs -SBW- do Team Battle League 4v4 */
 .overview-team-battle-playoff-preview {
   display: grid;
   gap: 14px;
@@ -7074,4 +7074,51 @@
     justify-self: stretch;
     text-align: center;
   }
+}
+
+/* v1.6.76.4 — agenda pública dos confrontos Team Battle League 4v4 */
+.overview-team-battle-round-preview__note {
+  margin-top: 7px !important;
+  color: rgba(203, 213, 225, 0.74) !important;
+  font-size: 0.75rem !important;
+  line-height: 1.45 !important;
+}
+
+.overview-team-battle-round-preview__stream {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  padding: 6px 9px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 999px;
+  background: rgba(8, 145, 178, 0.10);
+  color: #67e8f9;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+/* v1.6.76.7 — classificação operacional oficial Team Battle League 4v4 */
+.overview-team-battle-standings-status {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  background: rgba(34, 211, 238, 0.07);
+}
+
+.overview-team-battle-standings-status strong {
+  color: rgba(165, 243, 252, 0.96);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.overview-team-battle-standings-status span {
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }

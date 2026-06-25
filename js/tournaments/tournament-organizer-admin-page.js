@@ -63,6 +63,33 @@ const sbwOrganizerTournamentParticipantsRegistered = document.getElementById("or
 const sbwOrganizerTournamentParticipantsCheckedIn = document.getElementById("organizerTournamentParticipantsCheckedIn");
 const sbwOrganizerTournamentParticipantsWaitlist = document.getElementById("organizerTournamentParticipantsWaitlist");
 const sbwOrganizerTournamentParticipantsRemoved = document.getElementById("organizerTournamentParticipantsRemoved");
+const sbwOrganizerTeamBattleSchedulePanel = document.getElementById("organizerTeamBattleSchedulePanel");
+const sbwOrganizerTeamBattleScheduleTitle = document.getElementById("organizerTeamBattleScheduleTitle");
+const sbwOrganizerTeamBattleScheduleMeta = document.getElementById("organizerTeamBattleScheduleMeta");
+const sbwOrganizerTeamBattleScheduleClose = document.getElementById("organizerTeamBattleScheduleClose");
+const sbwOrganizerTeamBattleSchedulePublicLink = document.getElementById("organizerTeamBattleSchedulePublicLink");
+const sbwOrganizerTeamBattleScheduleForm = document.getElementById("organizerTeamBattleScheduleForm");
+const sbwOrganizerTeamBattleScheduleList = document.getElementById("organizerTeamBattleScheduleList");
+const sbwOrganizerTeamBattleScheduleSave = document.getElementById("organizerTeamBattleScheduleSave");
+const sbwOrganizerTeamBattleScheduleMessage = document.getElementById("organizerTeamBattleScheduleMessage");
+const sbwOrganizerTeamBattleResultsPanel = document.getElementById("organizerTeamBattleResultsPanel");
+const sbwOrganizerTeamBattleResultsTitle = document.getElementById("organizerTeamBattleResultsTitle");
+const sbwOrganizerTeamBattleResultsMeta = document.getElementById("organizerTeamBattleResultsMeta");
+const sbwOrganizerTeamBattleResultsClose = document.getElementById("organizerTeamBattleResultsClose");
+const sbwOrganizerTeamBattleResultsPublicLink = document.getElementById("organizerTeamBattleResultsPublicLink");
+const sbwOrganizerTeamBattleResultsForm = document.getElementById("organizerTeamBattleResultsForm");
+const sbwOrganizerTeamBattleResultsList = document.getElementById("organizerTeamBattleResultsList");
+const sbwOrganizerTeamBattleResultsSave = document.getElementById("organizerTeamBattleResultsSave");
+const sbwOrganizerTeamBattleResultsMessage = document.getElementById("organizerTeamBattleResultsMessage");
+const sbwOrganizerTeamBattlePlayoffsPanel = document.getElementById("organizerTeamBattlePlayoffsPanel");
+const sbwOrganizerTeamBattlePlayoffsTitle = document.getElementById("organizerTeamBattlePlayoffsTitle");
+const sbwOrganizerTeamBattlePlayoffsMeta = document.getElementById("organizerTeamBattlePlayoffsMeta");
+const sbwOrganizerTeamBattlePlayoffsClose = document.getElementById("organizerTeamBattlePlayoffsClose");
+const sbwOrganizerTeamBattlePlayoffsPublicLink = document.getElementById("organizerTeamBattlePlayoffsPublicLink");
+const sbwOrganizerTeamBattlePlayoffsForm = document.getElementById("organizerTeamBattlePlayoffsForm");
+const sbwOrganizerTeamBattlePlayoffsList = document.getElementById("organizerTeamBattlePlayoffsList");
+const sbwOrganizerTeamBattlePlayoffsSave = document.getElementById("organizerTeamBattlePlayoffsSave");
+const sbwOrganizerTeamBattlePlayoffsMessage = document.getElementById("organizerTeamBattlePlayoffsMessage");
 
 let sbwOrganizerEditorCurrent = null;
 let sbwOrganizerEditorSlug = "";
@@ -70,7 +97,13 @@ let sbwOrganizerEditorIsNew = false;
 let sbwOrganizerEditorTournamentsCache = [];
 let sbwOrganizerEditorEditingTournament = null;
 let sbwOrganizerEditorManagingTournament = null;
+let sbwOrganizerEditorSchedulingTournament = null;
+let sbwOrganizerEditorResultsTournament = null;
+let sbwOrganizerEditorPlayoffsTournament = null;
 let sbwOrganizerEditorParticipantsCache = [];
+let sbwOrganizerTeamBattleScheduleRowsCache = [];
+let sbwOrganizerTeamBattleResultsRowsCache = [];
+let sbwOrganizerTeamBattlePlayoffsStateCache = null;
 let sbwOrganizerSeasonTournamentFilter = "all";
 let sbwOrganizerSeasonTournamentSearch = "";
 
@@ -125,6 +158,289 @@ function sbwOrganizerEditorEscape(value) {
 
 function sbwOrganizerEditorAsObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function sbwOrganizerEditorCleanKey(value, fallback = "") {
+  const text = String(value || fallback || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return text || fallback;
+}
+
+function sbwOrganizerEditorGetTeamBattleData(tournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  return sbwOrganizerEditorAsObject(
+    metadata.teamBattleLeague ||
+    metadata.team_battle_league ||
+    settings.teamBattleLeague ||
+    settings.team_battle_league
+  );
+}
+
+function sbwOrganizerEditorGetTeamBattleScheduleSavedMatches(tournament) {
+  const helper = window.SBWTeamBattleLeague;
+  if (helper && typeof helper.getTeamBattleSavedMatchResults === "function") {
+    const matches = helper.getTeamBattleSavedMatchResults(tournament || {});
+    if (Array.isArray(matches)) return matches;
+  }
+
+  const teamBattle = sbwOrganizerEditorGetTeamBattleData(tournament);
+  return [
+    tournament?.teamBattleMatches,
+    tournament?.team_battle_matches,
+    tournament?.teamMatches,
+    tournament?.team_matches,
+    teamBattle.matches,
+    teamBattle.teamMatches,
+    teamBattle.team_matches,
+    teamBattle.results,
+    sbwOrganizerEditorAsObject(teamBattle.results).matches
+  ].find((items) => Array.isArray(items)) || [];
+}
+
+function sbwOrganizerEditorGetTeamBattleMatchMergeKey(match = {}) {
+  const item = sbwOrganizerEditorAsObject(match);
+  const id = String(item.id || item.matchId || item.match_id || "").trim();
+  if (id) return `id:${id}`;
+
+  const home = sbwOrganizerEditorCleanKey(item.homeTeamId || item.home_team_id || item.homeTeamSlug || item.home_team_slug || item.home?.id || item.home?.slug);
+  const away = sbwOrganizerEditorCleanKey(item.awayTeamId || item.away_team_id || item.awayTeamSlug || item.away_team_slug || item.away?.id || item.away?.slug);
+  const round = String(item.round || item.roundNumber || item.round_number || 1).trim() || "1";
+  return `pair:${round}:${home}:${away}`;
+}
+
+function sbwOrganizerEditorGetTeamBattleMatchLabel(match = {}, fallback = "Confronto") {
+  const item = sbwOrganizerEditorAsObject(match);
+  return String(item.label || item.roundLabel || item.round_label || fallback || "Confronto").trim();
+}
+
+function sbwOrganizerEditorGetTeamBattleTeamLabel(match = {}, side = "home") {
+  const item = sbwOrganizerEditorAsObject(match);
+  const team = side === "away"
+    ? sbwOrganizerEditorAsObject(item.away || item.awayTeam || item.away_team)
+    : sbwOrganizerEditorAsObject(item.home || item.homeTeam || item.home_team);
+  const id = side === "away" ? item.awayTeamId || item.away_team_id : item.homeTeamId || item.home_team_id;
+  const name = side === "away"
+    ? item.awayTeamName || item.away_team_name || item.metadata?.awayTeamName
+    : item.homeTeamName || item.home_team_name || item.metadata?.homeTeamName;
+  const tag = team.tag || team.teamTag || team.team_tag || "";
+  const finalName = name || team.name || team.teamName || team.team_name || team.displayName || team.display_name || id || (side === "away" ? "Visitante" : "Mandante");
+
+  return tag ? `${tag} ${finalName}` : finalName;
+}
+
+function sbwOrganizerEditorNormalizeTeamBattleSchedule(match = {}) {
+  const helper = window.SBWTeamBattleLeague;
+  if (helper && typeof helper.normalizeMatchSchedule === "function") {
+    return helper.normalizeMatchSchedule(match, { leagueMode: "basic_single_division" });
+  }
+
+  const schedule = sbwOrganizerEditorAsObject(match.schedule || match.scheduling || match.matchSchedule || match.match_schedule);
+  const date = String(schedule.date || schedule.scheduledDate || match.scheduledDate || "").slice(0, 10);
+  const time = String(schedule.time || schedule.scheduledTime || match.scheduledTime || "").slice(0, 5);
+  const status = String(schedule.status || match.scheduleStatus || "to_define").trim() || "to_define";
+  const label = date ? `${date.split("-").reverse().join("/")}${time ? ` · ${time}` : ""}` : "A definir pelo organizador";
+
+  return {
+    status,
+    statusLabel: status === "scheduled" ? "Agendado" : status === "live" ? "Ao vivo" : status === "postponed" ? "Adiado/remarcando" : status === "finished" ? "Finalizado" : status === "cancelled" ? "Cancelado" : "A definir pelo organizador",
+    label,
+    date,
+    time,
+    scheduledAt: date ? `${date}T${time || "00:00"}:00` : "",
+    timezone: schedule.timezone || "America/Sao_Paulo",
+    note: schedule.note || schedule.notes || schedule.observation || "",
+    streamUrl: schedule.streamUrl || schedule.stream_url || schedule.broadcastUrl || ""
+  };
+}
+
+function sbwOrganizerEditorBuildTeamBattleScheduleRows(tournament) {
+  const helper = window.SBWTeamBattleLeague;
+  const state = helper && typeof helper.buildTeamBattleLeagueBasicPublicState === "function"
+    ? helper.buildTeamBattleLeagueBasicPublicState(tournament || {}, { leagueMode: "basic_single_division" })
+    : null;
+  const division = sbwOrganizerEditorAsObject(state?.division);
+  const rounds = Array.isArray(division.rounds) ? division.rounds : [];
+
+  return rounds.flatMap((round, roundIndex) => {
+    const matches = Array.isArray(round.matches) ? round.matches : [];
+    return matches.map((match, matchIndex) => {
+      const item = sbwOrganizerEditorAsObject(match);
+      const schedule = sbwOrganizerEditorNormalizeTeamBattleSchedule(item);
+      const id = String(item.id || item.matchId || item.match_id || `round-${roundIndex + 1}-match-${matchIndex + 1}`);
+
+      return {
+        id,
+        key: sbwOrganizerEditorGetTeamBattleMatchMergeKey({ ...item, id }),
+        round: Number(item.round || round.round || roundIndex + 1) || roundIndex + 1,
+        roundLabel: String(round.label || round.name || `Rodada ${roundIndex + 1}`),
+        label: sbwOrganizerEditorGetTeamBattleMatchLabel(item, `Confronto ${matchIndex + 1}`),
+        homeTeamLabel: sbwOrganizerEditorGetTeamBattleTeamLabel(item, "home"),
+        awayTeamLabel: sbwOrganizerEditorGetTeamBattleTeamLabel(item, "away"),
+        source: item,
+        schedule
+      };
+    });
+  });
+}
+
+function sbwOrganizerEditorSetTeamBattleScheduleMessage(message, type = "") {
+  if (!sbwOrganizerTeamBattleScheduleMessage) return;
+  sbwOrganizerTeamBattleScheduleMessage.textContent = message || "";
+  sbwOrganizerTeamBattleScheduleMessage.classList.remove("is-error", "is-success", "is-loading");
+  if (type) sbwOrganizerTeamBattleScheduleMessage.classList.add(`is-${type}`);
+}
+
+function sbwOrganizerEditorSetTeamBattleResultsMessage(message, type = "") {
+  if (!sbwOrganizerTeamBattleResultsMessage) return;
+  sbwOrganizerTeamBattleResultsMessage.textContent = message || "";
+  sbwOrganizerTeamBattleResultsMessage.classList.remove("is-error", "is-success", "is-loading");
+  if (type) sbwOrganizerTeamBattleResultsMessage.classList.add(`is-${type}`);
+}
+
+function sbwOrganizerEditorSetTeamBattlePlayoffsMessage(message, type = "") {
+  if (!sbwOrganizerTeamBattlePlayoffsMessage) return;
+  sbwOrganizerTeamBattlePlayoffsMessage.textContent = message || "";
+  sbwOrganizerTeamBattlePlayoffsMessage.classList.remove("is-error", "is-success", "is-loading");
+  if (type) sbwOrganizerTeamBattlePlayoffsMessage.classList.add(`is-${type}`);
+}
+
+function sbwOrganizerEditorGetTeamBattleSlotPoints(slot = 1) {
+  const index = Number(slot) || 1;
+  if (index === 3) return 20;
+  return 10;
+}
+
+function sbwOrganizerEditorNormalizeTeamBattleResultSlot(slot = {}, slotIndex = 1) {
+  const item = sbwOrganizerEditorAsObject(slot);
+  const score = sbwOrganizerEditorAsObject(item.score);
+  const winnerSide = String(item.winnerSide || item.winner_side || "").trim().toLowerCase();
+  const safeWinner = winnerSide === "home" || winnerSide === "away" ? winnerSide : "";
+  const points = Number(item.points || sbwOrganizerEditorGetTeamBattleSlotPoints(slotIndex));
+
+  return {
+    slot: Number(item.slot || slotIndex) || slotIndex,
+    type: item.type === "extra" ? "extra" : "main",
+    label: String(item.label || (item.type === "extra" ? "Partida extra" : `Partida ${slotIndex}`)),
+    winnerSide: safeWinner,
+    points: Number.isFinite(points) ? points : sbwOrganizerEditorGetTeamBattleSlotPoints(slotIndex),
+    score: {
+      home: Number(score.home ?? score.homeScore ?? score.home_score ?? 0) || 0,
+      away: Number(score.away ?? score.awayScore ?? score.away_score ?? 0) || 0
+    },
+    status: safeWinner ? "finished" : String(item.status || "draft"),
+    metadata: sbwOrganizerEditorAsObject(item.metadata)
+  };
+}
+
+function sbwOrganizerEditorGetTeamBattleResultSummary(match = {}) {
+  const helper = window.SBWTeamBattleLeague;
+  if (helper && typeof helper.finalizeTeamMatchResult === "function") {
+    const finalized = helper.finalizeTeamMatchResult(match, { leagueMode: "basic_single_division" });
+    const result = sbwOrganizerEditorAsObject(finalized.result);
+    return {
+      status: String(finalized.status || "draft"),
+      homePoints: Number(result.homePoints || 0),
+      awayPoints: Number(result.awayPoints || 0),
+      homeWins: Number(result.homeWins || 0),
+      awayWins: Number(result.awayWins || 0),
+      extraRequired: result.extraRequired === true,
+      finalized: result.finalized === true,
+      winnerSide: String(result.winnerSide || "")
+    };
+  }
+
+  const slots = [...(Array.isArray(match.matches) ? match.matches : []), match.extraMatch].filter(Boolean);
+  return slots.reduce((acc, slot) => {
+    const item = sbwOrganizerEditorNormalizeTeamBattleResultSlot(slot, slot?.slot || 1);
+    if (!item.winnerSide) return acc;
+    if (item.winnerSide === "home") {
+      acc.homePoints += item.points;
+      acc.homeWins += 1;
+    } else {
+      acc.awayPoints += item.points;
+      acc.awayWins += 1;
+    }
+    return acc;
+  }, { status: "draft", homePoints: 0, awayPoints: 0, homeWins: 0, awayWins: 0, extraRequired: false, finalized: false, winnerSide: "" });
+}
+
+function sbwOrganizerEditorBuildTeamBattleResultsRows(tournament) {
+  const rows = sbwOrganizerEditorBuildTeamBattleScheduleRows(tournament);
+
+  return rows.map((row) => {
+    const source = sbwOrganizerEditorAsObject(row.source);
+    const matches = Array.isArray(source.matches) ? source.matches : [];
+    const mainMatches = [1, 2, 3].map((slotIndex) => {
+      const current = matches.find((match) => Number(match?.slot || 0) === slotIndex) || matches[slotIndex - 1] || {};
+      return sbwOrganizerEditorNormalizeTeamBattleResultSlot({
+        ...current,
+        slot: slotIndex,
+        type: "main",
+        label: current.label || `Partida ${slotIndex}`,
+        points: current.points || sbwOrganizerEditorGetTeamBattleSlotPoints(slotIndex)
+      }, slotIndex);
+    });
+    const extraMatch = source.extraMatch || source.extra_match || {};
+    const normalizedExtra = sbwOrganizerEditorNormalizeTeamBattleResultSlot({
+      ...extraMatch,
+      slot: 4,
+      type: "extra",
+      label: extraMatch.label || "Partida extra",
+      points: extraMatch.points || 10
+    }, 4);
+    const summary = sbwOrganizerEditorGetTeamBattleResultSummary({
+      ...source,
+      matches: mainMatches,
+      extraMatch: normalizedExtra.winnerSide ? normalizedExtra : null
+    });
+
+    return {
+      ...row,
+      mainMatches,
+      extraMatch: normalizedExtra,
+      resultSummary: summary
+    };
+  });
+}
+
+function sbwOrganizerEditorRenderTeamBattleSlotFields(row, slot, options = {}) {
+  const homeLabel = row.homeTeamLabel || "Mandante";
+  const awayLabel = row.awayTeamLabel || "Visitante";
+  const isExtra = options.extra === true;
+  const slotId = isExtra ? "extra" : String(slot.slot || 1);
+  const score = sbwOrganizerEditorAsObject(slot.score);
+
+  return `
+    <div class="organizer-admin-team-battle-result-slot ${isExtra ? "is-extra" : ""}" data-team-battle-result-slot="${sbwOrganizerEditorEscape(slotId)}">
+      <div class="organizer-admin-team-battle-result-slot__label">
+        <strong>${sbwOrganizerEditorEscape(slot.label || (isExtra ? "Partida extra" : `Partida ${slot.slot || 1}`))}</strong>
+        <span>${Number(slot.points || 0) || sbwOrganizerEditorGetTeamBattleSlotPoints(slot.slot)} pts</span>
+      </div>
+      <label>
+        Vencedor
+        <select data-team-battle-result-field="winnerSide" data-team-battle-result-slot-field="${sbwOrganizerEditorEscape(slotId)}">
+          <option value="" ${!slot.winnerSide ? "selected" : ""}>A definir</option>
+          <option value="home" ${slot.winnerSide === "home" ? "selected" : ""}>${sbwOrganizerEditorEscape(homeLabel)}</option>
+          <option value="away" ${slot.winnerSide === "away" ? "selected" : ""}>${sbwOrganizerEditorEscape(awayLabel)}</option>
+        </select>
+      </label>
+      <label>
+        Placar ${sbwOrganizerEditorEscape(homeLabel)}
+        <input type="number" min="0" max="9" step="1" data-team-battle-result-field="homeScore" data-team-battle-result-slot-field="${sbwOrganizerEditorEscape(slotId)}" value="${Number(score.home || 0)}">
+      </label>
+      <label>
+        Placar ${sbwOrganizerEditorEscape(awayLabel)}
+        <input type="number" min="0" max="9" step="1" data-team-battle-result-field="awayScore" data-team-battle-result-slot-field="${sbwOrganizerEditorEscape(slotId)}" value="${Number(score.away || 0)}">
+      </label>
+    </div>
+  `;
 }
 
 
@@ -327,7 +643,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const releaseChecks = [
     "Formato em beta controlado para criação do MVP básico.",
     "Primeira liberação deve usar somente divisão única.",
-    "Playoffs básicos seguem a escada SFL: Top 4, FT50/FT70, sem partida extra.",
+    "Playoffs básicos seguem a escada -SBW-: Top 4, FT50/FT70, sem partida extra.",
     "Agenda das partidas fica sob controle do organizador por ser campeonato longo.",
     "Modo com várias divisões fica reservado para etapa avançada com Top 3 por divisão."
   ];
@@ -349,6 +665,9 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const setupFields = Array.isArray(setupPreview?.fields) ? setupPreview.fields.slice(0, 8) : [];
   const setupCards = Array.isArray(setupPreview?.cards) ? setupPreview.cards.slice(0, 4) : [];
   const boardStandings = Array.isArray(visualBoard?.standings) ? visualBoard.standings.slice(0, 4) : [];
+  const boardStandingsStatus = visualBoard?.standingsStatus || null;
+  const boardStandingsStatusLabel = boardStandingsStatus?.progressLabel || (boardStandings.length ? "Classificação oficial" : "Aguardando classificação");
+  const boardStandingsStatusDetail = boardStandingsStatus?.detailLabel || "Somente confrontos finalizados entram na tabela.";
   const boardMatches = Array.isArray(visualBoard?.matches) ? visualBoard.matches.slice(0, 2) : [];
   const boardByes = Array.isArray(visualBoard?.byes) ? visualBoard.byes.slice(0, 2) : [];
   const playoffPreview = visualBoard?.playoffPreview || null;
@@ -510,12 +829,13 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
           </div>
           <div class="organizer-admin-team-battle-board__grid">
             <div class="organizer-admin-team-battle-standings-preview">
-              <strong>Classificação</strong>
+              <strong>Classificação oficial</strong>
+              <small class="organizer-admin-team-battle-standings-status">${sbwOrganizerEditorEscape(boardStandingsStatusLabel)} · ${sbwOrganizerEditorEscape(boardStandingsStatusDetail)}</small>
               ${boardStandings.length ? boardStandings.map((row, index) => `
                 <div>
                   <span>${sbwOrganizerEditorEscape(row.position || index + 1)}º</span>
                   <strong>${sbwOrganizerEditorEscape(row.teamName || row.name || "Equipe confirmada")}</strong>
-                  <small>${sbwOrganizerEditorEscape(row.battlePoints || 0)} pts · ${sbwOrganizerEditorEscape(row.teamMatchWins || 0)}V</small>
+                  <small>${sbwOrganizerEditorEscape(row.battlePoints || 0)} pts · ${sbwOrganizerEditorEscape(row.teamMatchWins || 0)}V · ${sbwOrganizerEditorEscape(row.played || 0)}J</small>
                 </div>
               `).join("") : `<p>As equipes reais confirmadas aparecerão aqui após o check-in.</p>`}
             </div>
@@ -543,11 +863,11 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
       ` : ""}
 
       ${playoffPreview ? `
-        <div class="organizer-admin-team-battle-playoffs" aria-label="Playoffs SFL do Team Battle League 4v4">
+        <div class="organizer-admin-team-battle-playoffs" aria-label="Playoffs -SBW- do Team Battle League 4v4">
           <div class="organizer-admin-team-battle-playoffs__head">
             <div>
-              <small>${sbwOrganizerEditorEscape(playoffPreview.rulesetLabel || "SFL Capcom")}</small>
-              <strong>${sbwOrganizerEditorEscape(playoffPreview.title || "Playoffs SFL")}</strong>
+              <small>${sbwOrganizerEditorEscape(playoffPreview.rulesetLabel || "-SBW- · escada Top 4")}</small>
+              <strong>${sbwOrganizerEditorEscape(playoffPreview.title || "Playoffs -SBW-")}</strong>
               <p>${sbwOrganizerEditorEscape(playoffPreview.description || "Fase final calculada a partir da classificação real.")}</p>
             </div>
             <span>${sbwOrganizerEditorEscape(playoffPreview.statusLabel || "Aguardando classificação")}</span>
@@ -599,7 +919,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
         ${releaseChecks.map((item) => `<span>${sbwOrganizerEditorEscape(item)}</span>`).join("")}
       </div>
 
-      <p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(model?.lockedMessage || "Beta controlado. A configuração aparece na criação; depois de criado, o torneio mostra a Divisão Única vazia até o check-in confirmar equipes reais. Os playoffs SFL ficam aguardando a classificação real.")}</p>
+      <p class="organizer-admin-format-preview__warning">${sbwOrganizerEditorEscape(model?.lockedMessage || "Beta controlado. A configuração aparece na criação; depois de criado, o torneio mostra a Divisão Única vazia até o check-in confirmar equipes reais. Os playoffs -SBW- ficam aguardando a classificação real.")}</p>
     </section>
   `;
 }
@@ -2360,6 +2680,843 @@ async function sbwOrganizerEditorUpdateParticipantAction(participant, actionButt
   }
 }
 
+function sbwOrganizerEditorBuildTeamBattlePlayoffsState(tournament) {
+  const helper = window.SBWTeamBattleLeague;
+  if (helper && typeof helper.buildTeamBattleLeagueOperationalPlayoffState === "function") {
+    return helper.buildTeamBattleLeagueOperationalPlayoffState(tournament || {}, { leagueMode: "basic_single_division" });
+  }
+  return {
+    ready: false,
+    canGenerate: false,
+    status: "locked",
+    statusLabel: "Playoffs indisponíveis",
+    lockReasons: ["Módulo Team Battle League 4v4 não carregado."],
+    progress: { finishedMatches: 0, totalMatches: 0, label: "0/0 confrontos finalizados" },
+    qualifiedTeams: [],
+    playoffPreview: null,
+    playoffPlan: null,
+    rules: []
+  };
+}
+
+function sbwOrganizerEditorHideTeamBattlePlayoffsPanel() {
+  sbwOrganizerEditorPlayoffsTournament = null;
+  sbwOrganizerTeamBattlePlayoffsStateCache = null;
+
+  if (sbwOrganizerTeamBattlePlayoffsPanel) {
+    sbwOrganizerTeamBattlePlayoffsPanel.hidden = true;
+  }
+
+  sbwOrganizerEditorSetTeamBattlePlayoffsMessage("");
+}
+
+function sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(tournament) {
+  if (!sbwOrganizerTeamBattlePlayoffsList) return;
+
+  const state = sbwOrganizerEditorBuildTeamBattlePlayoffsState(tournament);
+  sbwOrganizerTeamBattlePlayoffsStateCache = state;
+  const preview = state.playoffPreview || {};
+  const qualified = Array.isArray(state.qualifiedTeams) ? state.qualifiedTeams : [];
+  const matches = Array.isArray(preview.matches) ? preview.matches : [];
+  const rules = Array.isArray(state.rules) && state.rules.length ? state.rules : (Array.isArray(preview.rules) ? preview.rules : []);
+  const lockReasons = Array.isArray(state.lockReasons) ? state.lockReasons : [];
+  const saved = state.savedPlayoffs?.saved === true;
+
+  if (sbwOrganizerTeamBattlePlayoffsSave) {
+    sbwOrganizerTeamBattlePlayoffsSave.disabled = state.canGenerate !== true;
+    sbwOrganizerTeamBattlePlayoffsSave.textContent = saved ? "Atualizar playoffs -SBW-" : "Liberar playoffs -SBW-";
+  }
+
+  sbwOrganizerTeamBattlePlayoffsList.innerHTML = `
+    <div class="organizer-admin-team-battle-playoffs-status ${state.canGenerate ? "is-ready" : "is-locked"}">
+      <div>
+        <span>${sbwOrganizerEditorEscape(state.statusLabel || "Playoffs -SBW-")}</span>
+        <strong>${sbwOrganizerEditorEscape(state.progress?.label || "Fase classificatória")}</strong>
+        <p>${saved ? `Playoffs já liberados${state.savedPlayoffs?.savedAt ? ` em ${sbwOrganizerEditorEscape(String(state.savedPlayoffs.savedAt).slice(0, 16).replace("T", " "))}` : ""}.` : "A liberação grava o Top 4 e a escada -SBW- nos metadados do torneio."}</p>
+      </div>
+      <em>${state.canGenerate ? "Pronto" : "Travado"}</em>
+    </div>
+
+    ${lockReasons.length ? `
+      <div class="organizer-admin-team-battle-playoffs-locks">
+        ${lockReasons.map((reason) => `<span>${sbwOrganizerEditorEscape(reason)}</span>`).join("")}
+      </div>
+    ` : ""}
+
+    <div class="organizer-admin-team-battle-playoffs-qualified">
+      <strong>Top 4 classificado</strong>
+      <div>
+        ${qualified.length ? qualified.map((team, index) => `
+          <article>
+            <small>${sbwOrganizerEditorEscape(team.label || `${index + 1}º colocado`)}</small>
+            <span>${sbwOrganizerEditorEscape(team.teamName || team.name || "Equipe classificada")}</span>
+          </article>
+        `).join("") : `
+          <article class="is-empty">
+            <small>Aguardando classificação</small>
+            <span>O Top 4 será gerado a partir dos resultados finalizados.</span>
+          </article>
+        `}
+      </div>
+    </div>
+
+    <div class="organizer-admin-team-battle-playoffs-bracket">
+      <strong>Escada -SBW- · escada Top 4</strong>
+      ${matches.length ? matches.map((match) => `
+        <article>
+          <small>${sbwOrganizerEditorEscape(match.stageLabel || "Playoff")}</small>
+          <span>${sbwOrganizerEditorEscape(match.homeTeamLabel || "Classificado")} <em>vs</em> ${sbwOrganizerEditorEscape(match.awayTeamLabel || "Classificado")}</span>
+          <p>${sbwOrganizerEditorEscape(match.firstToLabel || "FT")}; ${match.noExtraMatch ? "sem partida extra" : "partida extra se necessário"}</p>
+        </article>
+      `).join("") : `
+        <article class="is-empty">
+          <small>Modelo</small>
+          <span>3º x 4º <em>→</em> 2º <em>→</em> 1º</span>
+          <p>Quartas/Semifinal FT50; Grande Final FT70.</p>
+        </article>
+      `}
+    </div>
+
+    ${rules.length ? `
+      <div class="organizer-admin-team-battle-playoffs-rules">
+        ${rules.map((rule) => `<span>${sbwOrganizerEditorEscape(rule)}</span>`).join("")}
+      </div>
+    ` : ""}
+  `;
+}
+
+function sbwOrganizerEditorOpenTeamBattlePlayoffsPanel(tournament) {
+  if (!sbwOrganizerTeamBattlePlayoffsPanel || !tournament) return;
+
+  const format = sbwOrganizerEditorGetTournamentFormatValue(tournament);
+  if (!sbwOrganizerEditorIsTeamBattleLeague4v4Format(format)) {
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Os playoffs -SBW- estão disponíveis apenas para Team Battle League 4v4.", "error");
+    return;
+  }
+
+  sbwOrganizerEditorPlayoffsTournament = tournament;
+
+  if (sbwOrganizerTeamBattlePlayoffsTitle) {
+    sbwOrganizerTeamBattlePlayoffsTitle.textContent = sbwOrganizerEditorGetTournamentTitle(tournament);
+  }
+
+  if (sbwOrganizerTeamBattlePlayoffsMeta) {
+    sbwOrganizerTeamBattlePlayoffsMeta.textContent = "Libere a escada -SBW- a partir do Top 4 real da Divisão Única somente depois da fase classificatória.";
+  }
+
+  if (sbwOrganizerTeamBattlePlayoffsPublicLink) {
+    sbwOrganizerTeamBattlePlayoffsPublicLink.href = sbwOrganizerEditorGetTournamentDetailUrl(tournament);
+  }
+
+  sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(tournament);
+  sbwOrganizerTeamBattlePlayoffsPanel.hidden = false;
+  sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Playoffs carregados. A liberação só fica ativa quando a fase classificatória estiver completa.");
+  sbwOrganizerTeamBattlePlayoffsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function sbwOrganizerEditorSaveTeamBattlePlayoffs() {
+  if (!sbwOrganizerEditorPlayoffsTournament) {
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Selecione um torneio Team Battle League 4v4 para liberar playoffs.", "error");
+    return;
+  }
+
+  if (typeof sbwUpdateTournamentForOrganizerAsync !== "function") {
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Função de edição do torneio não carregada.", "error");
+    return;
+  }
+
+  const state = sbwOrganizerEditorBuildTeamBattlePlayoffsState(sbwOrganizerEditorPlayoffsTournament);
+  if (state.canGenerate !== true) {
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Finalize todos os confrontos da fase classificatória antes de liberar os playoffs -SBW-.", "error");
+    sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(sbwOrganizerEditorPlayoffsTournament);
+    return;
+  }
+
+  const tournament = sbwOrganizerEditorPlayoffsTournament;
+  const tournamentKey = sbwOrganizerEditorGetTournamentKey(tournament);
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const metadataTeamBattle = sbwOrganizerEditorAsObject(metadata.teamBattleLeague || metadata.team_battle_league);
+  const settingsTeamBattle = sbwOrganizerEditorAsObject(settings.teamBattleLeague || settings.team_battle_league);
+  const teamBattleBase = {
+    ...settingsTeamBattle,
+    ...metadataTeamBattle
+  };
+  const now = new Date().toISOString();
+  const playoffPayload = {
+    status: "ready",
+    ruleset: state.playoffPlan?.ruleset || "sfl_capcom_basic_stepladder",
+    rulesetLabel: state.playoffPlan?.rulesetLabel || "-SBW- · escada Top 4 · escada Top 4",
+    plan: state.playoffPlan,
+    preview: state.playoffPreview,
+    qualifiedTeams: state.qualifiedTeams,
+    progress: state.progress,
+    generatedAt: now,
+    savedAt: now,
+    source: "organizer-team-battle-playoffs-editor"
+  };
+  const teamBattlePayload = {
+    ...teamBattleBase,
+    playoffs: playoffPayload,
+    playoffPlan: state.playoffPlan,
+    playoff_plan: state.playoffPlan,
+    playoffPreview: state.playoffPreview,
+    playoff_preview: state.playoffPreview,
+    playoffsStatus: "ready",
+    playoffs_status: "ready",
+    playoffsUnlockedAt: now,
+    playoffs_unlocked_at: now
+  };
+
+  try {
+    if (sbwOrganizerTeamBattlePlayoffsSave) sbwOrganizerTeamBattlePlayoffsSave.disabled = true;
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Salvando playoffs -SBW-...", "loading");
+
+    const result = await sbwUpdateTournamentForOrganizerAsync({
+      organizer: sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorCurrent?.id || sbwOrganizerEditorSlug,
+      tournamentId: tournamentKey,
+      payload: {
+        settings: {
+          ...settings,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        },
+        metadata: {
+          ...metadata,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        }
+      }
+    });
+
+    const updated = result?.tournament || result?.data || result?.row || result;
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorPlayoffsTournament = updated;
+    }
+
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Playoffs -SBW- liberados. A página pública já pode exibir a escada Top 4.", "success");
+    await sbwOrganizerEditorLoadTournaments();
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorOpenTeamBattlePlayoffsPanel(updated);
+      sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Playoffs -SBW- liberados. A página pública já pode exibir a escada Top 4.", "success");
+    }
+  } catch (error) {
+    console.error("[SBW Organizadores] Erro ao liberar playoffs Team Battle:", error);
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage(error?.message || "Não foi possível salvar os playoffs -SBW-.", "error");
+  } finally {
+    if (sbwOrganizerTeamBattlePlayoffsSave) sbwOrganizerTeamBattlePlayoffsSave.disabled = state.canGenerate !== true;
+  }
+}
+
+function sbwOrganizerEditorHideTeamBattleSchedulePanel() {
+  sbwOrganizerEditorSchedulingTournament = null;
+  sbwOrganizerTeamBattleScheduleRowsCache = [];
+
+  if (sbwOrganizerTeamBattleSchedulePanel) {
+    sbwOrganizerTeamBattleSchedulePanel.hidden = true;
+  }
+
+  sbwOrganizerEditorSetTeamBattleScheduleMessage("");
+}
+
+function sbwOrganizerEditorRenderTeamBattleSchedulePanel(tournament) {
+  if (!sbwOrganizerTeamBattleScheduleList) return;
+
+  const rows = sbwOrganizerEditorBuildTeamBattleScheduleRows(tournament);
+  sbwOrganizerTeamBattleScheduleRowsCache = rows;
+
+  if (!rows.length) {
+    sbwOrganizerTeamBattleScheduleList.innerHTML = `
+      <div class="organizer-admin-empty-row">
+        A agenda editável aparece depois que o check-in gerar confrontos reais da Divisão Única. Nenhuma equipe fake será criada para montar esta lista.
+      </div>
+    `;
+
+    if (sbwOrganizerTeamBattleScheduleSave) {
+      sbwOrganizerTeamBattleScheduleSave.disabled = true;
+    }
+    return;
+  }
+
+  if (sbwOrganizerTeamBattleScheduleSave) {
+    sbwOrganizerTeamBattleScheduleSave.disabled = false;
+  }
+
+  sbwOrganizerTeamBattleScheduleList.innerHTML = rows.map((row) => {
+    const schedule = row.schedule || {};
+    return `
+      <article class="organizer-admin-team-battle-schedule-row" data-team-battle-schedule-row="${sbwOrganizerEditorEscape(row.id)}">
+        <div class="organizer-admin-team-battle-schedule-row__main">
+          <span>${sbwOrganizerEditorEscape(row.roundLabel)}</span>
+          <strong>${sbwOrganizerEditorEscape(row.homeTeamLabel)} <em>vs</em> ${sbwOrganizerEditorEscape(row.awayTeamLabel)}</strong>
+          <small>${sbwOrganizerEditorEscape(row.label)} · ${sbwOrganizerEditorEscape(schedule.statusLabel || "A definir pelo organizador")}</small>
+        </div>
+
+        <div class="organizer-admin-team-battle-schedule-fields">
+          <label>
+            Data
+            <input type="date" data-team-battle-schedule-field="date" value="${sbwOrganizerEditorEscape(schedule.date || "")}">
+          </label>
+          <label>
+            Horário
+            <input type="time" data-team-battle-schedule-field="time" value="${sbwOrganizerEditorEscape(schedule.time || "")}">
+          </label>
+          <label>
+            Status
+            <select data-team-battle-schedule-field="status">
+              ${[
+                ["to_define", "A definir"],
+                ["scheduled", "Agendado"],
+                ["live", "Ao vivo"],
+                ["postponed", "Adiado/remarcando"],
+                ["finished", "Finalizado"],
+                ["cancelled", "Cancelado"]
+              ].map(([value, label]) => `<option value="${value}" ${String(schedule.status || "to_define") === value ? "selected" : ""}>${label}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            Transmissão
+            <input type="url" data-team-battle-schedule-field="streamUrl" value="${sbwOrganizerEditorEscape(schedule.streamUrl || "")}" placeholder="https://...">
+          </label>
+          <label class="is-wide">
+            Observação
+            <input type="text" data-team-battle-schedule-field="note" value="${sbwOrganizerEditorEscape(schedule.note || "")}" placeholder="Ex: rodada remarcada, lobby, canal ou instrução pública">
+          </label>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function sbwOrganizerEditorOpenTeamBattleSchedulePanel(tournament) {
+  if (!sbwOrganizerTeamBattleSchedulePanel || !tournament) return;
+
+  const format = sbwOrganizerEditorGetTournamentFormatValue(tournament);
+  if (!sbwOrganizerEditorIsTeamBattleLeague4v4Format(format)) {
+    sbwOrganizerEditorSetTeamBattleScheduleMessage("A agenda livre por confronto está disponível apenas para Team Battle League 4v4.", "error");
+    return;
+  }
+
+  sbwOrganizerEditorSchedulingTournament = tournament;
+
+  if (sbwOrganizerTeamBattleScheduleTitle) {
+    sbwOrganizerTeamBattleScheduleTitle.textContent = sbwOrganizerEditorGetTournamentTitle(tournament);
+  }
+
+  if (sbwOrganizerTeamBattleScheduleMeta) {
+    sbwOrganizerTeamBattleScheduleMeta.textContent = "Gerencie datas, horários, status, observações e transmissão dos confrontos reais do Team Battle League 4v4.";
+  }
+
+  if (sbwOrganizerTeamBattleSchedulePublicLink) {
+    sbwOrganizerTeamBattleSchedulePublicLink.href = sbwOrganizerEditorGetTournamentDetailUrl(tournament);
+  }
+
+  sbwOrganizerEditorRenderTeamBattleSchedulePanel(tournament);
+  sbwOrganizerTeamBattleSchedulePanel.hidden = false;
+  sbwOrganizerEditorSetTeamBattleScheduleMessage("Agenda livre carregada. Salve apenas depois de revisar os confrontos.");
+  sbwOrganizerTeamBattleSchedulePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function sbwOrganizerEditorCollectTeamBattleScheduleRows() {
+  if (!sbwOrganizerTeamBattleScheduleList) return [];
+
+  return sbwOrganizerTeamBattleScheduleRowsCache.map((row) => {
+    const element = Array.from(sbwOrganizerTeamBattleScheduleList.querySelectorAll("[data-team-battle-schedule-row]"))
+      .find((item) => String(item.dataset.teamBattleScheduleRow || "") === String(row.id));
+    const getValue = (field) => String(element?.querySelector(`[data-team-battle-schedule-field="${field}"]`)?.value || "").trim();
+    const date = getValue("date");
+    const time = getValue("time");
+    const status = getValue("status") || "to_define";
+    const streamUrl = getValue("streamUrl");
+    const note = getValue("note");
+    const scheduledAt = date ? `${date}T${time || "00:00"}:00` : "";
+
+    return {
+      ...row.source,
+      id: row.id,
+      matchId: row.id,
+      round: row.round,
+      label: row.label,
+      roundLabel: row.roundLabel,
+      schedule: {
+        organizerManaged: true,
+        mode: "organizer_per_match",
+        status,
+        date,
+        time,
+        scheduledAt,
+        timezone: "America/Sao_Paulo",
+        note,
+        streamUrl,
+        publicVisible: true,
+        editableByOrganizer: true,
+        allowReschedule: true,
+        updatedAt: new Date().toISOString()
+      },
+      scheduling: {
+        organizerManaged: true,
+        mode: "organizer_per_match",
+        status,
+        date,
+        time,
+        scheduledAt,
+        timezone: "America/Sao_Paulo",
+        note,
+        streamUrl,
+        publicVisible: true,
+        editableByOrganizer: true,
+        allowReschedule: true,
+        updatedAt: new Date().toISOString()
+      },
+      scheduleStatus: status,
+      scheduledAt,
+      scheduledDate: date,
+      scheduledTime: time,
+      timezone: "America/Sao_Paulo",
+      streamUrl,
+      metadata: {
+        ...sbwOrganizerEditorAsObject(row.source?.metadata),
+        scheduling: {
+          organizerManaged: true,
+          mode: "organizer_per_match",
+          status,
+          date,
+          time,
+          scheduledAt,
+          timezone: "America/Sao_Paulo",
+          note,
+          streamUrl,
+          publicVisible: true,
+          editableByOrganizer: true,
+          allowReschedule: true,
+          updatedAt: new Date().toISOString()
+        },
+        organizerManagedSchedule: true
+      }
+    };
+  });
+}
+
+function sbwOrganizerEditorMergeTeamBattleScheduledMatches(tournament, scheduledMatches) {
+  const map = new Map();
+
+  sbwOrganizerEditorGetTeamBattleScheduleSavedMatches(tournament).forEach((match) => {
+    const item = sbwOrganizerEditorAsObject(match);
+    map.set(sbwOrganizerEditorGetTeamBattleMatchMergeKey(item), item);
+  });
+
+  scheduledMatches.forEach((match) => {
+    const item = sbwOrganizerEditorAsObject(match);
+    const key = sbwOrganizerEditorGetTeamBattleMatchMergeKey(item);
+    const previous = map.get(key) || {};
+    map.set(key, {
+      ...previous,
+      ...item,
+      matches: Array.isArray(previous.matches) && previous.matches.length ? previous.matches : item.matches,
+      extraMatch: previous.extraMatch || previous.extra_match || item.extraMatch || item.extra_match,
+      result: previous.result || item.result,
+      status: previous.status || item.status || "draft"
+    });
+  });
+
+  return Array.from(map.values());
+}
+
+async function sbwOrganizerEditorSaveTeamBattleSchedule() {
+  if (!sbwOrganizerEditorSchedulingTournament) {
+    sbwOrganizerEditorSetTeamBattleScheduleMessage("Selecione um torneio Team Battle League 4v4 para editar a agenda.", "error");
+    return;
+  }
+
+  if (typeof sbwUpdateTournamentForOrganizerAsync !== "function") {
+    sbwOrganizerEditorSetTeamBattleScheduleMessage("Função de edição do torneio não carregada.", "error");
+    return;
+  }
+
+  const scheduledRows = sbwOrganizerEditorCollectTeamBattleScheduleRows();
+  if (!scheduledRows.length) {
+    sbwOrganizerEditorSetTeamBattleScheduleMessage("Nenhum confronto real foi encontrado para salvar agenda.", "error");
+    return;
+  }
+
+  const tournament = sbwOrganizerEditorSchedulingTournament;
+  const tournamentKey = sbwOrganizerEditorGetTournamentKey(tournament);
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const metadataTeamBattle = sbwOrganizerEditorAsObject(metadata.teamBattleLeague || metadata.team_battle_league);
+  const settingsTeamBattle = sbwOrganizerEditorAsObject(settings.teamBattleLeague || settings.team_battle_league);
+  const teamBattleBase = {
+    ...settingsTeamBattle,
+    ...metadataTeamBattle
+  };
+  const mergedMatches = sbwOrganizerEditorMergeTeamBattleScheduledMatches(tournament, scheduledRows);
+  const now = new Date().toISOString();
+  const matchScheduling = {
+    ...sbwOrganizerEditorAsObject(settings.matchScheduling || metadata.matchScheduling || teamBattleBase.matchScheduling),
+    organizerManaged: true,
+    mode: "organizer_per_match",
+    timezone: "America/Sao_Paulo",
+    allowRoundSchedule: true,
+    allowMatchScheduleOverride: true,
+    allowReschedule: true,
+    longFormLeague: true,
+    updatedAt: now
+  };
+  const teamBattlePayload = {
+    ...teamBattleBase,
+    matches: mergedMatches,
+    teamMatches: mergedMatches,
+    team_matches: mergedMatches,
+    results: {
+      ...sbwOrganizerEditorAsObject(teamBattleBase.results),
+      matches: mergedMatches,
+      updatedAt: now
+    },
+    matchScheduling,
+    organizerManagedSchedule: true,
+    scheduleUpdatedAt: now
+  };
+
+  try {
+    if (sbwOrganizerTeamBattleScheduleSave) sbwOrganizerTeamBattleScheduleSave.disabled = true;
+    sbwOrganizerEditorSetTeamBattleScheduleMessage("Salvando agenda das partidas...", "loading");
+
+    const result = await sbwUpdateTournamentForOrganizerAsync({
+      organizer: sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorCurrent?.id || sbwOrganizerEditorSlug,
+      tournamentId: tournamentKey,
+      payload: {
+        settings: {
+          ...settings,
+          matchScheduling,
+          organizerManagedSchedule: true,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        },
+        metadata: {
+          ...metadata,
+          matchScheduling,
+          organizerManagedSchedule: true,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        }
+      }
+    });
+
+    const updated = result?.tournament || result?.data || result?.row || result;
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorSchedulingTournament = updated;
+    }
+
+    sbwOrganizerEditorSetTeamBattleScheduleMessage("Agenda das partidas salva com sucesso.", "success");
+    await sbwOrganizerEditorLoadTournaments();
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorOpenTeamBattleSchedulePanel(updated);
+      sbwOrganizerEditorSetTeamBattleScheduleMessage("Agenda das partidas salva com sucesso.", "success");
+    }
+  } catch (error) {
+    console.error("[SBW Organizadores] Erro ao salvar agenda Team Battle:", error);
+    sbwOrganizerEditorSetTeamBattleScheduleMessage(error?.message || "Não foi possível salvar a agenda das partidas.", "error");
+  } finally {
+    if (sbwOrganizerTeamBattleScheduleSave) sbwOrganizerTeamBattleScheduleSave.disabled = false;
+  }
+}
+
+function sbwOrganizerEditorHideTeamBattleResultsPanel() {
+  sbwOrganizerEditorResultsTournament = null;
+  sbwOrganizerTeamBattleResultsRowsCache = [];
+
+  if (sbwOrganizerTeamBattleResultsPanel) {
+    sbwOrganizerTeamBattleResultsPanel.hidden = true;
+  }
+
+  sbwOrganizerEditorSetTeamBattleResultsMessage("");
+}
+
+function sbwOrganizerEditorRenderTeamBattleResultsPanel(tournament) {
+  if (!sbwOrganizerTeamBattleResultsList) return;
+
+  const rows = sbwOrganizerEditorBuildTeamBattleResultsRows(tournament);
+  sbwOrganizerTeamBattleResultsRowsCache = rows;
+
+  if (!rows.length) {
+    sbwOrganizerTeamBattleResultsList.innerHTML = `
+      <div class="organizer-admin-empty-row">
+        Os resultados editáveis aparecem depois que o check-in gerar confrontos reais da Divisão Única. Nenhuma equipe fake será criada para lançar placar.
+      </div>
+    `;
+
+    if (sbwOrganizerTeamBattleResultsSave) {
+      sbwOrganizerTeamBattleResultsSave.disabled = true;
+    }
+    return;
+  }
+
+  if (sbwOrganizerTeamBattleResultsSave) {
+    sbwOrganizerTeamBattleResultsSave.disabled = false;
+  }
+
+  sbwOrganizerTeamBattleResultsList.innerHTML = rows.map((row) => {
+    const summary = row.resultSummary || {};
+    const scoreLabel = `${Number(summary.homePoints || 0)} x ${Number(summary.awayPoints || 0)}`;
+    const statusLabel = summary.finalized
+      ? "Finalizado"
+      : summary.extraRequired
+        ? "Partida extra necessária"
+        : Number(summary.homePoints || 0) || Number(summary.awayPoints || 0)
+          ? "Em andamento"
+          : "Aguardando resultado";
+
+    return `
+      <article class="organizer-admin-team-battle-result-row" data-team-battle-result-row="${sbwOrganizerEditorEscape(row.id)}">
+        <div class="organizer-admin-team-battle-result-row__main">
+          <span>${sbwOrganizerEditorEscape(row.roundLabel)}</span>
+          <strong>${sbwOrganizerEditorEscape(row.homeTeamLabel)} <em>vs</em> ${sbwOrganizerEditorEscape(row.awayTeamLabel)}</strong>
+          <small>${sbwOrganizerEditorEscape(row.label)} · ${sbwOrganizerEditorEscape(statusLabel)} · ${sbwOrganizerEditorEscape(scoreLabel)}</small>
+          <p>Use as 3 partidas principais. A partida extra só conta quando as principais terminarem empatadas em pontos.</p>
+        </div>
+
+        <div class="organizer-admin-team-battle-result-fields">
+          ${row.mainMatches.map((slot) => sbwOrganizerEditorRenderTeamBattleSlotFields(row, slot)).join("")}
+          <div class="organizer-admin-team-battle-result-extra-hint">
+            <strong>Desempate opcional</strong>
+            <span>Use somente se o placar principal ficar empatado.</span>
+          </div>
+          ${sbwOrganizerEditorRenderTeamBattleSlotFields(row, row.extraMatch, { extra: true })}
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function sbwOrganizerEditorOpenTeamBattleResultsPanel(tournament) {
+  if (!sbwOrganizerTeamBattleResultsPanel || !tournament) return;
+
+  const format = sbwOrganizerEditorGetTournamentFormatValue(tournament);
+  if (!sbwOrganizerEditorIsTeamBattleLeague4v4Format(format)) {
+    sbwOrganizerEditorSetTeamBattleResultsMessage("Resultados por confronto estão disponíveis apenas para Team Battle League 4v4.", "error");
+    return;
+  }
+
+  sbwOrganizerEditorResultsTournament = tournament;
+
+  if (sbwOrganizerTeamBattleResultsTitle) {
+    sbwOrganizerTeamBattleResultsTitle.textContent = sbwOrganizerEditorGetTournamentTitle(tournament);
+  }
+
+  if (sbwOrganizerTeamBattleResultsMeta) {
+    sbwOrganizerTeamBattleResultsMeta.textContent = "Lance os vencedores das 3 partidas principais e, se necessário, a partida extra de desempate.";
+  }
+
+  if (sbwOrganizerTeamBattleResultsPublicLink) {
+    sbwOrganizerTeamBattleResultsPublicLink.href = sbwOrganizerEditorGetTournamentDetailUrl(tournament);
+  }
+
+  sbwOrganizerEditorRenderTeamBattleResultsPanel(tournament);
+  sbwOrganizerTeamBattleResultsPanel.hidden = false;
+  sbwOrganizerEditorSetTeamBattleResultsMessage("Resultados carregados. Revise antes de salvar porque eles alimentam classificação e playoffs.");
+  sbwOrganizerTeamBattleResultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function sbwOrganizerEditorCollectTeamBattleResultRows() {
+  if (!sbwOrganizerTeamBattleResultsList) return [];
+
+  const helper = window.SBWTeamBattleLeague;
+
+  return sbwOrganizerTeamBattleResultsRowsCache.map((row) => {
+    const element = Array.from(sbwOrganizerTeamBattleResultsList.querySelectorAll("[data-team-battle-result-row]"))
+      .find((item) => String(item.dataset.teamBattleResultRow || "") === String(row.id));
+
+    const readSlot = (slotId, slotIndex, extra = false) => {
+      const selector = `[data-team-battle-result-slot-field="${slotId}"]`;
+      const winnerSide = String(element?.querySelector(`${selector}[data-team-battle-result-field="winnerSide"]`)?.value || "").trim();
+      const homeScore = Number(element?.querySelector(`${selector}[data-team-battle-result-field="homeScore"]`)?.value || 0) || 0;
+      const awayScore = Number(element?.querySelector(`${selector}[data-team-battle-result-field="awayScore"]`)?.value || 0) || 0;
+      return {
+        slot: slotIndex,
+        type: extra ? "extra" : "main",
+        label: extra ? "Partida extra" : `Partida ${slotIndex}`,
+        winnerSide: winnerSide === "home" || winnerSide === "away" ? winnerSide : "",
+        points: extra ? 10 : sbwOrganizerEditorGetTeamBattleSlotPoints(slotIndex),
+        score: { home: homeScore, away: awayScore },
+        status: winnerSide ? "finished" : "draft",
+        metadata: {
+          source: "organizer-team-battle-result-editor",
+          updatedAt: new Date().toISOString()
+        }
+      };
+    };
+
+    const mainMatches = [1, 2, 3].map((slotIndex) => readSlot(String(slotIndex), slotIndex, false));
+    const extraMatch = readSlot("extra", 4, true);
+    const hasExtraResult = Boolean(extraMatch.winnerSide);
+    const baseMatch = {
+      ...row.source,
+      id: row.id,
+      matchId: row.id,
+      round: row.round,
+      label: row.label,
+      roundLabel: row.roundLabel,
+      matches: mainMatches,
+      extraMatch: hasExtraResult ? extraMatch : null,
+      metadata: {
+        ...sbwOrganizerEditorAsObject(row.source?.metadata),
+        homeTeamName: row.homeTeamLabel,
+        awayTeamName: row.awayTeamLabel,
+        resultEditorUpdatedAt: new Date().toISOString()
+      }
+    };
+    const finalizedMatch = helper && typeof helper.finalizeTeamMatchResult === "function"
+      ? helper.finalizeTeamMatchResult(baseMatch, { leagueMode: "basic_single_division" })
+      : baseMatch;
+    const result = sbwOrganizerEditorAsObject(finalizedMatch.result);
+    const schedule = sbwOrganizerEditorAsObject(finalizedMatch.schedule || row.source?.schedule || row.source?.scheduling);
+    const nextScheduleStatus = result.finalized === true
+      ? "finished"
+      : (Number(result.mainPlayed || 0) > 0 ? "live" : (schedule.status || row.source?.scheduleStatus || "to_define"));
+
+    return {
+      ...finalizedMatch,
+      schedule: {
+        ...schedule,
+        status: nextScheduleStatus,
+        updatedAt: new Date().toISOString()
+      },
+      scheduling: {
+        ...schedule,
+        status: nextScheduleStatus,
+        updatedAt: new Date().toISOString()
+      },
+      scheduleStatus: nextScheduleStatus,
+      metadata: {
+        ...sbwOrganizerEditorAsObject(finalizedMatch.metadata),
+        homeTeamName: row.homeTeamLabel,
+        awayTeamName: row.awayTeamLabel,
+        resultManagedByOrganizer: true,
+        resultUpdatedAt: new Date().toISOString()
+      }
+    };
+  });
+}
+
+function sbwOrganizerEditorMergeTeamBattleResultMatches(tournament, resultMatches) {
+  const map = new Map();
+
+  sbwOrganizerEditorGetTeamBattleScheduleSavedMatches(tournament).forEach((match) => {
+    const item = sbwOrganizerEditorAsObject(match);
+    map.set(sbwOrganizerEditorGetTeamBattleMatchMergeKey(item), item);
+  });
+
+  resultMatches.forEach((match) => {
+    const item = sbwOrganizerEditorAsObject(match);
+    const key = sbwOrganizerEditorGetTeamBattleMatchMergeKey(item);
+    const previous = map.get(key) || {};
+    map.set(key, {
+      ...previous,
+      ...item,
+      schedule: item.schedule || previous.schedule || previous.scheduling,
+      scheduling: item.scheduling || item.schedule || previous.scheduling || previous.schedule,
+      matches: Array.isArray(item.matches) ? item.matches : previous.matches,
+      extraMatch: item.extraMatch || item.extra_match || null,
+      result: item.result || previous.result,
+      status: item.status || previous.status || "draft"
+    });
+  });
+
+  return Array.from(map.values());
+}
+
+async function sbwOrganizerEditorSaveTeamBattleResults() {
+  if (!sbwOrganizerEditorResultsTournament) {
+    sbwOrganizerEditorSetTeamBattleResultsMessage("Selecione um torneio Team Battle League 4v4 para lançar resultados.", "error");
+    return;
+  }
+
+  if (typeof sbwUpdateTournamentForOrganizerAsync !== "function") {
+    sbwOrganizerEditorSetTeamBattleResultsMessage("Função de edição do torneio não carregada.", "error");
+    return;
+  }
+
+  const resultRows = sbwOrganizerEditorCollectTeamBattleResultRows();
+  if (!resultRows.length) {
+    sbwOrganizerEditorSetTeamBattleResultsMessage("Nenhum confronto real foi encontrado para salvar resultados.", "error");
+    return;
+  }
+
+  const tournament = sbwOrganizerEditorResultsTournament;
+  const tournamentKey = sbwOrganizerEditorGetTournamentKey(tournament);
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const metadataTeamBattle = sbwOrganizerEditorAsObject(metadata.teamBattleLeague || metadata.team_battle_league);
+  const settingsTeamBattle = sbwOrganizerEditorAsObject(settings.teamBattleLeague || settings.team_battle_league);
+  const teamBattleBase = {
+    ...settingsTeamBattle,
+    ...metadataTeamBattle
+  };
+  const mergedMatches = sbwOrganizerEditorMergeTeamBattleResultMatches(tournament, resultRows);
+  const now = new Date().toISOString();
+  const finishedCount = mergedMatches.filter((match) => sbwOrganizerEditorAsObject(match).result?.finalized === true || sbwOrganizerEditorAsObject(match).status === "finished").length;
+  const resultSummary = {
+    totalMatches: mergedMatches.length,
+    finishedMatches: finishedCount,
+    pendingMatches: Math.max(0, mergedMatches.length - finishedCount),
+    updatedAt: now,
+    source: "team-battle-result-editor"
+  };
+  const teamBattlePayload = {
+    ...teamBattleBase,
+    matches: mergedMatches,
+    teamMatches: mergedMatches,
+    team_matches: mergedMatches,
+    results: {
+      ...sbwOrganizerEditorAsObject(teamBattleBase.results),
+      matches: mergedMatches,
+      summary: resultSummary,
+      updatedAt: now
+    },
+    resultSummary,
+    resultsUpdatedAt: now
+  };
+
+  try {
+    if (sbwOrganizerTeamBattleResultsSave) sbwOrganizerTeamBattleResultsSave.disabled = true;
+    sbwOrganizerEditorSetTeamBattleResultsMessage("Salvando resultados dos confrontos...", "loading");
+
+    const result = await sbwUpdateTournamentForOrganizerAsync({
+      organizer: sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorCurrent?.id || sbwOrganizerEditorSlug,
+      tournamentId: tournamentKey,
+      payload: {
+        settings: {
+          ...settings,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        },
+        metadata: {
+          ...metadata,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        }
+      }
+    });
+
+    const updated = result?.tournament || result?.data || result?.row || result;
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorResultsTournament = updated;
+    }
+
+    sbwOrganizerEditorSetTeamBattleResultsMessage("Resultados salvos. A classificação e os playoffs usam esses placares.", "success");
+    await sbwOrganizerEditorLoadTournaments();
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorOpenTeamBattleResultsPanel(updated);
+      sbwOrganizerEditorSetTeamBattleResultsMessage("Resultados salvos. A classificação e os playoffs usam esses placares.", "success");
+    }
+  } catch (error) {
+    console.error("[SBW Organizadores] Erro ao salvar resultados Team Battle:", error);
+    sbwOrganizerEditorSetTeamBattleResultsMessage(error?.message || "Não foi possível salvar os resultados dos confrontos.", "error");
+  } finally {
+    if (sbwOrganizerTeamBattleResultsSave) sbwOrganizerTeamBattleResultsSave.disabled = false;
+  }
+}
+
 function sbwOrganizerEditorBindParticipantsPanel() {
   if (sbwOrganizerTournamentParticipantsClose && sbwOrganizerTournamentParticipantsClose.dataset.bound !== "true") {
     sbwOrganizerTournamentParticipantsClose.dataset.bound = "true";
@@ -2439,29 +3596,101 @@ function sbwOrganizerEditorBindTournamentEditor() {
   sbwOrganizerEditorBindTournamentCoverEditor();
   sbwOrganizerEditorBindParticipantsPanel();
 
+  if (sbwOrganizerTeamBattleScheduleClose && sbwOrganizerTeamBattleScheduleClose.dataset.bound !== "true") {
+    sbwOrganizerTeamBattleScheduleClose.dataset.bound = "true";
+    sbwOrganizerTeamBattleScheduleClose.addEventListener("click", sbwOrganizerEditorHideTeamBattleSchedulePanel);
+  }
+
+  if (sbwOrganizerTeamBattleScheduleForm && sbwOrganizerTeamBattleScheduleForm.dataset.bound !== "true") {
+    sbwOrganizerTeamBattleScheduleForm.dataset.bound = "true";
+    sbwOrganizerTeamBattleScheduleForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sbwOrganizerEditorSaveTeamBattleSchedule();
+    });
+  }
+
+  if (sbwOrganizerTeamBattleResultsClose && sbwOrganizerTeamBattleResultsClose.dataset.bound !== "true") {
+    sbwOrganizerTeamBattleResultsClose.dataset.bound = "true";
+    sbwOrganizerTeamBattleResultsClose.addEventListener("click", sbwOrganizerEditorHideTeamBattleResultsPanel);
+  }
+
+  if (sbwOrganizerTeamBattleResultsForm && sbwOrganizerTeamBattleResultsForm.dataset.bound !== "true") {
+    sbwOrganizerTeamBattleResultsForm.dataset.bound = "true";
+    sbwOrganizerTeamBattleResultsForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sbwOrganizerEditorSaveTeamBattleResults();
+    });
+  }
+
+  if (sbwOrganizerTeamBattlePlayoffsClose && sbwOrganizerTeamBattlePlayoffsClose.dataset.bound !== "true") {
+    sbwOrganizerTeamBattlePlayoffsClose.dataset.bound = "true";
+    sbwOrganizerTeamBattlePlayoffsClose.addEventListener("click", sbwOrganizerEditorHideTeamBattlePlayoffsPanel);
+  }
+
+  if (sbwOrganizerTeamBattlePlayoffsForm && sbwOrganizerTeamBattlePlayoffsForm.dataset.bound !== "true") {
+    sbwOrganizerTeamBattlePlayoffsForm.dataset.bound = "true";
+    sbwOrganizerTeamBattlePlayoffsForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sbwOrganizerEditorSaveTeamBattlePlayoffs();
+    });
+  }
+
   if (sbwOrganizerEditorTournamentsList && sbwOrganizerEditorTournamentsList.dataset.boundTournamentEdit !== "true") {
     sbwOrganizerEditorTournamentsList.dataset.boundTournamentEdit = "true";
 
     sbwOrganizerEditorTournamentsList.addEventListener("click", (event) => {
+      const scheduleButton = event.target.closest?.("[data-organizer-tournament-schedule]");
+      const resultsButton = event.target.closest?.("[data-organizer-tournament-results]");
+      const playoffsButton = event.target.closest?.("[data-organizer-tournament-playoffs]");
       const participantButton = event.target.closest?.("[data-organizer-tournament-participants]");
       const editButton = event.target.closest?.("[data-organizer-tournament-edit]");
-      const button = participantButton || editButton;
+      const button = scheduleButton || resultsButton || playoffsButton || participantButton || editButton;
       if (!button) return;
 
       event.preventDefault();
 
-      const key = participantButton
-        ? participantButton.dataset.organizerTournamentParticipants || ""
-        : editButton.dataset.organizerTournamentEdit || "";
+      const key = scheduleButton
+        ? scheduleButton.dataset.organizerTournamentSchedule || ""
+        : resultsButton
+          ? resultsButton.dataset.organizerTournamentResults || ""
+          : playoffsButton
+            ? playoffsButton.dataset.organizerTournamentPlayoffs || ""
+            : participantButton
+            ? participantButton.dataset.organizerTournamentParticipants || ""
+            : editButton.dataset.organizerTournamentEdit || "";
 
       const tournament = sbwOrganizerEditorFindTournamentByKey(key);
 
       if (!tournament) {
-        const message = participantButton
-          ? "Torneio não encontrado para carregar inscritos."
-          : "Torneio não encontrado na lista carregada.";
+        const message = scheduleButton
+          ? "Torneio não encontrado para carregar agenda."
+          : resultsButton
+            ? "Torneio não encontrado para lançar resultados."
+            : playoffsButton
+              ? "Torneio não encontrado para liberar playoffs."
+              : participantButton
+              ? "Torneio não encontrado para carregar inscritos."
+              : "Torneio não encontrado na lista carregada.";
         sbwOrganizerEditorSetTournamentEditMessage(message, "error");
         sbwOrganizerEditorSetParticipantsMessage(message, "error");
+        sbwOrganizerEditorSetTeamBattleScheduleMessage(message, "error");
+        sbwOrganizerEditorSetTeamBattleResultsMessage(message, "error");
+        sbwOrganizerEditorSetTeamBattlePlayoffsMessage(message, "error");
+        return;
+      }
+
+      if (scheduleButton) {
+        sbwOrganizerEditorOpenTeamBattleSchedulePanel(tournament);
+        return;
+      }
+
+      if (resultsButton) {
+        sbwOrganizerEditorOpenTeamBattleResultsPanel(tournament);
+        return;
+      }
+
+      if (playoffsButton) {
+        sbwOrganizerEditorOpenTeamBattlePlayoffsPanel(tournament);
         return;
       }
 
@@ -2693,6 +3922,7 @@ async function sbwOrganizerEditorLoadTournaments() {
         ? sbwGetParticipantsLabel(tournament)
         : `${tournament?.currentParticipants || tournament?.current_participants || 0} / ${tournament?.maxParticipants || tournament?.max_participants || "—"}`;
       const formatBadge = sbwOrganizerEditorRenderFormatBadge(tournament, { short: true, compact: true });
+      const isTeamBattleLeagueTournament = sbwOrganizerEditorIsTeamBattleLeague4v4Format(sbwOrganizerEditorGetTournamentFormatValue(tournament));
 
       return `
         <article class="organizer-admin-tournament-row">
@@ -2708,6 +3938,9 @@ async function sbwOrganizerEditorLoadTournaments() {
           <div class="organizer-admin-tournament-actions">
             <a class="organizer-admin-small-link" href="${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentDetailUrl(tournament))}">Ver</a>
             <button class="organizer-admin-small-link organizer-admin-small-link--button" type="button" data-organizer-tournament-edit="${sbwOrganizerEditorEscape(key)}">Editar</button>
+            ${isTeamBattleLeagueTournament ? `<button class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--cyan" type="button" data-organizer-tournament-schedule="${sbwOrganizerEditorEscape(key)}">Agenda 4v4</button>` : ""}
+            ${isTeamBattleLeagueTournament ? `<button class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--cyan" type="button" data-organizer-tournament-results="${sbwOrganizerEditorEscape(key)}">Resultados 4v4</button>` : ""}
+            ${isTeamBattleLeagueTournament ? `<button class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--cyan" type="button" data-organizer-tournament-playoffs="${sbwOrganizerEditorEscape(key)}">Playoffs 4v4</button>` : ""}
             <button class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--primary" type="button" data-organizer-tournament-participants="${sbwOrganizerEditorEscape(key)}">Inscritos</button>
             <a class="organizer-admin-small-link" href="${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentManageUrl(tournament))}">Gerenciar</a>
           </div>

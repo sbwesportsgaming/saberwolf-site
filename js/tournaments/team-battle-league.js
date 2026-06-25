@@ -1160,8 +1160,68 @@
     return rounds.flatMap((round) => asArray(round.matches));
   }
 
-  function calculateDivisionStandings(division, matches = []) {
+  function isTeamMatchFinalizedForStandings(teamMatch = {}) {
+    const item = asObject(teamMatch);
+    const result = asObject(item.result);
+    const status = cleanText(item.status).toLowerCase();
+    const schedule = normalizeMatchSchedule(item);
+
+    return result.finalized === true ||
+      status === TEAM_MATCH_STATUS.FINISHED ||
+      schedule.status === MATCH_SCHEDULE_STATUS.FINISHED;
+  }
+
+  function summarizeDivisionStandingsStatus(division = {}, matches = []) {
     const source = asObject(division);
+    const allMatches = asArray(matches).length ? asArray(matches) : flattenDivisionMatches(source);
+    const summary = {
+      totalMatches: 0,
+      officialMatches: 0,
+      partialMatches: 0,
+      pendingMatches: 0,
+      liveMatches: 0,
+      extraRequiredMatches: 0,
+      cancelledMatches: 0,
+      officialOnly: true
+    };
+
+    allMatches.forEach((teamMatch) => {
+      const item = asObject(teamMatch);
+      if (!cleanText(item.homeTeamId) || !cleanText(item.awayTeamId)) return;
+
+      const score = calculateTeamMatchScore(item);
+      const schedule = normalizeMatchSchedule(item);
+      const status = cleanText(item.status).toLowerCase();
+      const finalized = isTeamMatchFinalizedForStandings(item) && score.played > 0;
+      const partial = score.played > 0 && !finalized;
+
+      summary.totalMatches += 1;
+
+      if (finalized) summary.officialMatches += 1;
+      else if (partial) summary.partialMatches += 1;
+      else summary.pendingMatches += 1;
+
+      if (status === TEAM_MATCH_STATUS.LIVE || schedule.status === MATCH_SCHEDULE_STATUS.LIVE) summary.liveMatches += 1;
+      if (status === TEAM_MATCH_STATUS.EXTRA_REQUIRED || asObject(item.result).extraRequired === true) summary.extraRequiredMatches += 1;
+      if (schedule.status === MATCH_SCHEDULE_STATUS.CANCELLED) summary.cancelledMatches += 1;
+    });
+
+    summary.remainingMatches = Math.max(0, summary.totalMatches - summary.officialMatches);
+    summary.progressLabel = `${summary.officialMatches}/${summary.totalMatches} confronto${summary.totalMatches === 1 ? "" : "s"} oficializado${summary.totalMatches === 1 ? "" : "s"}`;
+    summary.detailLabel = summary.partialMatches
+      ? `${summary.partialMatches} confronto${summary.partialMatches === 1 ? "" : "s"} com resultado parcial ainda não conta${summary.partialMatches === 1 ? "" : "m"} na classificação.`
+      : summary.pendingMatches
+        ? `${summary.pendingMatches} confronto${summary.pendingMatches === 1 ? "" : "s"} aguardando resultado oficial.`
+        : "Classificação fechada com todos os confrontos finalizados.";
+    summary.lockedForPlayoffs = !(summary.totalMatches > 0 && summary.officialMatches >= summary.totalMatches);
+
+    return summary;
+  }
+
+  function calculateDivisionStandings(division, matches = [], options = {}) {
+    const source = asObject(division);
+    const settings = asObject(options);
+    const countPartial = settings.countPartial === true || settings.includePartial === true;
     const teams = asArray(source.teams).map((team, index) => normalizeTeamEntry(team, index + 1, source.id));
     const rows = new Map();
 
@@ -1190,8 +1250,9 @@
       const homeRow = rows.get(cleanText(item.homeTeamId));
       const awayRow = rows.get(cleanText(item.awayTeamId));
       const score = calculateTeamMatchScore(item);
+      const finalized = isTeamMatchFinalizedForStandings(item);
 
-      if (!homeRow || !awayRow || score.played <= 0) return;
+      if (!homeRow || !awayRow || score.played <= 0 || (!countPartial && !finalized)) return;
 
       homeRow.played += 1;
       awayRow.played += 1;
@@ -1333,17 +1394,17 @@
 
   function getSflCapcomPlayoffRulesetLabel(config = {}) {
     return getSflCapcomPlayoffRuleset(config) === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
-      ? "SFL Capcom · Top 3 por divisão"
-      : "SFL Capcom · escada Top 4";
+      ? "-SBW- · Top 3 por divisão"
+      : "-SBW- · escada Top 4";
   }
 
   function getSflCapcomPlayoffStageLabel(stageType, fallback = "Playoff") {
     const key = cleanText(stageType);
 
-    if (key === PLAYOFF_STAGE_TYPES.QUARTER_FINAL) return "Quartas SFL";
+    if (key === PLAYOFF_STAGE_TYPES.QUARTER_FINAL) return "Quartas";
     if (key === PLAYOFF_STAGE_TYPES.DIVISION_SEMIFINAL) return "Semifinal da divisão";
     if (key === PLAYOFF_STAGE_TYPES.DIVISION_FINAL) return "Final da divisão";
-    if (key === PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL) return "Semifinal SFL";
+    if (key === PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL) return "Semifinal";
     if (key === PLAYOFF_STAGE_TYPES.GRAND_FINAL) return "Grande Final";
     if (key === PLAYOFF_STAGE_TYPES.THIRD_PLACE) return "Disputa de 3º lugar";
 
@@ -1604,7 +1665,7 @@
         status: "waiting_top_4",
         emptyState: {
           title: "Playoffs aguardando Top 4",
-          description: "No padrão SFL em escada, os playoffs começam com 3º x 4º; depois o vencedor enfrenta o 2º, e a Grande Final é contra o 1º colocado.",
+          description: "No modelo -SBW- em escada, os playoffs começam com 3º x 4º; depois o vencedor enfrenta o 2º, e a Grande Final é contra o 1º colocado.",
           hint: "A fase final não usa partida extra: cada série soma 10/10/20 por set até bater a meta de pontos."
         }
       };
@@ -1624,13 +1685,13 @@
       round: 1,
       order: 1,
       stageType: PLAYOFF_STAGE_TYPES.QUARTER_FINAL,
-      label: `${divisionName} — Quartas SFL`,
+      label: `${divisionName} — Quartas`,
       targetPoints: config.playoffFirstToQuarterFinal,
       homeTeam: seed3,
       awayTeam: seed4,
       winnerFeedsTo: semiId,
       metadata: {
-        capcomSeedRule: "3º colocado enfrenta 4º colocado.",
+        sbwSeedRule: "3º colocado enfrenta 4º colocado.",
         homeAwayRule: "Melhor seed inicia como mandante; após cada set, alterna mandante/visitante."
       }
     }, config);
@@ -1641,13 +1702,13 @@
       round: 2,
       order: 1,
       stageType: PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL,
-      label: `${divisionName} — Semifinal SFL`,
+      label: `${divisionName} — Semifinal`,
       targetPoints: config.playoffFirstToSemiFinal,
       homeTeam: seed2,
       awayTeam: createPlayoffPlaceholder("Vencedor 3º x 4º", 3, quarterId),
       winnerFeedsTo: grandId,
       metadata: {
-        capcomSeedRule: "2º colocado enfrenta o vencedor de 3º x 4º.",
+        sbwSeedRule: "2º colocado enfrenta o vencedor de 3º x 4º.",
         homeAwayRule: "Melhor seed inicia como mandante; após cada set, alterna mandante/visitante."
       }
     }, config);
@@ -1658,12 +1719,12 @@
       round: 3,
       order: 1,
       stageType: PLAYOFF_STAGE_TYPES.GRAND_FINAL,
-      label: `${divisionName} — Grande Final SFL`,
+      label: `${divisionName} — Grande Final`,
       targetPoints: config.playoffFirstToGrandFinal,
       homeTeam: seed1,
-      awayTeam: createPlayoffPlaceholder("Vencedor da Semifinal SFL", 2, semiId),
+      awayTeam: createPlayoffPlaceholder("Vencedor da Semifinal", 2, semiId),
       metadata: {
-        capcomSeedRule: "1º colocado entra direto na Grande Final.",
+        sbwSeedRule: "1º colocado entra direto na Grande Final.",
         homeAwayRule: "1º set: melhor campanha; 2º set: vencedor da semifinal; 3º set: melhor campanha."
       }
     }, config);
@@ -1671,21 +1732,21 @@
     stages.push({
       id: `${divisionId}-sfl-quarter-stage`,
       type: PLAYOFF_STAGE_TYPES.QUARTER_FINAL,
-      label: "Quartas SFL",
+      label: "Quartas",
       targetPoints: config.playoffFirstToQuarterFinal,
       matches: [quarterFinal]
     });
     stages.push({
       id: `${divisionId}-sfl-semi-stage`,
       type: PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL,
-      label: "Semifinal SFL",
+      label: "Semifinal",
       targetPoints: config.playoffFirstToSemiFinal,
       matches: [semiFinal]
     });
     stages.push({
       id: `${divisionId}-sfl-grand-stage`,
       type: PLAYOFF_STAGE_TYPES.GRAND_FINAL,
-      label: "Grande Final SFL",
+      label: "Grande Final",
       targetPoints: config.playoffFirstToGrandFinal,
       matches: [grandFinal]
     });
@@ -1707,7 +1768,7 @@
         sourceMatchId: grandId
       },
       rules: [
-        "Top 4 da Divisão Única avançam para a escada SFL.",
+        "Top 4 da Divisão Única avançam para a escada -SBW-.",
         "Quartas e Semifinal em FT50; Grande Final em FT70.",
         "Sem partida extra nos playoffs; a série continua por sets 10/10/20 até atingir a meta.",
         "Todos os jogadores devem aparecer ao menos uma vez a cada dois sets."
@@ -1875,7 +1936,7 @@
         metadata: {
           sourceDivisionChampionA: championSlots[0].sourceMatchId || "",
           sourceDivisionChampionB: championSlots[1].sourceMatchId || "",
-          capcomSeedRule: "Campeões de divisão disputam a Grande Final no padrão FT90."
+          sbwSeedRule: "Campeões de divisão disputam a Grande Final no modelo FT90."
         }
       }, config);
 
@@ -1890,7 +1951,7 @@
 
     return {
       formatKey: FORMAT_KEY,
-      schemaVersion: `${SCHEMA_VERSION}.playoffs.sfl-capcom.v1`,
+      schemaVersion: `${SCHEMA_VERSION}.playoffs.sbw-stepladder.v1`,
       status: brackets.some((bracket) => bracket.status === "ready") ? "ready" : "waiting_qualified_teams",
       ruleset,
       rulesetLabel: getSflCapcomPlayoffRulesetLabel(config),
@@ -1905,7 +1966,7 @@
         "Campeões de divisão avançam para a Grande Final FT90.",
         "Sem partida extra nos playoffs."
       ] : [
-        "Top 4 da Divisão Única avançam para a escada SFL.",
+        "Top 4 da Divisão Única avançam para a escada -SBW-.",
         "3º x 4º; vencedor enfrenta o 2º; vencedor enfrenta o 1º na Grande Final.",
         "Quartas e Semifinal em FT50; Grande Final em FT70.",
         "Sem partida extra nos playoffs."
@@ -1914,7 +1975,7 @@
         generatedAt: new Date().toISOString(),
         divisionCount: brackets.length,
         finalistCount: championSlots.length,
-        source: "sfl-capcom-playoff-plan"
+        source: "sbw-stepladder-playoff-plan"
       }
     };
   }
@@ -1945,12 +2006,12 @@
     return {
       schemaVersion: `${SCHEMA_VERSION}.playoff-preview.v1`,
       ruleset: cleanText(source.ruleset),
-      rulesetLabel: cleanText(source.rulesetLabel, "SFL Capcom"),
+      rulesetLabel: cleanText(source.rulesetLabel, "-SBW- · escada Top 4"),
       status: cleanText(source.status, "waiting_qualified_teams"),
       statusLabel: source.status === "ready" ? "Playoffs prontos" : cleanText(emptyState.title, "Playoffs aguardando classificação"),
       title: source.ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
-        ? "Playoffs SFL por divisão"
-        : "Playoffs SFL em escada",
+        ? "Playoffs -SBW- por divisão"
+        : "Playoffs -SBW- em escada",
       description: source.ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
         ? "Top 3 por divisão, final de divisão e Grande Final entre campeões."
         : "Top 4 da Divisão Única: 3º x 4º, vencedor pega o 2º e a Grande Final é contra o 1º.",
@@ -3508,7 +3569,7 @@
         "A terceira partida principal vale mais pontos para aumentar o peso estratégico do confronto.",
         "Se houver empate após as partidas principais, a partida extra decide o confronto.",
         "O modo básico usa divisão única; o modo avançado usa várias divisões.",
-        "Nos playoffs SFL, não há partida extra: a série continua por sets 10/10/20 até atingir a meta.",
+        "Nos playoffs -SBW-, não há partida extra: a série continua por sets 10/10/20 até atingir a meta.",
         "O organizador controla datas e horários de rodadas/confrontos, por ser um campeonato longo.",
         "No MVP básico, o Top 4 entra em escada: 3º x 4º, vencedor contra 2º, vencedor contra 1º."
       ]
@@ -4007,22 +4068,36 @@
     const scheduled = createDivisionSchedule(division, { config });
     const savedMatches = getTeamBattleSavedMatchResults(tournament);
     const hydratedRounds = hydrateTeamBattleScheduledMatchesWithResults(scheduled.rounds, savedMatches);
+    const standingsStatus = summarizeDivisionStandingsStatus({ ...scheduled, rounds: hydratedRounds });
     const hydratedDivision = {
       ...scheduled,
       rounds: hydratedRounds,
-      standings: calculateDivisionStandings({ ...scheduled, rounds: hydratedRounds })
+      standings: calculateDivisionStandings({ ...scheduled, rounds: hydratedRounds }),
+      standingsStatus
     };
     const matches = flattenDivisionMatches(hydratedDivision);
     const byes = asArray(hydratedDivision.rounds).flatMap((round) => asArray(round.byes));
-    const finished = matches.filter((match) => asObject(match).result?.finalized === true || asObject(match).status === TEAM_MATCH_STATUS.FINISHED).length;
+    const finished = standingsStatus.officialMatches;
     const playoffPlan = buildLeaguePlayoffPlan([hydratedDivision], { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const savedPlayoffs = getTeamBattleSavedPlayoffs(tournament);
     if (!(finished >= matches.length && matches.length > 0)) {
       playoffPlan.status = "waiting_regular_season";
       playoffPlan.publicRules = [
-        "Playoffs SFL ficam travados até finalizar a fase classificatória da Divisão Única.",
-        "Depois da classificação final, o Top 4 entra na escada SFL.",
+        "Playoffs -SBW- ficam travados até finalizar a fase classificatória da Divisão Única.",
+        "Depois da classificação final, o Top 4 entra na escada -SBW-.",
         "Sem equipes demo/fake nos playoffs."
       ];
+    }
+    if (savedPlayoffs.saved === true) {
+      playoffPlan.saved = true;
+      playoffPlan.savedAt = savedPlayoffs.savedAt;
+      playoffPlan.savedStatus = cleanText(savedPlayoffs.status, "ready");
+      playoffPlan.metadata = {
+        ...asObject(playoffPlan.metadata),
+        savedByOrganizer: true,
+        savedAt: savedPlayoffs.savedAt,
+        savedStatus: cleanText(savedPlayoffs.status, "ready")
+      };
     }
 
     return {
@@ -4031,11 +4106,19 @@
       teams,
       division: hydratedDivision,
       standings: asArray(hydratedDivision.standings).map((row, index) => normalizeStandingRow(row, index + 1)),
+      standingsStatus,
       matches,
       byes,
       hasOddTeamCount: teams.length % 2 !== 0,
       playoffPlan,
-      playoffPreview: buildTeamBattleLeaguePlayoffPreview(playoffPlan),
+      savedPlayoffs,
+      playoffPreview: buildTeamBattleLeaguePlayoffPreview(playoffPlan, {
+        metadata: {
+          savedByOrganizer: savedPlayoffs.saved === true,
+          savedAt: savedPlayoffs.savedAt || "",
+          savedStatus: savedPlayoffs.status || ""
+        }
+      }),
       finishedMatches: finished,
       totalMatches: matches.length,
       byeCount: byes.length,
@@ -4044,6 +4127,109 @@
     };
   }
 
+
+  function getTeamBattleSavedPlayoffs(tournament = {}) {
+    const source = asObject(tournament);
+    const settings = asObject(source.settings);
+    const metadata = asObject(source.metadata);
+    const teamBattle = asObject(metadata.teamBattleLeague || metadata.team_battle_league || settings.teamBattleLeague || settings.team_battle_league);
+    const playoffs = asObject(
+      source.teamBattlePlayoffs ||
+      source.team_battle_playoffs ||
+      teamBattle.playoffs ||
+      teamBattle.playoffPlan ||
+      teamBattle.playoff_plan ||
+      teamBattle.sflPlayoffs ||
+      teamBattle.sfl_playoffs ||
+      {}
+    );
+    const plan = asObject(playoffs.plan || playoffs.playoffPlan || playoffs.playoff_plan || teamBattle.playoffPlan || teamBattle.playoff_plan);
+    const status = cleanText(playoffs.status || playoffs.playoffsStatus || teamBattle.playoffsStatus || teamBattle.playoffs_status);
+    const savedAt = cleanText(playoffs.generatedAt || playoffs.generated_at || playoffs.savedAt || playoffs.saved_at || teamBattle.playoffsUnlockedAt || teamBattle.playoffs_unlocked_at || teamBattle.playoffsGeneratedAt || teamBattle.playoffs_generated_at);
+
+    return {
+      saved: Object.keys(playoffs).length > 0 || Object.keys(plan).length > 0,
+      status,
+      savedAt,
+      plan,
+      source: playoffs
+    };
+  }
+
+  function buildTeamBattleLeagueOperationalPlayoffState(tournament = {}, options = {}) {
+    const config = normalizeConfig({ ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const publicState = buildTeamBattleLeagueBasicPublicState(tournament, { ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const standings = asArray(publicState.standings).map((row, index) => normalizeStandingRow(row, index + 1));
+    const matches = asArray(publicState.matches);
+    const totalMatches = clampNumber(publicState.totalMatches || matches.length, 0, 9999, matches.length);
+    const finishedMatches = clampNumber(publicState.finishedMatches || publicState.standingsStatus?.officialMatches || 0, 0, 9999, 0);
+    const requiredQualifiedTeams = clampNumber(config.basicPlayoffQualifiers, 2, 16, DEFAULT_CONFIG.basicPlayoffQualifiers);
+    const savedPlayoffs = getTeamBattleSavedPlayoffs(tournament);
+    const playoffPlan = asObject(publicState.playoffPlan).divisionBrackets || asObject(publicState.playoffPlan).finalStages
+      ? publicState.playoffPlan
+      : buildLeaguePlayoffPlan([asObject(publicState.division)], { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const preview = buildTeamBattleLeaguePlayoffPreview(playoffPlan, {
+      metadata: {
+        operational: true,
+        savedByOrganizer: savedPlayoffs.saved === true,
+        savedAt: savedPlayoffs.savedAt || ""
+      }
+    });
+    const lockReasons = [];
+
+    if (publicState.ready !== true) {
+      lockReasons.push(publicState.checkinClosed ? "Ainda não há equipes reais suficientes com check-in confirmado." : "O check-in das equipes ainda não foi encerrado.");
+    }
+    if (totalMatches <= 0) {
+      lockReasons.push("A Divisão Única ainda não gerou confrontos reais.");
+    }
+    if (totalMatches > 0 && finishedMatches < totalMatches) {
+      lockReasons.push(`Fase classificatória incompleta: ${finishedMatches}/${totalMatches} confronto${totalMatches === 1 ? "" : "s"} finalizado${totalMatches === 1 ? "" : "s"}.`);
+    }
+    if (standings.length < requiredQualifiedTeams) {
+      lockReasons.push(`São necessárias pelo menos ${requiredQualifiedTeams} equipes na classificação para montar o Top 4 -SBW-.`);
+    }
+
+    const ready = lockReasons.length === 0 && playoffPlan.status === "ready";
+    const status = ready ? (savedPlayoffs.saved ? "saved" : "ready_to_generate") : "locked";
+    const statusLabel = ready
+      ? savedPlayoffs.saved
+        ? "Playoffs -SBW- liberados"
+        : "Playoffs -SBW- prontos para liberar"
+      : "Playoffs -SBW- bloqueados";
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.playoffs.operational.v1`,
+      ready,
+      canGenerate: ready,
+      status,
+      statusLabel,
+      lockReasons,
+      publicState,
+      playoffPlan,
+      playoffPreview: preview,
+      savedPlayoffs,
+      standings,
+      qualifiedTeams: standings.slice(0, requiredQualifiedTeams).map((row, index) => createPlayoffTeamReference(row, index + 1)),
+      requiredQualifiedTeams,
+      progress: {
+        finishedMatches,
+        totalMatches,
+        label: `${finishedMatches}/${totalMatches} confronto${totalMatches === 1 ? "" : "s"} finalizado${totalMatches === 1 ? "" : "s"}`
+      },
+      rules: [
+        "A fase final só é liberada depois que todos os confrontos reais da Divisão Única forem finalizados.",
+        "O Top 4 real entra na escada -SBW-: 3º x 4º, vencedor contra 2º e Grande Final contra 1º.",
+        "Quartas e Semifinal em FT50; Grande Final em FT70.",
+        "Não existe partida extra nos playoffs -SBW-. A série continua por sets 10/10/20 até atingir a meta."
+      ],
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        source: "team-battle-operational-playoffs"
+      }
+    };
+  }
 
   function buildTeamBattleLeagueVisualPreviewBoard(tournament = {}, options = {}) {
     const league = normalizeTeamBattleLeagueTournamentPayload(tournament, options);
@@ -4072,6 +4258,9 @@
       : (asArray(division.standings).length
         ? asArray(division.standings).map((row, index) => normalizeStandingRow(row, index + 1))
         : []);
+    const standingsStatus = operational.ready
+      ? operational.standingsStatus
+      : summarizeDivisionStandingsStatus(division);
     const firstRound = asArray(division.rounds)[0] || {};
     const matchSource = operational.ready ? operational.matches : asArray(firstRound.matches);
     const byeSource = operational.ready ? asArray(firstRound.byes) : asArray(firstRound.byes || firstRound.byeTeams || firstRound.bye_teams);
@@ -4110,6 +4299,8 @@
         scheduledAt: schedule.scheduledAt,
         scheduledDate: schedule.date,
         scheduledTime: schedule.time,
+        streamUrl: schedule.streamUrl,
+        note: schedule.note,
         finalized: result.finalized === true,
         winnerSide: cleanText(result.winnerSide)
       };
@@ -4137,6 +4328,7 @@
       checkinClosed: operational.checkinClosed === true,
       emptyState,
       standings: standings.slice(0, 12),
+      standingsStatus,
       matches,
       byes,
       hasOddTeamCount: operational.hasOddTeamCount === true || byes.length > 0,
@@ -4146,14 +4338,15 @@
         { label: "Modo", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Básico" : "Avançado", detail: getLeagueModeLabel(mode) },
         { label: "Divisões", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "1" : String(Math.max(2, publicOverview.divisionCount || 2)), detail: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Divisão única" : "Múltiplas divisões" },
         { label: "Equipes", value: hasRealTeams ? String(teams.length) : "Após check-in", detail: hasRealTeams ? (byes.length ? "Ímpar com folga técnica" : "Equipes reais confirmadas") : "Sem equipes demo" },
-        { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Confrontos reais; folga não pontua" : "Após equipes reais" },
+        { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Somente finalizados contam" : "Após equipes reais" },
+        { label: "Classificação", value: hasRealTeams ? (standingsStatus?.lockedForPlayoffs ? "Em andamento" : "Final") : "Aguardando", detail: hasRealTeams ? "Oficial; parciais não pontuam" : "Após resultados" },
         { label: "Agenda", value: "Livre", detail: "Organizador define datas e horários" },
         { label: "Playoffs", value: hasRealTeams ? playoffPreview.statusLabel : "Após tabela", detail: playoffPreview.rulesetLabel }
       ],
       notes: hasRealTeams ? [
         "A Divisão Única foi montada com equipes reais confirmadas no check-in.",
         byes.length ? "Como a quantidade de equipes é ímpar, a rodada mostra folga técnica sem criar equipe fake." : "Os confrontos básicos são gerados somente entre equipes reais.",
-        "A classificação usa resultados registrados nos metadados do torneio quando disponíveis."
+        "A classificação oficial usa somente confrontos finalizados pelo organizador; resultados parciais não alteram a tabela."
       ] : [
         "Na criação do torneio aparece apenas a configuração do formato.",
         "Depois de criado, a página do torneio mostra o molde da Divisão Única.",
@@ -4992,7 +5185,7 @@
         "Partida extra em caso de empate",
         "Pontuação 10/10/20/10",
         "Classificação da divisão única",
-        "Playoffs SFL Capcom em escada quando aplicável",
+        "Playoffs -SBW- · escada Top 4 em escada quando aplicável",
         "Resumo público de confrontos e tabela"
       ],
       deferred: [
@@ -5665,6 +5858,8 @@
     getLeagueSourceDivisions,
     buildTeamBattleLeagueStructure,
     flattenDivisionMatches,
+    isTeamMatchFinalizedForStandings,
+    summarizeDivisionStandingsStatus,
     calculateDivisionStandings,
     normalizeStandingRow,
     getQualifiedTeamsFromStandings,
@@ -5685,6 +5880,8 @@
     buildDivisionPlayoffBracket,
     buildLeaguePlayoffPlan,
     buildTeamBattleLeaguePlayoffPreview,
+    getTeamBattleSavedPlayoffs,
+    buildTeamBattleLeagueOperationalPlayoffState,
     findTeamReference,
     getTeamDisplayLabel,
     buildMatchSlotPublicSummary,

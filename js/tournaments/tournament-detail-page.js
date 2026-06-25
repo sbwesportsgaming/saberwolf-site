@@ -788,6 +788,9 @@ function getTournamentFormat(tournament) {
       ? window.SBWTeamBattleLeague.buildTeamBattleLeagueVisualPreviewBoard(tournament || {}, { leagueMode: "basic_single_division" })
       : null;
     const standings = Array.isArray(board?.standings) ? board.standings : [];
+    const standingsStatus = board?.standingsStatus || null;
+    const standingsStatusLabel = standingsStatus?.progressLabel || (standings.length ? "Classificação oficial" : "Aguardando classificação");
+    const standingsStatusDetail = standingsStatus?.detailLabel || "Somente confrontos finalizados pelo organizador entram na classificação.";
     const matches = Array.isArray(board?.matches) ? board.matches : [];
     const boardByes = Array.isArray(board?.byes) ? board.byes.slice(0, 4) : [];
     const playoffPreview = board?.playoffPreview || null;
@@ -810,7 +813,7 @@ function getTournamentFormat(tournament) {
       { label: "3", title: "Check-in de equipes", text: "Somente equipes reais confirmadas entram no grupo e nos confrontos." },
       { label: "4", title: "Agenda livre", text: "O organizador define datas e horários por rodada/confronto, sem prender tudo ao mesmo dia." },
       { label: "5", title: "Rodadas e resultados", text: "Confrontos, pontos e classificação alimentam a fase final." },
-      { label: "6", title: "Playoffs SFL", text: "Top 4 da Divisão Única entra na escada SFL: 3º x 4º, vencedor contra 2º e Grande Final contra 1º." }
+      { label: "6", title: "Playoffs -SBW-", text: "Top 4 da Divisão Única entra na escada -SBW-: 3º x 4º, vencedor contra 2º e Grande Final contra 1º." }
     ];
 
     return `
@@ -873,7 +876,12 @@ function getTournamentFormat(tournament) {
             `}
           </div>
 
-          <p>${escapeHTML(emptyState.tableHint || "A tabela será preenchida apenas com equipes reais confirmadas.")}</p>
+          <div class="overview-team-battle-standings-status">
+            <strong>${escapeHTML(standingsStatusLabel)}</strong>
+            <span>${escapeHTML(standingsStatusDetail)}</span>
+          </div>
+
+          <p>${escapeHTML(standings.length ? "A tabela oficial ignora confrontos parciais, ao vivo, adiados ou sem finalização." : emptyState.tableHint || "A tabela será preenchida apenas com equipes reais confirmadas.")}</p>
         </div>
 
         <div class="overview-team-battle-match-model" aria-label="Modelo de confronto sem equipes demo">
@@ -935,6 +943,8 @@ function getTournamentFormat(tournament) {
                 <small>${escapeHTML(match.label || "Confronto")}</small>
                 <div><span>${escapeHTML(match.homeTeamName || "Equipe confirmada")}</span><em>vs</em><span>${escapeHTML(match.awayTeamName || "Equipe confirmada")}</span></div>
                 <p>${escapeHTML(match.statusLabel || "Aguardando equipes")} · ${escapeHTML(match.scheduleLabel || match.scheduleStatusLabel || "data a definir pelo organizador")}</p>
+                ${match.note ? `<p class="overview-team-battle-round-preview__note">${escapeHTML(match.note)}</p>` : ""}
+                ${match.streamUrl ? `<a class="overview-team-battle-round-preview__stream" href="${escapeHTML(match.streamUrl)}" target="_blank" rel="noopener noreferrer">Transmissão</a>` : ""}
               </article>
             `).join("")}
             ${boardByes.map((bye) => `
@@ -948,11 +958,11 @@ function getTournamentFormat(tournament) {
         ` : ""}
 
         ${playoffPreview ? `
-          <div class="overview-team-battle-playoff-preview" aria-label="Playoffs Team Battle League 4v4 no padrão SFL Capcom">
+          <div class="overview-team-battle-playoff-preview" aria-label="Playoffs Team Battle League 4v4 no modelo -SBW- em escada">
             <div class="overview-team-battle-playoff-preview__head">
               <div>
-                <small>${escapeHTML(playoffPreview.rulesetLabel || "SFL Capcom")}</small>
-                <strong>${escapeHTML(playoffPreview.title || "Playoffs SFL")}</strong>
+                <small>${escapeHTML(playoffPreview.rulesetLabel || "-SBW- · escada Top 4")}</small>
+                <strong>${escapeHTML(playoffPreview.title || "Playoffs -SBW-")}</strong>
                 <p>${escapeHTML(playoffPreview.description || "Fase final montada pela classificação real da liga.")}</p>
               </div>
               <span>${escapeHTML(playoffPreview.statusLabel || "Aguardando classificação")}</span>
