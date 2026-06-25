@@ -4324,3 +4324,156 @@
     grid-template-columns: 1fr;
   }
 }
+
+.organizer-admin-team-battle-playoffs-champion,
+.organizer-admin-team-battle-playoff-results {
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(155, 92, 255, 0.08));
+  padding: 16px;
+  margin-top: 14px;
+}
+
+.organizer-admin-team-battle-playoffs-champion span,
+.organizer-admin-team-battle-playoff-results__head span {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  padding: 4px 10px;
+  color: var(--sbw-cyan, #00e5ff);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.organizer-admin-team-battle-playoffs-champion strong {
+  display: block;
+  margin-top: 8px;
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.organizer-admin-team-battle-playoffs-champion p,
+.organizer-admin-team-battle-playoff-results p {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.organizer-admin-team-battle-playoff-results.is-empty {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.organizer-admin-team-battle-playoff-results__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.organizer-admin-team-battle-playoff-results__head strong,
+.organizer-admin-team-battle-playoff-result-row__main strong {
+  color: #fff;
+}
+
+.organizer-admin-team-battle-playoff-result-row {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(5, 10, 24, 0.72);
+  padding: 14px;
+  margin-top: 12px;
+}
+
+.organizer-admin-team-battle-playoff-result-row.is-locked {
+  opacity: 0.78;
+  border-style: dashed;
+}
+
+.organizer-admin-team-battle-playoff-result-row__main span,
+.organizer-admin-team-battle-playoff-result-row__main small {
+  display: block;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.organizer-admin-team-battle-playoff-result-row__main em {
+  color: var(--sbw-cyan, #00e5ff);
+  font-style: normal;
+}
+
+.organizer-admin-team-battle-playoff-sets {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.organizer-admin-team-battle-playoff-set {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.organizer-admin-team-battle-playoff-set > strong {
+  display: block;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.organizer-admin-team-battle-playoff-set > div,
+.organizer-admin-team-battle-playoff-slot {
+  display: grid;
+  gap: 10px;
+}
+
+.organizer-admin-team-battle-playoff-slot {
+  grid-template-columns: minmax(150px, 1fr) repeat(3, minmax(140px, 1fr));
+  align-items: end;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+}
+
+.organizer-admin-team-battle-playoff-slot:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.organizer-admin-team-battle-playoff-slot__label strong,
+.organizer-admin-team-battle-playoff-slot__label span {
+  display: block;
+}
+
+.organizer-admin-team-battle-playoff-slot__label strong {
+  color: #fff;
+}
+
+.organizer-admin-team-battle-playoff-slot__label span {
+  color: var(--sbw-cyan, #00e5ff);
+  font-size: 0.8rem;
+}
+
+.organizer-admin-team-battle-playoff-slot label {
+  display: grid;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.78rem;
+}
+
+.organizer-admin-team-battle-playoff-slot select,
+.organizer-admin-team-battle-playoff-slot input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(1, 5, 15, 0.82);
+  color: #fff;
+  padding: 9px 10px;
+}
+
+@media (max-width: 860px) {
+  .organizer-admin-team-battle-playoff-results__head,
+  .organizer-admin-team-battle-playoff-slot {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}

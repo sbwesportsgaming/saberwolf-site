@@ -797,6 +797,7 @@ function getTournamentFormat(tournament) {
     const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 4) : [];
     const playoffTeams = Array.isArray(playoffPreview?.qualifiedTeams) ? playoffPreview.qualifiedTeams.slice(0, 4) : [];
     const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
+    const playoffChampion = playoffPreview?.championTeam || null;
     const scheduleSummary = board?.scheduleSummary || model?.scheduleSummary || (window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary === "function"
       ? window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary(tournament || {}, { leagueMode: "basic_single_division" })
       : null);
@@ -968,6 +969,14 @@ function getTournamentFormat(tournament) {
               <span>${escapeHTML(playoffPreview.statusLabel || "Aguardando classificação")}</span>
             </div>
 
+            ${playoffChampion ? `
+              <div class="overview-team-battle-playoff-preview__champion">
+                <small>Campeão dos Playoffs -SBW-</small>
+                <strong>${escapeHTML(playoffChampion.teamName || playoffChampion.name || "Campeão")}</strong>
+                <p>Grande Final encerrada pelo organizador.</p>
+              </div>
+            ` : ""}
+
             <div class="overview-team-battle-playoff-preview__teams">
               ${playoffTeams.length ? playoffTeams.map((team) => `
                 <span><small>${escapeHTML(team.label || `${team.seed || ""}º colocado`)}</small>${escapeHTML(team.name || "Equipe classificada")}</span>
@@ -982,7 +991,8 @@ function getTournamentFormat(tournament) {
                   <small>${escapeHTML(match.stageLabel || "Playoff")}</small>
                   <strong>${escapeHTML(match.firstToLabel || "FT")}</strong>
                   <div><span>${escapeHTML(match.homeTeamLabel || "Classificado")}</span><em>vs</em><span>${escapeHTML(match.awayTeamLabel || "Classificado")}</span></div>
-                  <p>${escapeHTML(match.statusLabel || "Aguardando")} · ${escapeHTML(match.noExtraMatch ? "sem partida extra" : "partida extra se necessário")}</p>
+                  <p>${escapeHTML(match.statusLabel || "Aguardando")} · ${escapeHTML(match.scoreLabel || "0 x 0")} · ${escapeHTML(match.noExtraMatch ? "sem partida extra" : "partida extra se necessário")}</p>
+                  ${match.winnerLabel && match.winnerLabel !== "A definir" ? `<p class="overview-team-battle-playoff-preview__winner">Vencedor: ${escapeHTML(match.winnerLabel)}</p>` : ""}
                 </article>
               `).join("") : `
                 <article>

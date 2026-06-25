@@ -2699,6 +2699,357 @@ function sbwOrganizerEditorBuildTeamBattlePlayoffsState(tournament) {
   };
 }
 
+
+function sbwOrganizerEditorGetTeamBattlePlayoffPlanForEditing(state = {}) {
+  const helper = window.SBWTeamBattleLeague;
+  const saved = sbwOrganizerEditorAsObject(state.savedPlayoffs);
+  const plan = sbwOrganizerEditorAsObject(saved.plan || state.playoffPlan);
+
+  if (helper && typeof helper.hydrateTeamBattlePlayoffPlanWithResults === "function") {
+    return helper.hydrateTeamBattlePlayoffPlanWithResults(plan, { leagueMode: "basic_single_division" });
+  }
+
+  return plan;
+}
+
+function sbwOrganizerEditorFlattenTeamBattlePlayoffSeries(plan = {}) {
+  const source = sbwOrganizerEditorAsObject(plan);
+  const rows = [];
+  const pushStage = (stage, groupLabel, groupIndex) => {
+    const stageObj = sbwOrganizerEditorAsObject(stage);
+    (Array.isArray(stageObj.matches) ? stageObj.matches : []).forEach((series, index) => {
+      const item = sbwOrganizerEditorAsObject(series);
+      const result = sbwOrganizerEditorAsObject(item.result);
+      rows.push({
+        id: String(item.id || `playoff-${groupIndex}-${index + 1}`),
+        groupLabel: groupLabel || "Playoffs -SBW-",
+        stageLabel: String(item.stageLabel || item.label || stageObj.label || "Playoff"),
+        firstToLabel: String(item.firstToLabel || item.playoff?.firstToLabel || `FT${item.targetPoints || 50}`),
+        homeTeamLabel: String(item.homeTeam?.teamName || item.homeTeam?.name || "Mandante"),
+        awayTeamLabel: String(item.awayTeam?.teamName || item.awayTeam?.name || "Visitante"),
+        homeIsPlaceholder: item.homeTeam?.placeholder === true || String(item.homeTeam?.id || "").startsWith("winner:"),
+        awayIsPlaceholder: item.awayTeam?.placeholder === true || String(item.awayTeam?.id || "").startsWith("winner:"),
+        source: item,
+        result,
+        order: Number(item.order || index + 1) || index + 1
+      });
+    });
+  };
+
+  (Array.isArray(source.divisionBrackets) ? source.divisionBrackets : []).forEach((bracket, bracketIndex) => {
+    const bracketObj = sbwOrganizerEditorAsObject(bracket);
+    (Array.isArray(bracketObj.stages) ? bracketObj.stages : []).forEach((stage, stageIndex) => {
+      pushStage(stage, bracketObj.divisionName || bracketObj.rulesetLabel || "Divisão Única", `${bracketIndex + 1}-${stageIndex + 1}`);
+    });
+  });
+
+  (Array.isArray(source.finalStages) ? source.finalStages : []).forEach((stage, stageIndex) => {
+    pushStage(stage, "Final geral", `final-${stageIndex + 1}`);
+  });
+
+  return rows;
+}
+
+function sbwOrganizerEditorBuildTeamBattlePlayoffResultRows(state = {}) {
+  const plan = sbwOrganizerEditorGetTeamBattlePlayoffPlanForEditing(state);
+  return sbwOrganizerEditorFlattenTeamBattlePlayoffSeries(plan).map((row) => {
+    const source = sbwOrganizerEditorAsObject(row.source);
+    const result = sbwOrganizerEditorAsObject(source.result);
+    const needsMoreSets = result.needsMoreSets === true && result.finalized !== true;
+    const sets = Array.isArray(source.sets) ? source.sets.slice() : [];
+    const helper = window.SBWTeamBattleLeague;
+
+    if (needsMoreSets && sets.length < 9 && helper && typeof helper.createSflCapcomPlayoffSet === "function") {
+      sets.push(helper.createSflCapcomPlayoffSet(sets.length + 1, {
+        stageType: source.stageType || source.playoff?.stageType,
+        stageLabel: source.stageLabel || source.label,
+        id: `${source.id || row.id}-set-${sets.length + 1}`
+      }, { leagueMode: "basic_single_division" }));
+    }
+
+    return {
+      ...row,
+      sets,
+      scoreLabel: `${Number(result.homePoints || 0)} x ${Number(result.awayPoints || 0)}`,
+      statusLabel: result.finalized === true
+        ? `Finalizado · vencedor: ${result.winnerSide === "home" ? row.homeTeamLabel : row.awayTeamLabel}`
+        : result.needsMoreSets === true
+          ? "Série empatada ou sem meta atingida · adicione mais um set"
+          : Number(result.playedSlots || 0) > 0
+            ? "Em andamento"
+            : "Aguardando resultado"
+    };
+  });
+}
+
+function sbwOrganizerEditorRenderTeamBattlePlayoffSlotFields(row, set, slot, setIndex, slotIndex) {
+  const slotObj = sbwOrganizerEditorAsObject(slot);
+  const score = sbwOrganizerEditorAsObject(slotObj.score);
+  const fieldId = `${row.id}__${setIndex + 1}__${slotIndex + 1}`;
+  const points = Number(slotObj.points || sbwOrganizerEditorGetTeamBattleSlotPoints(slotIndex + 1) || 0) || 0;
+
+  return `
+    <div class="organizer-admin-team-battle-playoff-slot" data-team-battle-playoff-slot="${sbwOrganizerEditorEscape(String(slotIndex + 1))}">
+      <div class="organizer-admin-team-battle-playoff-slot__label">
+        <strong>${sbwOrganizerEditorEscape(slotObj.label || `Partida ${slotIndex + 1}`)}</strong>
+        <span>${points} pts</span>
+      </div>
+      <label>
+        Vencedor
+        <select data-team-battle-playoff-field="winnerSide" data-team-battle-playoff-slot-field="${sbwOrganizerEditorEscape(fieldId)}">
+          <option value="" ${!slotObj.winnerSide ? "selected" : ""}>A definir</option>
+          <option value="home" ${slotObj.winnerSide === "home" ? "selected" : ""}>${sbwOrganizerEditorEscape(row.homeTeamLabel)}</option>
+          <option value="away" ${slotObj.winnerSide === "away" ? "selected" : ""}>${sbwOrganizerEditorEscape(row.awayTeamLabel)}</option>
+        </select>
+      </label>
+      <label>
+        Placar ${sbwOrganizerEditorEscape(row.homeTeamLabel)}
+        <input type="number" min="0" max="9" step="1" data-team-battle-playoff-field="homeScore" data-team-battle-playoff-slot-field="${sbwOrganizerEditorEscape(fieldId)}" value="${Number(score.home || 0)}">
+      </label>
+      <label>
+        Placar ${sbwOrganizerEditorEscape(row.awayTeamLabel)}
+        <input type="number" min="0" max="9" step="1" data-team-battle-playoff-field="awayScore" data-team-battle-playoff-slot-field="${sbwOrganizerEditorEscape(fieldId)}" value="${Number(score.away || 0)}">
+      </label>
+    </div>
+  `;
+}
+
+function sbwOrganizerEditorRenderTeamBattlePlayoffResultsEditor(rows = []) {
+  if (!rows.length) {
+    return `
+      <div class="organizer-admin-team-battle-playoff-results is-empty">
+        <strong>Resultados dos playoffs -SBW-</strong>
+        <p>Libere a fase final primeiro. Depois o lançamento de resultados aparece aqui.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="organizer-admin-team-battle-playoff-results">
+      <div class="organizer-admin-team-battle-playoff-results__head">
+        <div>
+          <strong>Resultados dos playoffs -SBW-</strong>
+          <p>Lance os sets da escada. O vencedor avança automaticamente para a próxima etapa.</p>
+        </div>
+        <span>FT50 / FT70</span>
+      </div>
+      ${rows.map((row) => {
+        const disabled = row.homeIsPlaceholder || row.awayIsPlaceholder;
+        return `
+          <article class="organizer-admin-team-battle-playoff-result-row ${disabled ? "is-locked" : ""}" data-team-battle-playoff-series="${sbwOrganizerEditorEscape(row.id)}">
+            <div class="organizer-admin-team-battle-playoff-result-row__main">
+              <span>${sbwOrganizerEditorEscape(row.groupLabel)} · ${sbwOrganizerEditorEscape(row.stageLabel)}</span>
+              <strong>${sbwOrganizerEditorEscape(row.homeTeamLabel)} <em>vs</em> ${sbwOrganizerEditorEscape(row.awayTeamLabel)}</strong>
+              <small>${sbwOrganizerEditorEscape(row.firstToLabel)} · ${sbwOrganizerEditorEscape(row.statusLabel)} · ${sbwOrganizerEditorEscape(row.scoreLabel)}</small>
+              ${disabled ? `<p>Aguardando vencedor da etapa anterior antes de lançar resultado.</p>` : `<p>Sem partida extra: continue adicionando sets até uma equipe atingir a meta de pontos.</p>`}
+            </div>
+            ${disabled ? "" : `
+              <div class="organizer-admin-team-battle-playoff-sets">
+                ${row.sets.map((set, setIndex) => {
+                  const setObj = sbwOrganizerEditorAsObject(set);
+                  const slots = Array.isArray(setObj.matches) ? setObj.matches : [];
+                  return `
+                    <div class="organizer-admin-team-battle-playoff-set" data-team-battle-playoff-set="${sbwOrganizerEditorEscape(String(setIndex + 1))}">
+                      <strong>${sbwOrganizerEditorEscape(setObj.label || `Set ${setIndex + 1}`)}</strong>
+                      <div>
+                        ${slots.map((slot, slotIndex) => sbwOrganizerEditorRenderTeamBattlePlayoffSlotFields(row, setObj, slot, setIndex, slotIndex)).join("")}
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            `}
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function sbwOrganizerEditorCollectTeamBattlePlayoffResultRows(state = {}) {
+  if (!sbwOrganizerTeamBattlePlayoffsList) return [];
+  const helper = window.SBWTeamBattleLeague;
+  const rows = sbwOrganizerEditorBuildTeamBattlePlayoffResultRows(state);
+
+  return rows.map((row) => {
+    const rowElement = Array.from(sbwOrganizerTeamBattlePlayoffsList.querySelectorAll("[data-team-battle-playoff-series]"))
+      .find((item) => String(item.dataset.teamBattlePlayoffSeries || "") === String(row.id));
+
+    if (!rowElement || row.homeIsPlaceholder || row.awayIsPlaceholder) {
+      return row.source;
+    }
+
+    const sets = row.sets.map((set, setIndex) => {
+      const setObj = sbwOrganizerEditorAsObject(set);
+      const matches = (Array.isArray(setObj.matches) ? setObj.matches : []).map((slot, slotIndex) => {
+        const slotObj = sbwOrganizerEditorAsObject(slot);
+        const fieldId = `${row.id}__${setIndex + 1}__${slotIndex + 1}`;
+        const slotFields = Array.from(rowElement.querySelectorAll("[data-team-battle-playoff-slot-field]"));
+        const getFieldValue = (field) => {
+          const input = slotFields.find((item) => String(item.dataset.teamBattlePlayoffSlotField || "") === fieldId && String(item.dataset.teamBattlePlayoffField || "") === field);
+          return input?.value || "";
+        };
+        const winnerSide = String(getFieldValue("winnerSide")).trim();
+        const homeScore = Number(getFieldValue("homeScore") || 0) || 0;
+        const awayScore = Number(getFieldValue("awayScore") || 0) || 0;
+
+        return {
+          ...slotObj,
+          winnerSide: winnerSide === "home" || winnerSide === "away" ? winnerSide : "",
+          score: { home: homeScore, away: awayScore },
+          status: winnerSide ? "finished" : "draft",
+          metadata: {
+            ...sbwOrganizerEditorAsObject(slotObj.metadata),
+            source: "organizer-team-battle-playoff-result-editor",
+            updatedAt: new Date().toISOString()
+          }
+        };
+      });
+
+      return {
+        ...setObj,
+        matches,
+        status: matches.some((match) => match.winnerSide) ? "finished" : "draft",
+        metadata: {
+          ...sbwOrganizerEditorAsObject(setObj.metadata),
+          updatedAt: new Date().toISOString()
+        }
+      };
+    });
+
+    const series = {
+      ...row.source,
+      sets,
+      metadata: {
+        ...sbwOrganizerEditorAsObject(row.source?.metadata),
+        resultManagedByOrganizer: true,
+        resultUpdatedAt: new Date().toISOString()
+      }
+    };
+
+    return helper && typeof helper.createSflCapcomPlayoffSeries === "function"
+      ? helper.createSflCapcomPlayoffSeries(series, { leagueMode: "basic_single_division" })
+      : series;
+  });
+}
+
+function sbwOrganizerEditorMergeTeamBattlePlayoffSeriesIntoPlan(plan = {}, editedSeries = []) {
+  const source = JSON.parse(JSON.stringify(sbwOrganizerEditorAsObject(plan)));
+  const map = new Map((Array.isArray(editedSeries) ? editedSeries : []).map((series) => [String(series?.id || ""), series]));
+  const mergeStages = (stages = []) => (Array.isArray(stages) ? stages : []).map((stage) => ({
+    ...stage,
+    matches: (Array.isArray(stage.matches) ? stage.matches : []).map((series) => map.get(String(series?.id || "")) || series)
+  }));
+
+  return {
+    ...source,
+    divisionBrackets: (Array.isArray(source.divisionBrackets) ? source.divisionBrackets : []).map((bracket) => ({
+      ...bracket,
+      stages: mergeStages(bracket.stages)
+    })),
+    finalStages: mergeStages(source.finalStages)
+  };
+}
+
+async function sbwOrganizerEditorSaveTeamBattlePlayoffResults(state = {}) {
+  if (!sbwOrganizerEditorPlayoffsTournament) {
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Selecione um torneio Team Battle League 4v4 para lançar playoffs.", "error");
+    return;
+  }
+
+  if (typeof sbwUpdateTournamentForOrganizerAsync !== "function") {
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Função de edição do torneio não carregada.", "error");
+    return;
+  }
+
+  const helper = window.SBWTeamBattleLeague;
+  const currentPlan = sbwOrganizerEditorGetTeamBattlePlayoffPlanForEditing(state);
+  const editedSeries = sbwOrganizerEditorCollectTeamBattlePlayoffResultRows(state);
+  const mergedPlan = sbwOrganizerEditorMergeTeamBattlePlayoffSeriesIntoPlan(currentPlan, editedSeries);
+  const hydratedPlan = helper && typeof helper.hydrateTeamBattlePlayoffPlanWithResults === "function"
+    ? helper.hydrateTeamBattlePlayoffPlanWithResults(mergedPlan, { leagueMode: "basic_single_division" })
+    : mergedPlan;
+  const preview = helper && typeof helper.buildTeamBattleLeaguePlayoffPreview === "function"
+    ? helper.buildTeamBattleLeaguePlayoffPreview(hydratedPlan, { metadata: { operational: true, savedByOrganizer: true } })
+    : state.playoffPreview;
+
+  const tournament = sbwOrganizerEditorPlayoffsTournament;
+  const tournamentKey = sbwOrganizerEditorGetTournamentKey(tournament);
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const metadataTeamBattle = sbwOrganizerEditorAsObject(metadata.teamBattleLeague || metadata.team_battle_league);
+  const settingsTeamBattle = sbwOrganizerEditorAsObject(settings.teamBattleLeague || settings.team_battle_league);
+  const teamBattleBase = {
+    ...settingsTeamBattle,
+    ...metadataTeamBattle
+  };
+  const now = new Date().toISOString();
+  const progress = sbwOrganizerEditorAsObject(hydratedPlan.progress);
+  const championTeam = sbwOrganizerEditorAsObject(hydratedPlan.championTeam || hydratedPlan.metadata?.championTeam);
+  const playoffPayload = {
+    ...sbwOrganizerEditorAsObject(teamBattleBase.playoffs),
+    status: championTeam.teamName || championTeam.name ? "finished" : "ready",
+    plan: hydratedPlan,
+    preview,
+    progress,
+    championTeam: Object.keys(championTeam).length ? championTeam : null,
+    resultsUpdatedAt: now,
+    savedAt: teamBattleBase.playoffs?.savedAt || now,
+    source: "organizer-team-battle-playoff-result-editor"
+  };
+  const teamBattlePayload = {
+    ...teamBattleBase,
+    playoffs: playoffPayload,
+    playoffPlan: hydratedPlan,
+    playoff_plan: hydratedPlan,
+    playoffPreview: preview,
+    playoff_preview: preview,
+    playoffsStatus: playoffPayload.status,
+    playoffs_status: playoffPayload.status,
+    playoffsResultsUpdatedAt: now,
+    playoffs_results_updated_at: now
+  };
+
+  try {
+    if (sbwOrganizerTeamBattlePlayoffsSave) sbwOrganizerTeamBattlePlayoffsSave.disabled = true;
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Salvando resultados dos playoffs -SBW-...", "loading");
+
+    const result = await sbwUpdateTournamentForOrganizerAsync({
+      organizer: sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorCurrent?.id || sbwOrganizerEditorSlug,
+      tournamentId: tournamentKey,
+      payload: {
+        settings: {
+          ...settings,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        },
+        metadata: {
+          ...metadata,
+          teamBattleLeague: teamBattlePayload,
+          team_battle_league: teamBattlePayload
+        }
+      }
+    });
+
+    const updated = result?.tournament || result?.data || result?.row || result;
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorPlayoffsTournament = updated;
+    }
+
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage(championTeam.teamName || championTeam.name ? "Playoffs finalizados. Campeão definido na página pública." : "Resultados dos playoffs salvos. Vencedores avançados automaticamente.", "success");
+    await sbwOrganizerEditorLoadTournaments();
+    if (updated && typeof updated === "object") {
+      sbwOrganizerEditorOpenTeamBattlePlayoffsPanel(updated);
+      sbwOrganizerEditorSetTeamBattlePlayoffsMessage(championTeam.teamName || championTeam.name ? "Playoffs finalizados. Campeão definido na página pública." : "Resultados dos playoffs salvos. Vencedores avançados automaticamente.", "success");
+    }
+  } catch (error) {
+    console.error("[SBW Organizadores] Erro ao salvar resultados dos playoffs Team Battle:", error);
+    sbwOrganizerEditorSetTeamBattlePlayoffsMessage(error?.message || "Não foi possível salvar os resultados dos playoffs -SBW-.", "error");
+  } finally {
+    if (sbwOrganizerTeamBattlePlayoffsSave) sbwOrganizerTeamBattlePlayoffsSave.disabled = false;
+  }
+}
+
 function sbwOrganizerEditorHideTeamBattlePlayoffsPanel() {
   sbwOrganizerEditorPlayoffsTournament = null;
   sbwOrganizerTeamBattlePlayoffsStateCache = null;
@@ -2721,10 +3072,12 @@ function sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(tournament) {
   const rules = Array.isArray(state.rules) && state.rules.length ? state.rules : (Array.isArray(preview.rules) ? preview.rules : []);
   const lockReasons = Array.isArray(state.lockReasons) ? state.lockReasons : [];
   const saved = state.savedPlayoffs?.saved === true;
+  const playoffResultRows = saved ? sbwOrganizerEditorBuildTeamBattlePlayoffResultRows(state) : [];
+  const championTeam = state.playoffPreview?.championTeam || state.playoffPlan?.championTeam || state.savedPlayoffs?.source?.championTeam || null;
 
   if (sbwOrganizerTeamBattlePlayoffsSave) {
-    sbwOrganizerTeamBattlePlayoffsSave.disabled = state.canGenerate !== true;
-    sbwOrganizerTeamBattlePlayoffsSave.textContent = saved ? "Atualizar playoffs -SBW-" : "Liberar playoffs -SBW-";
+    sbwOrganizerTeamBattlePlayoffsSave.disabled = saved ? false : state.canGenerate !== true;
+    sbwOrganizerTeamBattlePlayoffsSave.textContent = saved ? "Salvar resultados dos playoffs -SBW-" : "Liberar playoffs -SBW-";
   }
 
   sbwOrganizerTeamBattlePlayoffsList.innerHTML = `
@@ -2740,6 +3093,14 @@ function sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(tournament) {
     ${lockReasons.length ? `
       <div class="organizer-admin-team-battle-playoffs-locks">
         ${lockReasons.map((reason) => `<span>${sbwOrganizerEditorEscape(reason)}</span>`).join("")}
+      </div>
+    ` : ""}
+
+    ${championTeam ? `
+      <div class="organizer-admin-team-battle-playoffs-champion">
+        <span>Campeão definido</span>
+        <strong>${sbwOrganizerEditorEscape(championTeam.teamName || championTeam.name || "Campeão")}</strong>
+        <p>Grande Final finalizada nos Playoffs -SBW-.</p>
       </div>
     ` : ""}
 
@@ -2776,6 +3137,8 @@ function sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(tournament) {
         </article>
       `}
     </div>
+
+    ${saved ? sbwOrganizerEditorRenderTeamBattlePlayoffResultsEditor(playoffResultRows) : ""}
 
     ${rules.length ? `
       <div class="organizer-admin-team-battle-playoffs-rules">
@@ -2826,6 +3189,11 @@ async function sbwOrganizerEditorSaveTeamBattlePlayoffs() {
   }
 
   const state = sbwOrganizerEditorBuildTeamBattlePlayoffsState(sbwOrganizerEditorPlayoffsTournament);
+  if (state.savedPlayoffs?.saved === true) {
+    await sbwOrganizerEditorSaveTeamBattlePlayoffResults(state);
+    return;
+  }
+
   if (state.canGenerate !== true) {
     sbwOrganizerEditorSetTeamBattlePlayoffsMessage("Finalize todos os confrontos da fase classificatória antes de liberar os playoffs -SBW-.", "error");
     sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(sbwOrganizerEditorPlayoffsTournament);

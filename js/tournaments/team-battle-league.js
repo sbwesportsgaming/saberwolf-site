@@ -1519,6 +1519,138 @@
     return result;
   }
 
+
+  function getPlayoffTeamReferenceKey(team = {}) {
+    const source = asObject(team);
+    return cleanText(source.teamId || source.id || source.slug || source.teamSlug || source.team_slug || source.name || source.teamName);
+  }
+
+  function isPlayoffPlaceholderTeam(team = {}) {
+    const source = asObject(team);
+    const id = cleanText(source.id || source.teamId);
+    return source.placeholder === true || Boolean(cleanText(source.sourceMatchId)) || id.startsWith("winner:");
+  }
+
+  function getPlayoffSeriesWinnerTeam(series = {}) {
+    const source = asObject(series);
+    const result = calculateSflCapcomPlayoffSeriesScore(source, {});
+    const storedResult = asObject(source.result);
+    const winnerSide = cleanText(result.winnerSide || storedResult.winnerSide || storedResult.winner_side);
+
+    if (!(result.finalized === true || storedResult.finalized === true) || !winnerSide) return null;
+
+    const winner = winnerSide === "home" ? asObject(source.homeTeam) : asObject(source.awayTeam);
+    if (!Object.keys(winner).length || isPlayoffPlaceholderTeam(winner)) return null;
+
+    const teamId = getPlayoffTeamReferenceKey(winner);
+    return {
+      ...winner,
+      id: cleanText(winner.id || winner.teamId || teamId),
+      teamId: cleanText(winner.teamId || winner.id || teamId),
+      teamName: cleanText(winner.teamName || winner.name, winnerSide === "home" ? "Mandante" : "Visitante"),
+      name: cleanText(winner.name || winner.teamName, winnerSide === "home" ? "Mandante" : "Visitante"),
+      placeholder: false,
+      sourceWinnerSide: winnerSide,
+      sourceMatchId: cleanText(source.id || source.matchId || source.match_id)
+    };
+  }
+
+  function resolvePlayoffPlaceholderTeam(team = {}, winnerMap = new Map()) {
+    const source = asObject(team);
+    if (!isPlayoffPlaceholderTeam(source)) return source;
+
+    const rawId = cleanText(source.sourceMatchId || source.source_match_id || source.id || source.teamId);
+    const sourceMatchId = rawId.replace(/^winner:/, "");
+    const winner = winnerMap.get(sourceMatchId) || winnerMap.get(`winner:${sourceMatchId}`) || null;
+    if (!winner) return source;
+
+    return {
+      ...winner,
+      seed: source.seed || winner.seed || null,
+      qualifierLabel: cleanText(source.label || source.qualifierLabel || winner.qualifierLabel),
+      placeholder: false,
+      resolvedFromMatchId: sourceMatchId
+    };
+  }
+
+  function normalizePlayoffSeriesWithResolvedTeams(series = {}, config = {}, winnerMap = new Map()) {
+    const source = asObject(series);
+    const normalized = createSflCapcomPlayoffSeries({
+      ...source,
+      homeTeam: resolvePlayoffPlaceholderTeam(source.homeTeam, winnerMap),
+      awayTeam: resolvePlayoffPlaceholderTeam(source.awayTeam, winnerMap),
+      sets: asArray(source.sets),
+      metadata: {
+        ...asObject(source.metadata),
+        resolvedAt: new Date().toISOString(),
+        source: cleanText(asObject(source.metadata).source, "sbw-playoffs")
+      }
+    }, config);
+    const winner = getPlayoffSeriesWinnerTeam(normalized);
+    if (winner) {
+      const matchId = cleanText(normalized.id || source.id);
+      winnerMap.set(matchId, winner);
+      winnerMap.set(`winner:${matchId}`, winner);
+    }
+    return normalized;
+  }
+
+  function hydrateTeamBattlePlayoffPlanWithResults(playoffPlan = {}, options = {}) {
+    const source = asObject(playoffPlan);
+    if (!Object.keys(source).length) return source;
+
+    const config = normalizeConfig(options.config || options);
+    let working = JSON.parse(JSON.stringify(source));
+    let winnerMap = new Map();
+
+    for (let pass = 0; pass < 4; pass += 1) {
+      winnerMap = new Map();
+      const normalizeStages = (stages = []) => asArray(stages).map((stage) => ({
+        ...asObject(stage),
+        matches: asArray(asObject(stage).matches).map((series) => normalizePlayoffSeriesWithResolvedTeams(series, config, winnerMap))
+      }));
+
+      working = {
+        ...working,
+        divisionBrackets: asArray(working.divisionBrackets).map((bracket) => ({
+          ...asObject(bracket),
+          stages: normalizeStages(asObject(bracket).stages)
+        })),
+        finalStages: normalizeStages(working.finalStages)
+      };
+    }
+
+    const allSeries = [
+      ...asArray(working.divisionBrackets).flatMap((bracket) => asArray(asObject(bracket).stages).flatMap((stage) => asArray(asObject(stage).matches))),
+      ...asArray(working.finalStages).flatMap((stage) => asArray(asObject(stage).matches))
+    ];
+    const finalizedSeries = allSeries.filter((series) => asObject(series).result?.finalized === true);
+    const grandFinal = allSeries.find((series) => cleanText(series.stageType || series.playoff?.stageType) === PLAYOFF_STAGE_TYPES.GRAND_FINAL && asObject(series).result?.finalized === true)
+      || allSeries.find((series) => asObject(series).playoff?.winnerFeedsTo === "" && asObject(series).result?.finalized === true);
+    const championTeam = grandFinal ? getPlayoffSeriesWinnerTeam(grandFinal) : null;
+
+    return {
+      ...working,
+      status: championTeam ? "finished" : cleanText(working.status, "ready"),
+      championTeam,
+      progress: {
+        totalSeries: allSeries.length,
+        finalizedSeries: finalizedSeries.length,
+        pendingSeries: Math.max(0, allSeries.length - finalizedSeries.length),
+        championDefined: Boolean(championTeam)
+      },
+      metadata: {
+        ...asObject(working.metadata),
+        hydratedAt: new Date().toISOString(),
+        totalSeries: allSeries.length,
+        finalizedSeries: finalizedSeries.length,
+        championDefined: Boolean(championTeam),
+        championTeam: championTeam || null,
+        source: cleanText(asObject(working.metadata).source, "sbw-stepladder-playoff-plan")
+      }
+    };
+  }
+
   function createSflCapcomPlayoffSeries(options = {}, config = {}) {
     const source = asObject(options);
     const normalizedConfig = normalizeConfig({ ...config, extraMatchOnDraw: false, playoffExtraMatchOnDraw: false });
@@ -2002,13 +2134,15 @@
     }));
     const rules = asArray(source.publicRules).length ? asArray(source.publicRules) : asArray(firstBracket.rules);
     const emptyState = asObject(firstBracket.emptyState);
+    const championTeam = asObject(source.championTeam || source.metadata?.championTeam);
+    const hasChampion = Object.keys(championTeam).length > 0;
 
     return {
       schemaVersion: `${SCHEMA_VERSION}.playoff-preview.v1`,
       ruleset: cleanText(source.ruleset),
       rulesetLabel: cleanText(source.rulesetLabel, "-SBW- · escada Top 4"),
       status: cleanText(source.status, "waiting_qualified_teams"),
-      statusLabel: source.status === "ready" ? "Playoffs prontos" : cleanText(emptyState.title, "Playoffs aguardando classificação"),
+      statusLabel: hasChampion ? "Campeão definido" : source.status === "ready" ? "Playoffs prontos" : source.status === "finished" ? "Playoffs finalizados" : cleanText(emptyState.title, "Playoffs aguardando classificação"),
       title: source.ruleset === PLAYOFF_RULESET_TYPES.SFL_CAPCOM_DIVISIONAL_TOP3
         ? "Playoffs -SBW- por divisão"
         : "Playoffs -SBW- em escada",
@@ -2018,6 +2152,13 @@
       qualifiedTeams,
       requiredQualifiedTeams: Number(firstBracket.requiredQualifiedTeams || source.qualifiersPerDivision || 0),
       matches,
+      championTeam: hasChampion ? {
+        id: cleanText(championTeam.id || championTeam.teamId),
+        teamId: cleanText(championTeam.teamId || championTeam.id),
+        name: cleanText(championTeam.teamName || championTeam.name, "Campeão"),
+        teamName: cleanText(championTeam.teamName || championTeam.name, "Campeão"),
+        seed: championTeam.seed || null
+      } : null,
       rules,
       emptyState: Object.keys(emptyState).length ? emptyState : {
         title: "Playoffs aguardando fase classificatória",
@@ -4078,7 +4219,7 @@
     const matches = flattenDivisionMatches(hydratedDivision);
     const byes = asArray(hydratedDivision.rounds).flatMap((round) => asArray(round.byes));
     const finished = standingsStatus.officialMatches;
-    const playoffPlan = buildLeaguePlayoffPlan([hydratedDivision], { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    let playoffPlan = buildLeaguePlayoffPlan([hydratedDivision], { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
     const savedPlayoffs = getTeamBattleSavedPlayoffs(tournament);
     if (!(finished >= matches.length && matches.length > 0)) {
       playoffPlan.status = "waiting_regular_season";
@@ -4089,6 +4230,10 @@
       ];
     }
     if (savedPlayoffs.saved === true) {
+      const savedPlan = hydrateTeamBattlePlayoffPlanWithResults(savedPlayoffs.plan, { ...config, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+      if (Object.keys(savedPlan).length) {
+        playoffPlan = savedPlan;
+      }
       playoffPlan.saved = true;
       playoffPlan.savedAt = savedPlayoffs.savedAt;
       playoffPlan.savedStatus = cleanText(savedPlayoffs.status, "ready");
@@ -5882,6 +6027,7 @@
     buildTeamBattleLeaguePlayoffPreview,
     getTeamBattleSavedPlayoffs,
     buildTeamBattleLeagueOperationalPlayoffState,
+    hydrateTeamBattlePlayoffPlanWithResults,
     findTeamReference,
     getTeamDisplayLabel,
     buildMatchSlotPublicSummary,

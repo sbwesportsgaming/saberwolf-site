@@ -7122,3 +7122,38 @@
   font-size: 0.78rem;
   line-height: 1.45;
 }
+
+.overview-team-battle-playoff-preview__champion {
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  border-radius: 18px;
+  padding: 16px;
+  margin: 14px 0;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(155, 92, 255, 0.08));
+}
+
+.overview-team-battle-playoff-preview__champion small {
+  display: block;
+  color: var(--sbw-cyan, #00e5ff);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overview-team-battle-playoff-preview__champion strong {
+  display: block;
+  margin-top: 6px;
+  color: #fff;
+  font-size: 1.08rem;
+}
+
+.overview-team-battle-playoff-preview__champion p,
+.overview-team-battle-playoff-preview__winner {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.overview-team-battle-playoff-preview__winner {
+  color: var(--sbw-cyan, #00e5ff);
+  font-weight: 700;
+}
