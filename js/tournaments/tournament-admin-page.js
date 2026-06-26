@@ -892,8 +892,8 @@ async function initAccessControl() {
         : [{
             key: "team-battle-league-4v4",
             label: "Team Battle League 4v4",
-            status: "planned",
-            publicNote: "Formato avançado futuro com equipes de 4 jogadores, divisões, confrontos por escalação, partidas individuais e playoffs."
+            status: "beta",
+            publicNote: "Formato avançado em beta controlado com equipes de 4 jogadores, Divisão Única no MVP básico, partidas por escalação e Playoffs -SBW-."
           }];
 
       advancedFormatPanel.innerHTML = `
@@ -908,7 +908,7 @@ async function initAccessControl() {
           ${advancedFormats.map((format) => `
             <article class="advanced-format-card">
               <strong>${escapeHTML(format.label || format.key || "Formato avançado")}</strong>
-              <span>${format.status === "active" ? "Disponível" : "Em preparação"}</span>
+              <span>${format.status === "active" ? "Disponível" : format.status === "beta" ? "Beta controlado" : "Em preparação"}</span>
               <p>${escapeHTML(format.publicNote || format.description || "Formato planejado para fases futuras da plataforma.")}</p>
             </article>
           `).join("")}

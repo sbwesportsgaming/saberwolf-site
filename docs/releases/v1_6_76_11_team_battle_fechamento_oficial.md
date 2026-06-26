@@ -21,7 +21,7 @@ Permitir que o organizador encerre oficialmente o campeonato longo depois que a 
 
 - Nome do formato continua **Team Battle League 4v4**.
 - A fase final usa nomenclatura própria: **Playoffs -SBW-**.
-- Sem uso público de nomes externos como SFL/Capcom/Street Fighter League.
+- Sem uso público de nomes externos; a fase final aparece como Playoffs -SBW-.
 - Sem equipe fake/demo.
 - O pódio só aparece quando a Grande Final tem vencedor real.
 

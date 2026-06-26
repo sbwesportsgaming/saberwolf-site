@@ -592,7 +592,7 @@ function sbwOrganizerEditorGetFormatMetadata(format) {
     status: key === "team-battle-league-4v4" ? "beta" : "active",
     teamMode: key === "team-battle-league-4v4" ? "team_4v4" : "solo",
     description: key === "team-battle-league-4v4"
-      ? "Formato avançado em beta controlado com MVP básico de divisão única, equipes reais após check-in e confrontos por equipe."
+      ? "Formato avançado em beta controlado para testes reais, com MVP básico de divisão única, equipes reais após check-in e confrontos por equipe."
       : "Formato competitivo base da plataforma -SBW-.",
     features: key === "team-battle-league-4v4"
       ? ["Equipes de 4", "Divisão única", "Equipes reais após check-in", "Team matches"]
@@ -776,6 +776,9 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
   const testPackage = helper && typeof helper.buildTeamBattleLeagueControlledTestPackage === "function"
     ? helper.buildTeamBattleLeagueControlledTestPackage(tournament || {}, { leagueMode: "basic_single_division" })
     : null;
+  const realTestChecklist = helper && typeof helper.buildTeamBattleLeagueRealTestChecklist === "function"
+    ? helper.buildTeamBattleLeagueRealTestChecklist(tournament || {}, { leagueMode: "basic_single_division" })
+    : null;
   const mvpModel = helper && typeof helper.buildTeamBattleLeagueBasicMvpAdminSummary === "function"
     ? helper.buildTeamBattleLeagueBasicMvpAdminSummary(tournament || {}, { leagueMode: "basic_single_division" })
     : null;
@@ -783,6 +786,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
     ? helper.buildTeamBattleLeagueBasicMvpSetupPreview(tournament || {}, { leagueMode: "basic_single_division" })
     : null;
   const testGates = Array.isArray(testPackage?.gates) ? testPackage.gates.slice(0, 6) : [];
+  const realTestChecks = Array.isArray(realTestChecklist?.checks) ? realTestChecklist.checks.slice(0, 8) : [];
   const mvpCards = Array.isArray(mvpModel?.cards) ? mvpModel.cards.slice(0, 4) : [];
   const mvpRequired = Array.isArray(mvpModel?.requiredData) ? mvpModel.requiredData.slice(0, 4) : [];
   const setupFields = Array.isArray(setupPreview?.fields) ? setupPreview.fields.slice(0, 8) : [];
@@ -894,7 +898,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
               <article>
                 <small>${sbwOrganizerEditorEscape(card.label || "Item")}</small>
                 <strong>${sbwOrganizerEditorEscape(card.value || "—")}</strong>
-                <p>${sbwOrganizerEditorEscape(card.detail || "Preparado para teste controlado.")}</p>
+                <p>${sbwOrganizerEditorEscape(card.detail || "Preparado para teste real controlado.")}</p>
               </article>
             `).join("")}
           </div>
@@ -906,7 +910,7 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
               </span>
             `).join("")}
           </div>
-          <p>${sbwOrganizerEditorEscape(mvpModel.nextAction || "Executar teste interno antes de liberar criação real.")}</p>
+          <p>${sbwOrganizerEditorEscape(mvpModel.nextAction || "Executar teste real controlado com equipes reais.")}</p>
         </div>
       ` : ""}
 
@@ -1021,8 +1025,8 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
         <div class="organizer-admin-team-battle-test-gates" aria-label="Etapas do teste controlado Team Battle League 4v4">
           <div class="organizer-admin-team-battle-test-gates__head">
             <div>
-              <small>Teste controlado</small>
-              <strong>${sbwOrganizerEditorEscape(testPackage?.releaseLabel || "Teste interno planejado")}</strong>
+              <small>Teste real controlado</small>
+              <strong>${sbwOrganizerEditorEscape(testPackage?.releaseLabel || "Teste real controlado")}</strong>
             </div>
             <span>${sbwOrganizerEditorEscape(testPackage?.modeLabel || "Básica · divisão única")}</span>
           </div>
@@ -1031,7 +1035,28 @@ function sbwOrganizerEditorRenderTeamBattleFormatPanel(formatValue, tournament =
               <article class="is-${sbwOrganizerEditorEscape(gate.status || "pending")}">
                 <small>${sbwOrganizerEditorEscape(gate.stateLabel || "Pendente")}</small>
                 <strong>${sbwOrganizerEditorEscape(gate.label || "Etapa")}</strong>
-                <p>${sbwOrganizerEditorEscape(gate.description || "Preparado para teste controlado.")}</p>
+                <p>${sbwOrganizerEditorEscape(gate.description || "Preparado para teste real controlado.")}</p>
+              </article>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+
+      ${realTestChecks.length ? `
+        <div class="organizer-admin-team-battle-test-gates" aria-label="Checklist para teste real Team Battle League 4v4">
+          <div class="organizer-admin-team-battle-test-gates__head">
+            <div>
+              <small>Checklist fim de semana</small>
+              <strong>${sbwOrganizerEditorEscape(realTestChecklist?.statusLabel || "Pronto para teste real controlado")}</strong>
+            </div>
+            <span>${sbwOrganizerEditorEscape(`${realTestChecklist?.readyCount || 0}/${realTestChecklist?.totalChecks || realTestChecks.length}`)} OK</span>
+          </div>
+          <div class="organizer-admin-team-battle-test-gates__grid">
+            ${realTestChecks.map((check) => `
+              <article class="is-${check.ok ? "ready" : "pending"}">
+                <small>${check.ok ? "OK" : "Revisar"}</small>
+                <strong>${sbwOrganizerEditorEscape(check.label || "Item")}</strong>
+                <p>${sbwOrganizerEditorEscape(check.detail || "Validar durante o teste real.")}</p>
               </article>
             `).join("")}
           </div>

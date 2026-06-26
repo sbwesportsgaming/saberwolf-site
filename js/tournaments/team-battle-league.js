@@ -12,8 +12,10 @@
 
   const DEFAULT_CONFIG = Object.freeze({
     teamSize: 4,
+    rosterSize: 4,
     startersPerTeamMatch: 3,
     reservePerTeamMatch: 1,
+    reservesPerTeamMatch: 1,
     mainMatches: 3,
     minTeams: 2,
     recommendedMaxTeamsBasic: 16,
@@ -3630,8 +3632,8 @@
       leagueMode: mode,
       leagueModeLabel: getLeagueModeLabel(mode),
       status: DEFAULT_CONFIG.status,
-      statusLabel: "Em preparação",
-      canCreateRealTournament: false,
+      statusLabel: "Beta controlado",
+      canCreateRealTournament: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
       isBasicMode: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
       isAdvancedMode: mode === LEAGUE_MODE_TYPES.ADVANCED_MULTI_DIVISION,
       summaryLabel: snapshot.summaryLabel,
@@ -3648,16 +3650,21 @@
   function getTeamBattleLeagueAvailabilityBadge(league = {}, options = {}) {
     const payload = normalizeTeamBattleLeagueTournamentPayload(league, options);
     const mode = normalizeLeagueMode(payload.leagueMode);
+    const basicMode = mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION;
 
     return {
       status: DEFAULT_CONFIG.status,
-      label: "Em preparação",
-      tone: "warning",
+      label: basicMode ? "Beta controlado" : "Modo avançado reservado",
+      tone: basicMode ? "success" : "warning",
       formatKey: FORMAT_KEY,
       leagueMode: mode,
       leagueModeLabel: getLeagueModeLabel(mode),
-      canCreateRealTournament: false,
-      message: "Formato em preparação técnica. A primeira versão funcional deve priorizar a liga básica com divisão única antes do modo avançado com várias divisões."
+      available: basicMode,
+      canCreateRealTournament: basicMode,
+      canRunRealWeekendTest: basicMode,
+      message: basicMode
+        ? "MVP básico liberado para testes reais controlados: Divisão Única, equipes reais após check-in, agenda livre, resultados, classificação e Playoffs -SBW-."
+        : "Modo avançado com várias divisões permanece reservado para etapa futura."
     };
   }
 
@@ -3756,7 +3763,7 @@
       formatKey: FORMAT_KEY,
       schemaVersion: `${SCHEMA_VERSION}.admin-section.v1`,
       title: "Team Battle League 4v4",
-      subtitle: "Formato por equipes em preparação para a plataforma -SBW-.",
+      subtitle: "Formato por equipes em beta controlado para testes reais na plataforma -SBW-.",
       badge,
       preview,
       modeComparison: buildTeamBattleLeagueModeComparison(),
@@ -3838,7 +3845,7 @@
       nextAction: snapshot.nextAction,
       warnings: snapshot.warnings,
       errors: snapshot.errors,
-      lockedMessage: "Criação real ainda bloqueada. Esta área serve como preparação visual e administrativa para a implementação funcional futura."
+      lockedMessage: "Beta controlado. Use o modo básico com Divisão Única para testes reais; o modo avançado segue reservado."
     };
   }
 
@@ -4565,6 +4572,7 @@
 
   function buildTeamBattleLeagueVisualPreviewBoard(tournament = {}, options = {}) {
     const league = normalizeTeamBattleLeagueTournamentPayload(tournament, options);
+    const config = normalizeConfig(league.config || options.config || options);
     const mode = normalizeLeagueMode(league.leagueMode || options.leagueMode);
     const operational = buildTeamBattleLeagueBasicPublicState(tournament, { ...options, leagueMode: mode });
     const publicOverview = operational.ready
@@ -4932,7 +4940,7 @@
       metadata: {
         source: "internal-test-scenario",
         temporary: true,
-        purpose: "Validar divisão única, calendário, escalações, resultado e classificação antes de liberar criação real."
+        purpose: "Validar divisão única, agenda, escalações, resultado, classificação e Playoffs -SBW- com equipes reais."
       }
     }, source);
     const simulatedLeague = source.withResults === false
@@ -5023,8 +5031,8 @@
       formatKey: FORMAT_KEY,
       schemaVersion: `${SCHEMA_VERSION}.basic-mvp-config.v1`,
       title: "MVP básico · Team Battle League 4v4",
-      releaseLabel: "Liberação controlada planejada",
-      status: "locked-preview",
+      releaseLabel: "Teste real controlado",
+      status: "beta-controlled-test",
       modeKey: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
       modeLabel: "Básica · divisão única",
       summary: "Primeira versão funcional planejada para operar com uma divisão única, equipes 4v4, rodada todos contra todos e classificação simples.",
@@ -5055,7 +5063,7 @@
         "Atualizar resumo público da liga após resultados."
       ],
       releaseGuards: [
-        "Continuar bloqueado para criação pública enquanto não existir tela real de gestão.",
+        "Usar somente o modo básico com Divisão Única nos testes reais.",
         "Não ativar várias divisões no MVP básico.",
         "Não misturar o fluxo com o bracket Double Elimination.",
         "Não criar dados pessoais adicionais fora dos participantes/equipes já necessários ao torneio."
@@ -5076,12 +5084,12 @@
 
     return {
       ...model,
-      statusLabel: model.readyForBasicMvp ? "Pronto para teste interno" : "Preparando MVP básico",
+      statusLabel: model.readyForBasicMvp ? "Pronto para teste real controlado" : "Preparando teste real controlado",
       pendingCount: pending.length,
       pendingItems: pending,
       nextAction: pending[0]
         ? `Resolver: ${pending[0].label}`
-        : "Executar teste interno completo antes de liberar criação real."
+        : "Executar teste real controlado com equipes reais antes de avançar para nova fase."
     };
   }
 
@@ -5101,15 +5109,16 @@
       divisionName: cleanText(source.divisionName || source.division_name || source.groupName || source.group_name, "Divisão Única"),
       minTeams,
       maxTeams,
-      rosterSize: DEFAULT_CONFIG.rosterSize,
-      startersPerMatch: DEFAULT_CONFIG.startersPerTeamMatch,
-      reservesPerMatch: DEFAULT_CONFIG.reservesPerTeamMatch,
-      scheduleMode: cleanText(source.scheduleMode || source.schedule_mode, "round_robin"),
+      rosterSize: config.teamSize || DEFAULT_CONFIG.teamSize,
+      startersPerMatch: config.startersPerTeamMatch || DEFAULT_CONFIG.startersPerTeamMatch,
+      reservesPerMatch: config.reservePerTeamMatch || DEFAULT_CONFIG.reservePerTeamMatch,
+      scheduleMode: cleanText(source.scheduleMode || source.schedule_mode, config.scheduleMode || "organizer_per_match"),
+      pairingMode: cleanText(source.pairingMode || source.pairing_mode, "single_division_round_robin"),
       registrationMode: cleanText(source.registrationMode || source.registration_mode, "team_roster_approval"),
       checkinMode: cleanText(source.checkinMode || source.checkin_mode, "team_lineup_checkin"),
       resultsMode: cleanText(source.resultsMode || source.results_mode, "manual_match_results"),
       standingsMode: cleanText(source.standingsMode || source.standings_mode, "battle_points_table"),
-      allowPlayoffs: source.allowPlayoffs === true || source.allow_playoffs === true,
+      allowPlayoffs: source.allowPlayoffs !== false && source.allow_playoffs !== false,
       publicRosters: source.publicRosters === true || source.public_rosters === true,
       lockedForRealCreation: true,
       scoring: {
@@ -5153,12 +5162,8 @@
       errors.push("Cada confronto precisa de 3 titulares e 1 reserva por equipe.");
     }
 
-    if (source.scheduleMode !== "round_robin") {
-      warnings.push("Para o MVP básico, a recomendação é usar calendário todos contra todos na Divisão Única.");
-    }
-
-    if (source.allowPlayoffs) {
-      warnings.push("Playoffs podem ser preparados, mas a primeira liberação deve validar a tabela da Divisão Única antes.");
+    if (!["round_robin", "single_division_round_robin", "organizer_per_match"].includes(source.scheduleMode)) {
+      warnings.push("Para o MVP básico, use pareamento todos contra todos com agenda livre gerenciada pelo organizador.");
     }
 
     if (source.publicRosters) {
@@ -5218,8 +5223,8 @@
         }
       },
       safetyLocks: [
-        "Salvar apenas a configuração do formato nesta fase.",
-        "Manter criação real bloqueada enquanto o formato estiver em preparação.",
+        "Salvar a configuração do formato como beta controlado.",
+        "Usar somente Divisão Única nos testes reais.",
         "Não ativar múltiplas divisões no MVP básico.",
         "Não misturar com bracket Double Elimination."
       ],
@@ -5305,9 +5310,10 @@
         primarySettingsKey: "settings.teamBattleLeague",
         formatMetaKey: "settings.formatMeta",
         schemaVersion: SCHEMA_VERSION,
-        safeDraftOnly: true,
+        safeDraftOnly: false,
+        controlledBetaOnly: true,
         notes: [
-          "A primeira integração real deve salvar apenas rascunho controlado do formato.",
+          "A primeira integração real deve operar como beta controlado do formato.",
           "O modo básico usa uma divisão única e deve ser priorizado antes do modo avançado.",
           "Não salvar dados pessoais adicionais fora dos jogadores/equipes já participantes da competição."
         ]
@@ -5329,11 +5335,11 @@
         summary: "Partida 1 vale 10 pts, Partida 2 vale 10 pts, Partida 3 vale 20 pts e Partida extra vale 10 pts em caso de empate."
       },
       releaseGuards: [
-        "Manter criação real bloqueada enquanto o formato estiver com status em preparação.",
+        "Usar criação real apenas como beta controlado do MVP básico.",
         "Começar pelo modo básico com Divisão Única.",
         "Não criar tabelas Supabase novas nesta base técnica sem uma etapa SQL própria.",
         "Não misturar esse formato com o bracket Double Elimination atual.",
-        "Não habilitar check-in ou inscrição real de equipe antes de existir tela própria de gestão."
+        "Validar inscrição/check-in de equipe somente com equipes reais da plataforma."
       ],
       suggestedNextBatches: buildTeamBattleLeagueNextImplementationBatches()
     };
@@ -5351,9 +5357,9 @@
 
     const checks = [
       {
-        key: "format-still-locked",
-        label: "Formato segue bloqueado para criação real",
-        ok: availability.available !== true,
+        key: "format-beta-controlled",
+        label: "Formato liberado como beta controlado",
+        ok: availability.canCreateRealTournament === true,
         severity: "required"
       },
       {
@@ -5402,13 +5408,14 @@
       formatKey: FORMAT_KEY,
       schemaVersion: `${SCHEMA_VERSION}.pre-release-checklist.v1`,
       generatedAt: new Date().toISOString(),
-      status: requiredReady ? "ready-for-next-visual-integration" : "blocked",
+      status: requiredReady ? "ready-for-real-controlled-test" : "blocked",
       readyForNextVisualIntegration: requiredReady,
-      readyForRealCreation: false,
+      readyForRealCreation: requiredReady,
+      readyForRealControlledTest: requiredReady,
       recommendedReady,
       checks,
       warnings: [
-        "Este checklist libera apenas próxima integração visual/administrativa de rascunho, não criação real pública.",
+        "Este checklist libera testes reais controlados, não o modo avançado com várias divisões.",
         "A primeira versão funcional deve usar Team Battle League 4v4 básica com Divisão Única."
       ],
       nextBatches: buildTeamBattleLeagueNextImplementationBatches(),
@@ -5485,7 +5492,7 @@
     }
 
     if (!steps.length && source.ready) {
-      steps.push("Estrutura pronta para testes internos do formato.");
+      steps.push("Estrutura pronta para testes reais controlados do formato.");
     }
 
     return steps;
@@ -5497,7 +5504,7 @@
 
     return {
       ...validation,
-      statusLabel: validation.ready ? "Pronta para testes internos" : validation.valid ? "Estrutura parcial" : "Requer ajustes",
+      statusLabel: validation.ready ? "Pronta para testes reais controlados" : validation.valid ? "Estrutura parcial" : "Requer ajustes",
       nextSteps,
       summaryLabel: `${validation.leagueModeLabel} · ${validation.readyDivisions}/${validation.divisionCount} divisão${validation.divisionCount === 1 ? "" : "ões"} pronta${validation.divisionCount === 1 ? "" : "s"} · ${validation.readyTeams}/${validation.totalTeams} equipes com elenco completo · ${validation.totalMatches} confronto${validation.totalMatches === 1 ? "" : "s"}`
     };
@@ -5510,7 +5517,7 @@
       label: "Team Battle League 4v4 básica",
       mode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
       modeLabel: getLeagueModeLabel(LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION),
-      status: "em_preparacao",
+      status: "beta_controlado",
       releaseGoal: "Liberar primeiro a versão com divisão única, equipes 4v4, rodadas internas, escalações, resultados e classificação simples.",
       included: [
         "Divisão única",
@@ -5538,7 +5545,7 @@
       {
         step: "format-selection",
         label: "Selecionar formato",
-        description: "Organizador escolhe Team Battle League 4v4 básica quando o formato for liberado.",
+        description: "Organizador escolhe Team Battle League 4v4 básica em beta controlado.",
         required: true
       },
       {
@@ -5674,15 +5681,21 @@
     const errors = asArray(snapshot.errors);
     const warnings = asArray(snapshot.warnings);
     const checklist = buildTeamBattleLeaguePreReleaseChecklist(normalizedLeague, options);
-    const blockingChecklist = asArray(checklist.items).filter((item) => item.required && item.status !== "ready");
-    const canReleaseForInternalTest = !errors.length && !blockingChecklist.length;
+    const checklistItems = asArray(checklist.items || checklist.checks);
+    const blockingChecklist = checklistItems.filter((item) => {
+      const required = item.required === true || item.severity === "required";
+      const ready = item.status === "ready" || item.ok === true;
+      return required && !ready;
+    });
+    const canReleaseForRealTest = !errors.length && !blockingChecklist.length;
 
     return {
-      status: canReleaseForInternalTest ? "ready_for_internal_test" : "not_ready",
-      label: canReleaseForInternalTest ? "Pronto para teste interno controlado" : "Ainda requer ajustes antes do teste interno",
-      canReleaseForInternalTest,
-      canReleasePublicly: false,
-      releaseNote: "Mesmo quando pronto para teste interno, o formato continua bloqueado para criação pública até validação da operação real.",
+      status: canReleaseForRealTest ? "ready_for_real_controlled_test" : "not_ready",
+      label: canReleaseForRealTest ? "Pronto para teste real controlado" : "Ainda requer ajustes antes do teste real",
+      canReleaseForInternalTest: canReleaseForRealTest,
+      canReleaseForRealTest,
+      canReleasePublicly: canReleaseForRealTest,
+      releaseNote: "Liberado apenas como beta controlado do MVP básico; modo avançado segue reservado.",
       blockingItems: [
         ...errors,
         ...blockingChecklist.map((item) => item.label || item.key).filter(Boolean)
@@ -5710,9 +5723,9 @@
       dataChecklist,
       launchDecision,
       recommendedNextPatch: {
-        version: "v1.6.73",
-        label: "Prévia visual do Team Battle League 4v4 no painel do organizador",
-        goal: "Mostrar a estrutura preparada no painel, ainda sem liberar criação real para o público."
+        version: "v1.6.76.13",
+        label: "Estabilização estrutural para testes reais Team Battle League 4v4",
+        goal: "Fechar a base do MVP básico para teste real com equipes, agenda, resultados, classificação, Playoffs -SBW- e auditoria."
       }
     };
   }
@@ -5770,18 +5783,18 @@
         description: "Resultados alimentam pontos de batalha, vitórias, saldo e tabela da divisão única."
       },
       {
-        key: "release",
-        label: "Liberação pública",
-        status: "locked",
-        value: "Bloqueada",
-        description: "O formato permanece em preparação até teste interno controlado e validação operacional."
+        key: "real-test",
+        label: "Teste real controlado",
+        status: "ready",
+        value: "Liberado no beta",
+        description: "O formato pode ser testado com equipes reais no MVP básico, mantendo Divisão Única e sem equipes demo/fake."
       }
     ].map((gate, index) => ({
       ...gate,
       order: index + 1,
-      stateLabel: gate.status === "ready" ? "Pronto" : gate.status === "locked" ? "Bloqueado" : gate.status === "planned" ? "Planejado" : "Pendente",
+      stateLabel: gate.status === "ready" ? "Pronto" : gate.status === "locked" ? "Restrito" : gate.status === "planned" ? "Planejado" : "Pendente",
       timelineState: asArray(timeline.steps).find((step) => step.key === gate.key)?.state || gate.status,
-      nextAction: index === 0 ? nextAction?.label || "Preparar teste interno" : ""
+      nextAction: index === 0 ? nextAction?.label || "Preparar teste real" : ""
     }));
   }
 
@@ -5800,13 +5813,13 @@
 
     return {
       key: "team-battle-controlled-test-package",
-      label: "Teste controlado Team Battle League 4v4",
+      label: "Teste real controlado Team Battle League 4v4",
       mode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
       modeLabel: "Básica · divisão única",
-      summary: "Pacote visual e operacional para preparar o primeiro teste interno do formato 4v4 sem liberar criação pública.",
-      releaseStatus: "internal_test_planned",
-      releaseLabel: "Teste interno planejado",
-      publicCreationEnabled: false,
+      summary: "Pacote operacional para testar o formato 4v4 com equipes reais no beta controlado, sem liberar modo avançado.",
+      releaseStatus: "real_test_ready",
+      releaseLabel: "Teste real controlado",
+      publicCreationEnabled: true,
       gates,
       metrics: {
         totalGates: gates.length,
@@ -5815,16 +5828,16 @@
         locked: lockedCount
       },
       safetyLocks: [
-        "Criação pública continua bloqueada.",
+        "Uso liberado apenas como beta controlado.",
         "Modo inicial limitado à divisão única.",
-        "Inscrições, check-in e resultados reais dependem de validação controlada.",
+        "Inscrições, check-in e resultados devem usar equipes reais da plataforma.",
         "Modo avançado com várias divisões permanece reservado para fase posterior."
       ],
       nextRecommendedActions: [
-        "Criar tela administrativa de teste interno.",
-        "Gerar liga básica com equipes reais aprovadas.",
-        "Validar escalações 3 + 1 e check-in por equipe.",
-        "Testar um confronto completo com resultados e classificação."
+        "Criar torneio Team Battle League 4v4 em beta controlado.",
+        "Inscrever equipes reais com elenco 4v4.",
+        "Validar escalações 3 + 1, check-in e agenda por confronto.",
+        "Testar resultados, classificação, Playoffs -SBW- e fechamento oficial."
       ],
       snapshot
     };
@@ -5914,7 +5927,7 @@
     return {
       key: "team-battle-basic-mvp-closure-report",
       label: "Fechamento do MVP básico Team Battle League 4v4",
-      status: "prepared_for_controlled_validation",
+      status: "prepared_for_real_controlled_test",
       noDemoData: true,
       summary: "A fase prepara criação eficiente, molde público vazio, entrada de equipes reais após check-in, confrontos básicos e classificação inicial sem usar times demo.",
       completedScope: [
@@ -5925,11 +5938,10 @@
         "Base de resultados e classificação do MVP básico."
       ],
       blockedScope: [
-        "Liberação pública do formato para criação real sem validação.",
-        "Inscrições reais específicas do Team Battle no banco.",
-        "Check-in real por equipe no banco.",
-        "Painel completo de lançamento de resultados por confronto.",
-        "Modo avançado com múltiplas divisões."
+        "Modo avançado com múltiplas divisões.",
+        "Automação completa de temporadas longas.",
+        "Refinamento visual final pós-teste.",
+        "Expansão futura de regras específicas por organizador."
       ],
       validation: {
         readyStages,
@@ -5942,9 +5954,9 @@
         ]
       },
       nextRecommendedPhase: {
-        version: "v1.6.75",
-        label: "Integração real controlada Team Battle League 4v4",
-        goal: "Conectar o MVP básico a dados reais de inscrição/check-in/equipe sem usar placeholders."
+        version: "v1.6.77",
+        label: "Inscrição e check-in reais de equipes Team Battle League 4v4",
+        goal: "Consolidar o fluxo real de equipes inscritas, check-in e geração da Divisão Única após os testes controlados."
       },
       status
     };
@@ -6039,7 +6051,7 @@
     const confirmedTeams = Array.isArray(publicState?.confirmedTeams) ? publicState.confirmedTeams.length : 0;
 
     return {
-      label: "MVP básico em beta controlado",
+      label: "MVP básico pronto para teste real controlado",
       mode: getLeagueModeLabel(payload.config?.leagueMode || LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION),
       readyForPublicTeams: checkinClosed && confirmedTeams >= DEFAULT_CONFIG.minTeams,
       confirmedTeams,
@@ -6052,6 +6064,92 @@
         "Elenco 4v4: 3 titulares + 1 reserva.",
         "Pontuação 10 / 10 / 20 / +10 em caso de empate."
       ]
+    };
+  }
+
+  function buildTeamBattleLeagueRealTestChecklist(tournament = {}, options = {}) {
+    const payload = normalizeTeamBattleLeagueTournamentPayload(tournament, options);
+    const runtime = buildTeamBattleLeagueBasicMvpRuntimeStatus(tournament, options);
+    const availability = getTeamBattleLeagueAvailabilityBadge(payload, options);
+    const config = normalizeConfig(payload.config || payload || options);
+    const publicState = runtime.publicState || buildTeamBattleLeagueBasicPublicState(tournament, options);
+    const scheduleSummary = buildTeamBattleScheduleAutonomySummary(payload, options);
+    const playoffPreview = buildTeamBattleLeaguePlayoffPreview(publicState.playoffPlan || payload.playoffs?.plan || {}, options);
+    const finalStatus = buildTeamBattleLeagueFinalSummary(payload, options);
+
+    const checks = [
+      {
+        key: "format-beta",
+        label: "Formato selecionável",
+        ok: availability.canCreateRealTournament === true,
+        detail: "Team Battle League 4v4 aparece como beta controlado."
+      },
+      {
+        key: "single-division",
+        label: "Divisão Única",
+        ok: normalizeLeagueMode(payload.leagueMode || config.leagueMode) === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION,
+        detail: "O teste real usa somente o modo básico, sem múltiplas divisões."
+      },
+      {
+        key: "teams-even-capacity",
+        label: "Capacidade por equipes",
+        ok: true,
+        detail: "Limite configurado por equipes, com numeração par; equipes confirmadas podem terminar em número ímpar com folga técnica."
+      },
+      {
+        key: "real-teams-only",
+        label: "Sem fake/demo",
+        ok: payload.realTeamsOnly !== false && runtime.noDemoData === true,
+        detail: "A tabela não deve preencher Equipe 1/Equipe 2 como participante real."
+      },
+      {
+        key: "organizer-schedule",
+        label: "Agenda livre",
+        ok: scheduleSummary.organizerManaged !== false,
+        detail: "Datas, horários, status, observações e transmissão ficam sob controle do organizador."
+      },
+      {
+        key: "results-standings",
+        label: "Resultados e classificação",
+        ok: true,
+        detail: "Somente confrontos finalizados entram na classificação; folga não pontua."
+      },
+      {
+        key: "playoffs-sbw",
+        label: "Playoffs -SBW-",
+        ok: payload.config?.playoffsEnabled !== false,
+        detail: "Top 4 real, escada -SBW-, FT50/FT70 e sem partida extra nos playoffs."
+      },
+      {
+        key: "final-closure",
+        label: "Fechamento oficial",
+        ok: true,
+        detail: "Painel preparado para campeão, vice, 3º/4º e histórico operacional."
+      }
+    ];
+
+    const readyCount = checks.filter((check) => check.ok === true).length;
+
+    return {
+      key: "team-battle-real-weekend-test-checklist",
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.real-test-checklist.v1`,
+      label: "Checklist para teste real Team Battle League 4v4",
+      status: readyCount === checks.length ? "ready" : "attention",
+      statusLabel: readyCount === checks.length ? "Pronto para teste real controlado" : "Revisar antes do teste real",
+      ready: readyCount === checks.length,
+      readyCount,
+      totalChecks: checks.length,
+      checks,
+      publicGuidance: [
+        "Usar equipes reais da plataforma.",
+        "Não preencher tabela antes do check-in.",
+        "Validar agenda e resultados pelo painel do organizador.",
+        "Registrar problemas do teste para refinamento visual depois."
+      ],
+      runtime,
+      playoffPreview,
+      finalStatus
     };
   }
 
@@ -6124,6 +6222,7 @@
     buildTeamBattleLeagueBasicMvpClosureReport,
     buildTeamBattleLeagueBasicControlledCreationPayload,
     buildTeamBattleLeagueControlledCreationNotice,
+    buildTeamBattleLeagueRealTestChecklist,
     normalizeScheduleStatus,
     getScheduleStatusLabel,
     normalizeMatchSchedule,

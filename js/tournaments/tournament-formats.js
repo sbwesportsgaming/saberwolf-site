@@ -116,7 +116,7 @@
       flowDescription: "Equipes disputam confrontos com escalações, partidas individuais e pontuação por duelo. O MVP básico usa uma divisão única; o modo avançado com várias divisões fica reservado para etapa futura.",
       features: ["Equipes de 4", "MVP básico com divisão única", "Equipes reais após check-in", "Escalações 3 + 1", "Team matches", "Pontuação 10/10/20/+10", "Playoffs -SBW- em escada"],
       requirements: ["Equipes reais confirmadas", "Check-in encerrado para preencher a tabela", "Elenco de 4 jogadores por equipe", "Divisão única no MVP básico", "Rodadas e confrontos por equipe", "Partida extra em caso de empate", "Top 4 real para playoffs -SBW-"],
-      roadmap: ["Liberar criação controlada do MVP básico", "Preencher tabela somente com equipes reais após check-in", "Conectar confrontos e resultados reais", "Programar playoffs -SBW- em escada", "Refinar painel operacional", "Expandir para modo avançado com múltiplas divisões"],
+      roadmap: ["Liberar criação controlada do MVP básico", "Preencher tabela somente com equipes reais após check-in", "Agenda, resultados, classificação e Playoffs -SBW- operacionais", "Testes reais controlados com equipes", "Refinamento visual pós-teste", "Expandir para modo avançado com múltiplas divisões"],
       specs: [
         { label: "Participação", value: "Equipes com elenco de 4 jogadores" },
         { label: "Modo básico", value: "Uma divisão única para simplificar a primeira versão funcional" },
@@ -139,7 +139,8 @@
         mainMatches: 3,
         reservePlayer: true,
         extraMatchOnDraw: true,
-        sflCapcomPlayoffs: true,
+        sbwStepladderPlayoffs: true,
+        legacyInternalReference: "sfl-compatible-structure",
         basicPlayoffQualifiers: 4,
         playoffFirstToQuarterFinal: 50,
         playoffFirstToSemiFinal: 50,
