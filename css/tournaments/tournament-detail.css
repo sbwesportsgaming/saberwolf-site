@@ -7157,3 +7157,98 @@
   color: var(--sbw-cyan, #00e5ff);
   font-weight: 700;
 }
+
+/* v1.6.76.11 — pódio final público Team Battle League 4v4 */
+.overview-team-battle-final-summary {
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  border-radius: 22px;
+  background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.13), transparent 42%), rgba(2, 6, 23, 0.74);
+  padding: 18px;
+  margin: 16px 0;
+  display: grid;
+  gap: 14px;
+}
+
+.overview-team-battle-final-summary.is-finished {
+  border-color: rgba(16, 185, 129, 0.32);
+  background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.13), transparent 42%), rgba(2, 6, 23, 0.74);
+}
+
+.overview-team-battle-final-summary__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.overview-team-battle-final-summary__head small,
+.overview-team-battle-final-summary__head span {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--sbw-cyan, #00e5ff);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overview-team-battle-final-summary__head strong {
+  display: block;
+  margin-top: 8px;
+  color: #fff;
+  font-size: 1.12rem;
+}
+
+.overview-team-battle-final-summary__head p,
+.overview-team-battle-final-summary__meta {
+  margin: 6px 0 0;
+  color: rgba(226, 232, 240, 0.74);
+  line-height: 1.45;
+}
+
+.overview-team-battle-final-summary__podium {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-team-battle-final-summary__podium article {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 13px;
+}
+
+.overview-team-battle-final-summary__podium small {
+  display: block;
+  color: rgba(165, 243, 252, 0.84);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.overview-team-battle-final-summary__podium strong {
+  display: block;
+  margin-top: 6px;
+  color: #fff;
+}
+
+@media (max-width: 920px) {
+  .overview-team-battle-final-summary__head {
+    flex-direction: column;
+  }
+
+  .overview-team-battle-final-summary__podium {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .overview-team-battle-final-summary__podium {
+    grid-template-columns: 1fr;
+  }
+}

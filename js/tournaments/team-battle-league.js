@@ -1555,6 +1555,32 @@
     };
   }
 
+  function getPlayoffSeriesLoserTeam(series = {}) {
+    const source = asObject(series);
+    const result = calculateSflCapcomPlayoffSeriesScore(source, {});
+    const storedResult = asObject(source.result);
+    const winnerSide = cleanText(result.winnerSide || storedResult.winnerSide || storedResult.winner_side);
+
+    if (!(result.finalized === true || storedResult.finalized === true) || !winnerSide) return null;
+
+    const loserSide = winnerSide === "home" ? "away" : "home";
+    const loser = loserSide === "home" ? asObject(source.homeTeam) : asObject(source.awayTeam);
+    if (!Object.keys(loser).length || isPlayoffPlaceholderTeam(loser)) return null;
+
+    const teamId = getPlayoffTeamReferenceKey(loser);
+    return {
+      ...loser,
+      id: cleanText(loser.id || loser.teamId || teamId),
+      teamId: cleanText(loser.teamId || loser.id || teamId),
+      teamName: cleanText(loser.teamName || loser.name, loserSide === "home" ? "Mandante" : "Visitante"),
+      name: cleanText(loser.name || loser.teamName, loserSide === "home" ? "Mandante" : "Visitante"),
+      placeholder: false,
+      sourceLoserSide: loserSide,
+      sourceWinnerSide: winnerSide,
+      sourceMatchId: cleanText(source.id || source.matchId || source.match_id)
+    };
+  }
+
   function resolvePlayoffPlaceholderTeam(team = {}, winnerMap = new Map()) {
     const source = asObject(team);
     if (!isPlayoffPlaceholderTeam(source)) return source;
@@ -4376,6 +4402,82 @@
     };
   }
 
+
+  function buildTeamBattleLeagueFinalSummary(tournament = {}, options = {}) {
+    const config = normalizeConfig({ ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const publicState = buildTeamBattleLeagueBasicPublicState(tournament, { ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
+    const savedPlayoffs = getTeamBattleSavedPlayoffs(tournament);
+    const basePlan = savedPlayoffs.saved === true && Object.keys(savedPlayoffs.plan).length
+      ? savedPlayoffs.plan
+      : asObject(publicState.playoffPlan);
+    const playoffPlan = hydrateTeamBattlePlayoffPlanWithResults(basePlan, config);
+    const settings = asObject(asObject(tournament).settings);
+    const metadata = asObject(asObject(tournament).metadata);
+    const teamBattle = asObject(metadata.teamBattleLeague || metadata.team_battle_league || settings.teamBattleLeague || settings.team_battle_league);
+    const storedFinal = asObject(teamBattle.finalSummary || teamBattle.final_summary || metadata.finalResults || metadata.final_results || settings.finalResults || settings.final_results);
+    const allSeries = [
+      ...asArray(playoffPlan.divisionBrackets).flatMap((bracket) => asArray(asObject(bracket).stages).flatMap((stage) => asArray(asObject(stage).matches))),
+      ...asArray(playoffPlan.finalStages).flatMap((stage) => asArray(asObject(stage).matches))
+    ];
+    const findSeries = (stageType) => allSeries.find((series) => cleanText(series.stageType || series.playoff?.stageType) === stageType) || null;
+    const quarterFinal = findSeries(PLAYOFF_STAGE_TYPES.QUARTER_FINAL);
+    const semiFinal = findSeries(PLAYOFF_STAGE_TYPES.LEAGUE_SEMIFINAL) || findSeries(PLAYOFF_STAGE_TYPES.DIVISION_SEMIFINAL);
+    const grandFinal = findSeries(PLAYOFF_STAGE_TYPES.GRAND_FINAL);
+    const championTeam = grandFinal ? getPlayoffSeriesWinnerTeam(grandFinal) : null;
+    const runnerUpTeam = grandFinal ? getPlayoffSeriesLoserTeam(grandFinal) : null;
+    const thirdPlaceTeam = semiFinal ? getPlayoffSeriesLoserTeam(semiFinal) : null;
+    const fourthPlaceTeam = quarterFinal ? getPlayoffSeriesLoserTeam(quarterFinal) : null;
+    const finalizedSeries = allSeries.filter((series) => asObject(series).result?.finalized === true);
+    const readyToFinalize = Boolean(championTeam && savedPlayoffs.saved === true);
+    const storedStatus = cleanText(teamBattle.finalStatus || teamBattle.final_status || storedFinal.status || storedFinal.finalStatus || storedFinal.final_status);
+    const finalized = readyToFinalize && ["finished", "completed", "complete", "finalized", "finalizado", "encerrado"].includes(storedStatus);
+    const finalizedAt = cleanText(teamBattle.completedAt || teamBattle.completed_at || teamBattle.finalizedAt || teamBattle.finalized_at || storedFinal.finalizedAt || storedFinal.finalized_at || storedFinal.completedAt || storedFinal.completed_at);
+    const placementSources = [championTeam, runnerUpTeam, thirdPlaceTeam, fourthPlaceTeam];
+    const placements = placementSources.map((team, index) => {
+      if (!team) return null;
+      return {
+        position: index + 1,
+        label: index === 0 ? "Campeão" : index === 1 ? "Vice-campeão" : `${index + 1}º lugar`,
+        teamId: cleanText(team.teamId || team.id),
+        id: cleanText(team.id || team.teamId),
+        teamName: cleanText(team.teamName || team.name, index === 0 ? "Campeão" : "Equipe"),
+        name: cleanText(team.name || team.teamName, index === 0 ? "Campeão" : "Equipe"),
+        seed: team.seed || null,
+        sourceMatchId: cleanText(team.sourceMatchId)
+      };
+    }).filter(Boolean);
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.final-summary.v1`,
+      status: finalized ? "finished" : readyToFinalize ? "ready_to_finish" : "waiting_champion",
+      statusLabel: finalized ? "Team Battle finalizado" : readyToFinalize ? "Pronto para finalizar" : "Aguardando campeão",
+      readyToFinalize,
+      finalized,
+      finalizedAt,
+      championTeam: championTeam ? placements[0] : null,
+      runnerUpTeam: runnerUpTeam ? placements[1] : null,
+      thirdPlaceTeam: thirdPlaceTeam ? placements[2] : null,
+      fourthPlaceTeam: fourthPlaceTeam ? placements[3] : null,
+      placements,
+      totalSeries: allSeries.length,
+      finalizedSeries: finalizedSeries.length,
+      progressLabel: `${finalizedSeries.length}/${allSeries.length} série${allSeries.length === 1 ? "" : "s"} dos playoffs finalizada${allSeries.length === 1 ? "" : "s"}`,
+      publicTitle: finalized ? "Temporada Team Battle concluída" : readyToFinalize ? "Campeão definido" : "Fase final em andamento",
+      publicDescription: finalized
+        ? "O organizador encerrou oficialmente o Team Battle League 4v4 e publicou o pódio final."
+        : readyToFinalize
+          ? "A Grande Final terminou. Falta apenas o organizador encerrar oficialmente o torneio no painel."
+          : "O campeão será exibido aqui quando a Grande Final dos Playoffs -SBW- terminar.",
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        source: "team-battle-final-summary",
+        savedPlayoffs: savedPlayoffs.saved === true,
+        savedAt: savedPlayoffs.savedAt || ""
+      }
+    };
+  }
+
   function buildTeamBattleLeagueVisualPreviewBoard(tournament = {}, options = {}) {
     const league = normalizeTeamBattleLeagueTournamentPayload(tournament, options);
     const mode = normalizeLeagueMode(league.leagueMode || options.leagueMode);
@@ -4459,6 +4561,7 @@
     const playoffPreview = buildTeamBattleLeaguePlayoffPreview(playoffPlan, {
       metadata: { boardReady: hasRealTeams }
     });
+    const finalSummary = buildTeamBattleLeagueFinalSummary(tournament, { ...options, config });
 
     return {
       formatKey: FORMAT_KEY,
@@ -4478,6 +4581,7 @@
       byes,
       hasOddTeamCount: operational.hasOddTeamCount === true || byes.length > 0,
       playoffPreview,
+      finalSummary,
       scheduleSummary: buildTeamBattleScheduleAutonomySummary(tournament, { ...options, config }),
       statusCards: [
         { label: "Modo", value: mode === LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION ? "Básico" : "Avançado", detail: getLeagueModeLabel(mode) },
@@ -4486,7 +4590,8 @@
         { label: "Resultados", value: hasRealTeams ? `${operational.finishedMatches || 0}/${operational.totalMatches || 0}` : "Aguardando", detail: hasRealTeams ? "Somente finalizados contam" : "Após equipes reais" },
         { label: "Classificação", value: hasRealTeams ? (standingsStatus?.lockedForPlayoffs ? "Em andamento" : "Final") : "Aguardando", detail: hasRealTeams ? "Oficial; parciais não pontuam" : "Após resultados" },
         { label: "Agenda", value: "Livre", detail: "Organizador define datas e horários" },
-        { label: "Playoffs", value: hasRealTeams ? playoffPreview.statusLabel : "Após tabela", detail: playoffPreview.rulesetLabel }
+        { label: "Playoffs", value: hasRealTeams ? playoffPreview.statusLabel : "Após tabela", detail: playoffPreview.rulesetLabel },
+        { label: "Final", value: finalSummary.finalized ? "Concluído" : finalSummary.readyToFinalize ? "Campeão definido" : "Em aberto", detail: finalSummary.progressLabel || "Aguardando playoffs" }
       ],
       notes: hasRealTeams ? [
         "A Divisão Única foi montada com equipes reais confirmadas no check-in.",
@@ -6027,6 +6132,7 @@
     buildTeamBattleLeaguePlayoffPreview,
     getTeamBattleSavedPlayoffs,
     buildTeamBattleLeagueOperationalPlayoffState,
+    buildTeamBattleLeagueFinalSummary,
     hydrateTeamBattlePlayoffPlanWithResults,
     findTeamReference,
     getTeamDisplayLabel,

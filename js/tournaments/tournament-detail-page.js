@@ -798,6 +798,8 @@ function getTournamentFormat(tournament) {
     const playoffTeams = Array.isArray(playoffPreview?.qualifiedTeams) ? playoffPreview.qualifiedTeams.slice(0, 4) : [];
     const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
     const playoffChampion = playoffPreview?.championTeam || null;
+    const finalSummary = board?.finalSummary || null;
+    const finalPlacements = Array.isArray(finalSummary?.placements) ? finalSummary.placements.slice(0, 4) : [];
     const scheduleSummary = board?.scheduleSummary || model?.scheduleSummary || (window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary === "function"
       ? window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary(tournament || {}, { leagueMode: "basic_single_division" })
       : null);
@@ -838,6 +840,30 @@ function getTournamentFormat(tournament) {
             ${scoreModel.map((slot) => `
               <span><strong>${escapeHTML(slot.points || 0)}</strong>${escapeHTML(slot.label || "Partida")}${slot.conditional ? " · se empate" : ""}</span>
             `).join("")}
+          </div>
+        ` : ""}
+
+        ${finalSummary && finalSummary.readyToFinalize ? `
+          <div class="overview-team-battle-final-summary ${finalSummary.finalized ? "is-finished" : "is-ready"}" aria-label="Resumo final Team Battle League 4v4">
+            <div class="overview-team-battle-final-summary__head">
+              <div>
+                <small>${escapeHTML(finalSummary.statusLabel || "Final Team Battle")}</small>
+                <strong>${escapeHTML(finalSummary.publicTitle || "Campeão definido")}</strong>
+                <p>${escapeHTML(finalSummary.publicDescription || "O pódio final será publicado após o encerramento pelo organizador.")}</p>
+              </div>
+              <span>${escapeHTML(finalSummary.finalized ? "Concluído" : "Aguardando encerramento")}</span>
+            </div>
+            ${finalPlacements.length ? `
+              <div class="overview-team-battle-final-summary__podium">
+                ${finalPlacements.map((team) => `
+                  <article>
+                    <small>${escapeHTML(team.label || `${team.position || ""}º lugar`)}</small>
+                    <strong>${escapeHTML(team.teamName || team.name || "Equipe")}</strong>
+                  </article>
+                `).join("")}
+              </div>
+            ` : ""}
+            <p class="overview-team-battle-final-summary__meta">${escapeHTML(finalSummary.progressLabel || "Playoffs finalizados.")}${finalSummary.finalizedAt ? ` · Encerrado em ${escapeHTML(String(finalSummary.finalizedAt).slice(0, 16).replace("T", " "))}` : ""}</p>
           </div>
         ` : ""}
 
