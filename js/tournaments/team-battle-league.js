@@ -4403,6 +4403,91 @@
   }
 
 
+
+
+  function normalizeTeamBattleAuditEntry(entry = {}, index = 1) {
+    const source = asObject(entry);
+    const action = cleanText(source.action || source.type, "team_battle_update");
+    const label = cleanText(source.label || source.title, "Atualização Team Battle 4v4");
+    const detail = cleanText(source.detail || source.description || source.message, "Registro operacional atualizado pelo organizador.");
+    const date = cleanText(source.date || source.createdAt || source.created_at || source.updatedAt || source.updated_at, new Date().toISOString());
+
+    return {
+      id: cleanText(source.id, `team-battle-audit-${index}-${cleanKey(action, "update")}`),
+      action,
+      label,
+      detail,
+      date,
+      createdAt: date,
+      scope: cleanText(source.scope || source.area, "team_battle_league_4v4"),
+      actor: cleanText(source.actor || source.actorName || source.actor_name, "Organizador"),
+      matchCount: clampNumber(source.matchCount || source.match_count, 0, 999, 0),
+      finishedCount: clampNumber(source.finishedCount || source.finished_count, 0, 999, 0),
+      metadata: asObject(source.metadata)
+    };
+  }
+
+  function getTeamBattleAuditLogFromPayload(payload = {}) {
+    const source = asObject(payload);
+    return asArray(
+      source.auditLog ||
+      source.audit_log ||
+      source.operationalAudit ||
+      source.operational_audit ||
+      asObject(source.audit).log ||
+      asObject(source.history).entries
+    );
+  }
+
+  function getTeamBattleAuditEntries(tournament = {}, options = {}) {
+    const source = asObject(tournament);
+    const settings = asObject(source.settings);
+    const metadata = asObject(source.metadata);
+    const teamBattle = {
+      ...asObject(settings.teamBattleLeague || settings.team_battle_league),
+      ...asObject(metadata.teamBattleLeague || metadata.team_battle_league)
+    };
+    const directEntries = [
+      ...getTeamBattleAuditLogFromPayload(teamBattle),
+      ...getTeamBattleAuditLogFromPayload(settings),
+      ...getTeamBattleAuditLogFromPayload(metadata)
+    ];
+    const unique = new Map();
+
+    directEntries.forEach((entry, index) => {
+      const normalized = normalizeTeamBattleAuditEntry(entry, index + 1);
+      const key = `${normalized.action}:${normalized.date}:${normalized.detail}`;
+      if (!unique.has(key)) unique.set(key, normalized);
+    });
+
+    const limit = clampNumber(options.limit, 1, 100, 12);
+    return Array.from(unique.values())
+      .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")))
+      .slice(0, limit);
+  }
+
+  function buildTeamBattleAuditSummary(tournament = {}, options = {}) {
+    const entries = getTeamBattleAuditEntries(tournament, { limit: options.limit || 12 });
+    const latest = entries[0] || null;
+
+    return {
+      formatKey: FORMAT_KEY,
+      schemaVersion: `${SCHEMA_VERSION}.audit.v1`,
+      title: "Auditoria operacional 4v4",
+      totalEntries: entries.length,
+      latest,
+      entries,
+      emptyState: {
+        title: "Sem auditoria operacional ainda",
+        description: "As alterações de agenda, resultados, playoffs e fechamento aparecerão aqui depois que o organizador salvar ações do Team Battle 4v4."
+      },
+      rules: [
+        "Registra alterações de agenda, resultados, liberação de playoffs e fechamento oficial.",
+        "Mantém histórico interno para revisão do organizador e da administração da plataforma -SBW-.",
+        "Não publica dados sensíveis para jogadores; o registro fica restrito ao painel operacional."
+      ]
+    };
+  }
   function buildTeamBattleLeagueFinalSummary(tournament = {}, options = {}) {
     const config = normalizeConfig({ ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
     const publicState = buildTeamBattleLeagueBasicPublicState(tournament, { ...options, leagueMode: LEAGUE_MODE_TYPES.BASIC_SINGLE_DIVISION });
@@ -6132,6 +6217,9 @@
     buildTeamBattleLeaguePlayoffPreview,
     getTeamBattleSavedPlayoffs,
     buildTeamBattleLeagueOperationalPlayoffState,
+    normalizeTeamBattleAuditEntry,
+    getTeamBattleAuditEntries,
+    buildTeamBattleAuditSummary,
     buildTeamBattleLeagueFinalSummary,
     hydrateTeamBattlePlayoffPlanWithResults,
     findTeamReference,

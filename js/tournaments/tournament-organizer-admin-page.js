@@ -311,6 +311,129 @@ function sbwOrganizerEditorSetTeamBattlePlayoffsMessage(message, type = "") {
   if (type) sbwOrganizerTeamBattlePlayoffsMessage.classList.add(`is-${type}`);
 }
 
+
+function sbwOrganizerEditorCreateTeamBattleAuditEntry(action, label, detail, extra = {}) {
+  const source = sbwOrganizerEditorAsObject(extra);
+  const now = new Date().toISOString();
+
+  return {
+    id: `team-battle-audit-${now.replace(/[^0-9]/g, "")}-${String(action || "update").replace(/[^a-z0-9_-]/gi, "-")}`,
+    action: String(action || "team_battle_update"),
+    label: String(label || "Atualização Team Battle 4v4"),
+    detail: String(detail || "Registro operacional atualizado pelo organizador."),
+    date: now,
+    createdAt: now,
+    scope: "team_battle_league_4v4",
+    actor: String(source.actor || sbwOrganizerEditorCurrent?.name || sbwOrganizerEditorCurrent?.title || sbwOrganizerEditorCurrent?.slug || "Organizador"),
+    matchCount: Number(source.matchCount || 0) || 0,
+    finishedCount: Number(source.finishedCount || 0) || 0,
+    metadata: {
+      tournamentKey: String(source.tournamentKey || ""),
+      source: String(source.source || "organizer-team-battle-panel"),
+      ...sbwOrganizerEditorAsObject(source.metadata)
+    }
+  };
+}
+
+function sbwOrganizerEditorGetTeamBattleAuditEntriesFromData(teamBattle = {}) {
+  const source = sbwOrganizerEditorAsObject(teamBattle);
+  const entries = [
+    ...(Array.isArray(source.auditLog) ? source.auditLog : []),
+    ...(Array.isArray(source.audit_log) ? source.audit_log : []),
+    ...(Array.isArray(source.operationalAudit) ? source.operationalAudit : []),
+    ...(Array.isArray(source.operational_audit) ? source.operational_audit : [])
+  ];
+  const unique = new Map();
+
+  entries.forEach((entry, index) => {
+    const item = sbwOrganizerEditorAsObject(entry);
+    const normalized = {
+      id: String(item.id || `team-battle-audit-${index + 1}`),
+      action: String(item.action || item.type || "team_battle_update"),
+      label: String(item.label || item.title || "Atualização Team Battle 4v4"),
+      detail: String(item.detail || item.description || item.message || "Registro operacional atualizado pelo organizador."),
+      date: String(item.date || item.createdAt || item.created_at || item.updatedAt || item.updated_at || ""),
+      actor: String(item.actor || item.actorName || item.actor_name || "Organizador"),
+      matchCount: Number(item.matchCount || item.match_count || 0) || 0,
+      finishedCount: Number(item.finishedCount || item.finished_count || 0) || 0,
+      metadata: sbwOrganizerEditorAsObject(item.metadata)
+    };
+    const key = `${normalized.action}:${normalized.date}:${normalized.detail}`;
+    if (!unique.has(key)) unique.set(key, normalized);
+  });
+
+  return Array.from(unique.values())
+    .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")));
+}
+
+function sbwOrganizerEditorGetTeamBattleAuditEntries(tournament = {}, limit = 8) {
+  const helper = window.SBWTeamBattleLeague;
+  if (helper && typeof helper.getTeamBattleAuditEntries === "function") {
+    return helper.getTeamBattleAuditEntries(tournament || {}, { limit });
+  }
+
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const teamBattle = {
+    ...sbwOrganizerEditorAsObject(settings.teamBattleLeague || settings.team_battle_league),
+    ...sbwOrganizerEditorAsObject(metadata.teamBattleLeague || metadata.team_battle_league)
+  };
+
+  return sbwOrganizerEditorGetTeamBattleAuditEntriesFromData(teamBattle).slice(0, limit);
+}
+
+function sbwOrganizerEditorBuildTeamBattleAuditLog(teamBattleBase = {}, entry = null) {
+  const previousEntries = sbwOrganizerEditorGetTeamBattleAuditEntriesFromData(teamBattleBase);
+  const nextEntries = entry ? [entry, ...previousEntries] : previousEntries;
+  const unique = new Map();
+
+  nextEntries.forEach((item, index) => {
+    const entryObject = sbwOrganizerEditorAsObject(item);
+    const key = `${entryObject.action || "update"}:${entryObject.date || index}:${entryObject.detail || ""}`;
+    if (!unique.has(key)) unique.set(key, entryObject);
+  });
+
+  return Array.from(unique.values())
+    .sort((first, second) => String(second.date || "").localeCompare(String(first.date || "")))
+    .slice(0, 40);
+}
+
+function sbwOrganizerEditorRenderTeamBattleAuditTrail(tournament = {}, options = {}) {
+  const entries = sbwOrganizerEditorGetTeamBattleAuditEntries(tournament, Number(options.limit || 6) || 6);
+  const compact = options.compact === true;
+
+  if (!entries.length) {
+    return `
+      <aside class="organizer-admin-team-battle-audit ${compact ? "is-compact" : ""}">
+        <div class="organizer-admin-team-battle-audit__head">
+          <span>Auditoria operacional</span>
+          <strong>Nenhum registro ainda</strong>
+        </div>
+        <p>Agenda, resultados, playoffs e fechamento serão registrados aqui quando o organizador salvar alterações.</p>
+      </aside>
+    `;
+  }
+
+  return `
+    <aside class="organizer-admin-team-battle-audit ${compact ? "is-compact" : ""}">
+      <div class="organizer-admin-team-battle-audit__head">
+        <span>Auditoria operacional</span>
+        <strong>${entries.length} registro${entries.length === 1 ? "" : "s"} recente${entries.length === 1 ? "" : "s"}</strong>
+      </div>
+      <div class="organizer-admin-team-battle-audit__list">
+        ${entries.map((entry) => `
+          <article class="organizer-admin-team-battle-audit__item">
+            <span>${sbwOrganizerEditorEscape(entry.label || "Atualização Team Battle")}</span>
+            <strong>${sbwOrganizerEditorEscape(entry.detail || "Registro operacional atualizado.")}</strong>
+            <small>${sbwOrganizerEditorEscape(entry.actor || "Organizador")} · ${sbwOrganizerEditorEscape(sbwOrganizerEditorFormatDateTime(entry.date || entry.createdAt))}</small>
+          </article>
+        `).join("")}
+      </div>
+    </aside>
+  `;
+}
+
+
 function sbwOrganizerEditorGetTeamBattleSlotPoints(slot = 1) {
   const index = Number(slot) || 1;
   if (index === 3) return 20;
@@ -3044,8 +3167,26 @@ async function sbwOrganizerEditorSaveTeamBattlePlayoffResults(state = {}) {
     savedAt: teamBattleBase.playoffs?.savedAt || now,
     source: "organizer-team-battle-playoff-result-editor"
   };
+  const auditEntry = sbwOrganizerEditorCreateTeamBattleAuditEntry(
+    "playoffs_results_updated",
+    championTeam.teamName || championTeam.name ? "Campeão definido" : "Resultados dos playoffs atualizados",
+    championTeam.teamName || championTeam.name
+      ? `Grande Final concluída. Campeão: ${championTeam.teamName || championTeam.name}.`
+      : `${Number(progress.finalizedSeries || 0)}/${Number(progress.totalSeries || 0)} série${Number(progress.totalSeries || 0) === 1 ? "" : "s"} dos playoffs finalizada${Number(progress.totalSeries || 0) === 1 ? "" : "s"}.`,
+    {
+      tournamentKey,
+      matchCount: Number(progress.totalSeries || 0) || 0,
+      finishedCount: Number(progress.finalizedSeries || 0) || 0,
+      source: "team-battle-playoff-results-editor"
+    }
+  );
+  const auditLog = sbwOrganizerEditorBuildTeamBattleAuditLog(teamBattleBase, auditEntry);
   const teamBattlePayload = {
     ...teamBattleBase,
+    auditLog,
+    audit_log: auditLog,
+    operationalAudit: auditLog,
+    operational_audit: auditLog,
     playoffs: playoffPayload,
     playoffPlan: hydratedPlan,
     playoff_plan: hydratedPlan,
@@ -3143,8 +3284,24 @@ async function sbwOrganizerEditorFinalizeTeamBattleTournament() {
     ranking_applied: false,
     source: "team-battle-league-4v4-playoffs-sbw"
   };
+  const auditEntry = sbwOrganizerEditorCreateTeamBattleAuditEntry(
+    "team_battle_finalized",
+    "Team Battle finalizado",
+    `Torneio encerrado oficialmente. Campeão: ${champion.teamName || champion.name || "Equipe campeã"}.`,
+    {
+      tournamentKey,
+      matchCount: Number(finalSummary.totalSeries || 0) || 0,
+      finishedCount: Number(finalSummary.finalizedSeries || 0) || 0,
+      source: "team-battle-finalize"
+    }
+  );
+  const auditLog = sbwOrganizerEditorBuildTeamBattleAuditLog(teamBattleBase, auditEntry);
   const teamBattlePayload = {
     ...teamBattleBase,
+    auditLog,
+    audit_log: auditLog,
+    operationalAudit: auditLog,
+    operational_audit: auditLog,
     finalStatus: "finished",
     final_status: "finished",
     finalSummary: {
@@ -3296,6 +3453,8 @@ function sbwOrganizerEditorRenderTeamBattlePlayoffsPanel(tournament) {
 
     ${saved ? sbwOrganizerEditorRenderTeamBattlePlayoffResultsEditor(playoffResultRows) : ""}
 
+    ${sbwOrganizerEditorRenderTeamBattleAuditTrail(tournament, { limit: 7 })}
+
     ${rules.length ? `
       <div class="organizer-admin-team-battle-playoffs-rules">
         ${rules.map((rule) => `<span>${sbwOrganizerEditorEscape(rule)}</span>`).join("")}
@@ -3379,8 +3538,24 @@ async function sbwOrganizerEditorSaveTeamBattlePlayoffs() {
     savedAt: now,
     source: "organizer-team-battle-playoffs-editor"
   };
+  const auditEntry = sbwOrganizerEditorCreateTeamBattleAuditEntry(
+    "playoffs_unlocked",
+    "Playoffs liberados",
+    "Playoffs -SBW- liberados a partir do Top 4 real da Divisão Única.",
+    {
+      tournamentKey,
+      matchCount: Number(state.progress?.totalMatches || 0) || 0,
+      finishedCount: Number(state.progress?.finishedMatches || 0) || 0,
+      source: "team-battle-playoffs-unlock"
+    }
+  );
+  const auditLog = sbwOrganizerEditorBuildTeamBattleAuditLog(teamBattleBase, auditEntry);
   const teamBattlePayload = {
     ...teamBattleBase,
+    auditLog,
+    audit_log: auditLog,
+    operationalAudit: auditLog,
+    operational_audit: auditLog,
     playoffs: playoffPayload,
     playoffPlan: state.playoffPlan,
     playoff_plan: state.playoffPlan,
@@ -3509,7 +3684,7 @@ function sbwOrganizerEditorRenderTeamBattleSchedulePanel(tournament) {
         </div>
       </article>
     `;
-  }).join("");
+  }).join("") + sbwOrganizerEditorRenderTeamBattleAuditTrail(tournament, { limit: 5, compact: true });
 }
 
 function sbwOrganizerEditorOpenTeamBattleSchedulePanel(tournament) {
@@ -3686,8 +3861,23 @@ async function sbwOrganizerEditorSaveTeamBattleSchedule() {
     longFormLeague: true,
     updatedAt: now
   };
+  const auditEntry = sbwOrganizerEditorCreateTeamBattleAuditEntry(
+    "schedule_updated",
+    "Agenda atualizada",
+    `Agenda livre salva para ${mergedMatches.length} confronto${mergedMatches.length === 1 ? "" : "s"}.`,
+    {
+      tournamentKey,
+      matchCount: mergedMatches.length,
+      source: "team-battle-schedule-editor"
+    }
+  );
+  const auditLog = sbwOrganizerEditorBuildTeamBattleAuditLog(teamBattleBase, auditEntry);
   const teamBattlePayload = {
     ...teamBattleBase,
+    auditLog,
+    audit_log: auditLog,
+    operationalAudit: auditLog,
+    operational_audit: auditLog,
     matches: mergedMatches,
     teamMatches: mergedMatches,
     team_matches: mergedMatches,
@@ -3809,7 +3999,7 @@ function sbwOrganizerEditorRenderTeamBattleResultsPanel(tournament) {
         </div>
       </article>
     `;
-  }).join("");
+  }).join("") + sbwOrganizerEditorRenderTeamBattleAuditTrail(tournament, { limit: 5, compact: true });
 }
 
 function sbwOrganizerEditorOpenTeamBattleResultsPanel(tournament) {
@@ -3986,8 +4176,24 @@ async function sbwOrganizerEditorSaveTeamBattleResults() {
     updatedAt: now,
     source: "team-battle-result-editor"
   };
+  const auditEntry = sbwOrganizerEditorCreateTeamBattleAuditEntry(
+    "results_updated",
+    "Resultados atualizados",
+    `${finishedCount}/${mergedMatches.length} confronto${mergedMatches.length === 1 ? "" : "s"} finalizado${mergedMatches.length === 1 ? "" : "s"} na fase classificatória.`,
+    {
+      tournamentKey,
+      matchCount: mergedMatches.length,
+      finishedCount,
+      source: "team-battle-results-editor"
+    }
+  );
+  const auditLog = sbwOrganizerEditorBuildTeamBattleAuditLog(teamBattleBase, auditEntry);
   const teamBattlePayload = {
     ...teamBattleBase,
+    auditLog,
+    audit_log: auditLog,
+    operationalAudit: auditLog,
+    operational_audit: auditLog,
     matches: mergedMatches,
     teamMatches: mergedMatches,
     team_matches: mergedMatches,
