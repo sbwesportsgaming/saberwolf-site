@@ -100,6 +100,10 @@
               Criar torneio
             </a>
           </div>
+          <div id="organizerTournamentsOperationalSummary" class="organizer-admin-operational-summary" aria-live="polite">
+            <div class="organizer-admin-empty-row">Resumo operacional será exibido após carregar os torneios.</div>
+          </div>
+
           <div id="organizerEditorTournamentsList" class="organizer-admin-tournament-list">
             <div class="organizer-admin-empty-row">Carregando torneios vinculados...</div>
           </div>
@@ -140,6 +144,8 @@
               </div>
 
               <div id="organizerTournamentEditFormatPreview" class="organizer-admin-format-preview organizer-admin-field--wide" aria-live="polite"></div>
+
+              <div id="organizerTournamentPublicationGuard" class="organizer-admin-publication-guard-wrap organizer-admin-field--wide" aria-live="polite"></div>
 
               <div class="organizer-admin-field">
                 <label for="organizerTournamentEditStatus">Status</label>
@@ -282,6 +288,10 @@
                 <strong id="organizerTournamentParticipantsCheckedIn">0</strong>
               </div>
               <div class="organizer-admin-participants-stat">
+                <span>Pendentes</span>
+                <strong id="organizerTournamentParticipantsPending">0</strong>
+              </div>
+              <div class="organizer-admin-participants-stat">
                 <span>Lista de espera</span>
                 <strong id="organizerTournamentParticipantsWaitlist">0</strong>
               </div>
@@ -292,8 +302,23 @@
             </div>
 
             <div class="organizer-admin-participants-toolbar">
-              <p>Use esta área para validar inscritos reais, fazer check-in manual e remover inscrições quando necessário.</p>
-              <a id="organizerTournamentParticipantsPublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
+              <p id="organizerTournamentParticipantsOperationalHint">Use esta área para validar inscritos reais, fazer check-in manual e remover inscrições quando necessário.</p>
+              <div class="organizer-admin-participants-toolbar-actions">
+                <label class="organizer-admin-participants-filter" for="organizerTournamentParticipantsFilter">
+                  Filtrar
+                  <select id="organizerTournamentParticipantsFilter">
+                    <option value="active">Ativos</option>
+                    <option value="pending_checkin">Pendentes de check-in</option>
+                    <option value="checked_in">Check-in feito</option>
+                    <option value="waitlist">Lista de espera</option>
+                    <option value="removed">Removidos</option>
+                    <option value="all">Todos</option>
+                  </select>
+                </label>
+                <button id="organizerTournamentParticipantsRefresh" class="organizer-admin-small-link organizer-admin-small-link--button" type="button">Atualizar</button>
+                <button id="organizerTournamentParticipantsCopy" class="organizer-admin-small-link organizer-admin-small-link--button" type="button">Copiar chamada</button>
+                <a id="organizerTournamentParticipantsPublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
+              </div>
             </div>
 
             <div id="organizerTournamentParticipantsList" class="organizer-admin-participants-list">

@@ -1982,17 +1982,25 @@ function getTournamentFormat(tournament) {
   function renderNotFound() {
     root.innerHTML = `
       <section class="not-found-state">
-        <div class="not-found-card">
+        <div class="not-found-card not-found-card--guided">
+          <span class="not-found-eyebrow">Estado seguro</span>
           <h2>Torneio não encontrado</h2>
 
           <p>
-            Não encontramos o torneio solicitado. Ele pode ter sido removido,
-            não estar salvo neste navegador ou o link pode estar incorreto.
+            Não encontramos o torneio solicitado. O link pode estar incompleto,
+            o torneio pode estar em rascunho ou a página pública ainda não foi publicada pelo organizador.
           </p>
 
-          <a class="detail-btn" href="torneios.html">
-            Voltar para Torneios
-          </a>
+          <ul class="not-found-checklist">
+            <li>Confira se o link público foi copiado completo.</li>
+            <li>Peça ao organizador para confirmar se o torneio está publicado ou com inscrições abertas.</li>
+            <li>Se o teste estiver começando agora, tente recarregar a página após alguns segundos.</li>
+          </ul>
+
+          <div class="not-found-actions">
+            <a class="detail-btn" href="torneios.html">Voltar para Torneios</a>
+            <a class="detail-btn detail-btn--ghost" href="../index.html">Ir para a Home</a>
+          </div>
         </div>
       </section>
     `;
@@ -2138,16 +2146,27 @@ function getTournamentFormat(tournament) {
     const emptyTitle = options.emptyTitle || "Nenhum participante publicado ainda";
     const emptyText = options.emptyText || "Quando jogadores confirmarem inscrição pela plataforma -SBW-, eles aparecerão aqui com status, equipe e check-in.";
     const listClass = options.listClass || "";
+    const emptyTips = Array.isArray(options.emptyTips) ? options.emptyTips.filter(Boolean) : [];
+    const emptyActionHref = options.emptyActionHref || "";
+    const emptyActionLabel = options.emptyActionLabel || "";
 
     if (!Array.isArray(participants) || participants.length === 0) {
       return `
-        <div class="participant-empty-state">
+        <div class="participant-empty-state participant-empty-state--guided">
           <div class="participant-empty-icon">
             <i class="fa-solid ${escapeHTML(options.emptyIcon || "fa-user-plus")}"></i>
           </div>
           <div>
             <strong>${escapeHTML(emptyTitle)}</strong>
             <p>${escapeHTML(emptyText)}</p>
+            ${emptyTips.length ? `
+              <ul>
+                ${emptyTips.map((tip) => `<li>${escapeHTML(tip)}</li>`).join("")}
+              </ul>
+            ` : ""}
+            ${emptyActionHref && emptyActionLabel ? `
+              <a class="participant-empty-action" href="${escapeHTML(emptyActionHref)}">${escapeHTML(emptyActionLabel)}</a>
+            ` : ""}
           </div>
         </div>
       `;
@@ -2213,7 +2232,10 @@ function getTournamentFormat(tournament) {
       emptyText: onlyCheckedIn
         ? "Depois do fechamento do check-in, esta lista destaca os participantes que confirmaram presença."
         : "Quando jogadores confirmarem inscrição pela plataforma -SBW-, eles aparecerão aqui com status, equipe e check-in.",
-      emptyIcon: onlyCheckedIn ? "fa-circle-check" : "fa-user-plus"
+      emptyIcon: onlyCheckedIn ? "fa-circle-check" : "fa-user-plus",
+      emptyTips: onlyCheckedIn
+        ? ["Confirme se a janela de check-in já foi aberta pelo organizador.", "Somente inscritos reais conseguem confirmar presença."]
+        : ["Faça login antes de tentar se inscrever.", "Depois da inscrição, acompanhe a janela de check-in."]
     });
   }
 
@@ -4317,6 +4339,97 @@ function sbwRenderCheckInStatusCard(tournament, registrationState) {
   `;
 }
 
+function sbwBuildPlayerOrientationItems(tournament, registrationState) {
+  const availability = registrationState?.availability || sbwGetRegistrationAvailability(tournament);
+  const checkInState = sbwGetCheckInPublicState(tournament, registrationState);
+  const isTeamBattle = sbwIsTeamBattleLeagueRegistrationTournament(tournament);
+  const items = [];
+
+  if (isTeamBattle) {
+    items.push({
+      icon: "fa-people-group",
+      title: "Inscrição por equipe",
+      text: "Este formato não aceita inscrição individual. O responsável da equipe deve inscrever 4 membros da mesma equipe real da plataforma -SBW-."
+    });
+  } else if (registrationState?.requiresLogin) {
+    items.push({
+      icon: "fa-right-to-bracket",
+      title: "Entre antes de participar",
+      text: "Use a conta -SBW- que representa seu perfil de jogador. A inscrição real fica vinculada ao seu login."
+    });
+  } else if (registrationState?.alreadyRegistered) {
+    items.push({
+      icon: "fa-circle-check",
+      title: "Inscrição encontrada",
+      text: "Sua inscrição já está salva. Agora acompanhe a janela de check-in e as orientações do organizador."
+    });
+  } else if (availability?.open) {
+    items.push({
+      icon: "fa-ticket",
+      title: "Inscrição disponível",
+      text: "Confirme participação somente se puder cumprir horário, regras, check-in e comunicação do torneio."
+    });
+  } else {
+    items.push({
+      icon: "fa-clock",
+      title: "Aguardando abertura",
+      text: availability?.reason || "As inscrições serão liberadas quando o organizador publicar o torneio para jogadores."
+    });
+  }
+
+  if (checkInState.className === "open") {
+    items.push({
+      icon: "fa-clipboard-check",
+      title: "Check-in obrigatório",
+      text: "Confirme presença dentro da janela aberta. A estrutura final deve priorizar quem fez check-in."
+    });
+  } else if (registrationState?.alreadyRegistered) {
+    items.push({
+      icon: "fa-bell",
+      title: "Volte no horário do check-in",
+      text: checkInState.description || "A inscrição sozinha não garante presença na chave quando o torneio exige confirmação."
+    });
+  } else {
+    items.push({
+      icon: "fa-calendar-check",
+      title: "Atenção ao check-in",
+      text: "Depois de inscrito, acompanhe a janela de check-in publicada nesta página para não perder a vaga."
+    });
+  }
+
+  items.push({
+    icon: "fa-file-lines",
+    title: "Leia regras e formato",
+    text: "Antes das partidas, confira regulamento, formato competitivo, horários e canais de comunicação informados pelo organizador."
+  });
+
+  return items.slice(0, 4);
+}
+
+function sbwRenderPlayerOrientationPanel(tournament, registrationState) {
+  const items = sbwBuildPlayerOrientationItems(tournament, registrationState);
+
+  return `
+    <div class="registration-player-orientation-card">
+      <div class="registration-player-orientation-head">
+        <span>Orientação para jogadores</span>
+        <strong>Antes de chamar a organização no privado, confira estes pontos</strong>
+      </div>
+      <div class="registration-player-orientation-grid">
+        ${items.map((item) => `
+          <div class="registration-player-orientation-item">
+            <i class="fa-solid ${escapeHTML(item.icon)}"></i>
+            <div>
+              <strong>${escapeHTML(item.title)}</strong>
+              <p>${escapeHTML(item.text)}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function sbwRenderRegistrationGuidance(tournament, registrationState) {
   const alreadyRegistered = registrationState.alreadyRegistered;
   const requiresLogin = registrationState.requiresLogin;
@@ -4491,6 +4604,7 @@ function renderRegistrationPanel(tournament, registrationState, availability) {
 
       ${sbwRenderRegistrationJourney(tournament, registrationState)}
       ${sbwRenderRegistrationGuidance(tournament, registrationState)}
+      ${sbwRenderPlayerOrientationPanel(tournament, registrationState)}
       ${sbwRenderCheckInStatusCard(tournament, registrationState)}
 
       <div class="registration-status-card ${escapeHTML(availability.className)}">
@@ -5637,6 +5751,153 @@ function sbwRenderOverviewLegendCard(tournament) {
   `;
 }
 
+
+function sbwBuildPublicOperationalStatus(tournament, availability) {
+  const statusKey = sbwGetTournamentStatusKey(tournament).replaceAll("-", "_");
+  const status = getStatusInfo(tournament.status);
+  const structureReady = hasGeneratedStructure(tournament);
+  const resultCounts = getResultCounts(tournament);
+  const checkInOpen = sbwIsCheckInOpen(tournament);
+  const checkInClosed = sbwIsCheckInClosed(tournament);
+  const registrationWindow = sbwGetRegistrationWindowState(tournament);
+  const finished = ["finished", "completed", "finalizado", "encerrado"].includes(statusKey) || Boolean(getFinalResults(tournament));
+  const running = ["structure_generated", "in_progress", "running", "em_andamento"].includes(statusKey) || resultCounts.completed > 0;
+  const participantsStats = sbwGetParticipantsPublicStats(tournament, availability);
+  const checkedInCount = participantsStats.checkedIn.length;
+  const activeCount = participantsStats.active.length;
+
+  if (finished) {
+    return {
+      className: "finished",
+      icon: "fa-trophy",
+      eyebrow: "Torneio encerrado",
+      title: "Resultados finais publicados",
+      message: "O torneio já foi concluído. Consulte resultados, pódio e histórico público nas abas do torneio.",
+      actionView: "resultados",
+      actionLabel: "Ver resultados",
+      facts: [
+        { label: "Status", value: status.label || "Encerrado" },
+        { label: "Resultados", value: `${resultCounts.completed} / ${resultCounts.total || resultCounts.completed}` },
+        { label: "Inscrição", value: availability.shortLabel || "Encerrada" }
+      ]
+    };
+  }
+
+  if (running) {
+    return {
+      className: structureReady ? "running" : "open",
+      icon: structureReady ? "fa-code-branch" : "fa-play",
+      eyebrow: "Torneio em andamento",
+      title: structureReady ? "Estrutura competitiva publicada" : "Torneio iniciado",
+      message: structureReady
+        ? "Acompanhe chaves, partidas em andamento e resultados conforme o organizador atualizar a competição."
+        : "O torneio já saiu da etapa de inscrição. A estrutura pública será exibida quando o organizador publicar.",
+      actionView: structureReady ? "chaves" : "resultados",
+      actionLabel: structureReady ? "Ver chaves" : "Ver partidas",
+      facts: [
+        { label: "Status", value: status.label || "Em andamento" },
+        { label: "Check-in", value: checkInClosed ? `${checkedInCount} confirmado${checkedInCount === 1 ? "" : "s"}` : "Encerrando" },
+        { label: "Resultados", value: `${resultCounts.completed} / ${resultCounts.total || 0}` }
+      ]
+    };
+  }
+
+  if (checkInOpen && activeCount > 0) {
+    return {
+      className: "checkin",
+      icon: "fa-clipboard-check",
+      eyebrow: "Check-in aberto",
+      title: "Jogadores inscritos devem confirmar presença",
+      message: "Quem já se inscreveu precisa fazer check-in dentro da janela definida para entrar na lista final usada pelo organizador.",
+      actionView: "inscricao",
+      actionLabel: "Fazer check-in",
+      facts: [
+        { label: "Inscritos", value: String(activeCount) },
+        { label: "Confirmados", value: String(checkedInCount) },
+        { label: "Janela", value: sbwGetScheduleRangeLabel({ startValue: sbwGetCheckInDateValue(tournament, "start"), endValue: sbwGetCheckInDateValue(tournament, "end"), fallbackLabel: "Aberta" }) }
+      ]
+    };
+  }
+
+  if (availability.open) {
+    return {
+      className: "open",
+      icon: "fa-ticket",
+      eyebrow: "Inscrições abertas",
+      title: "Torneio recebendo participantes",
+      message: "Jogadores logados podem se inscrever. A inscrição não substitui o check-in, que será usado para confirmar presença antes do início.",
+      actionView: "inscricao",
+      actionLabel: "Inscrever-se",
+      facts: [
+        { label: "Vagas", value: `${availability.participantsCount} / ${availability.maxParticipants || "∞"}` },
+        { label: "Inscrição", value: availability.shortLabel || "Aberta" },
+        { label: "Check-in", value: sbwGetScheduleRangeLabel({ startValue: sbwGetCheckInDateValue(tournament, "start"), endValue: sbwGetCheckInDateValue(tournament, "end"), fallbackLabel: "A definir" }) }
+      ]
+    };
+  }
+
+  if (registrationWindow.state === "waiting") {
+    return {
+      className: "draft",
+      icon: "fa-hourglass-half",
+      eyebrow: "Inscrições programadas",
+      title: "Aguardando abertura das inscrições",
+      message: registrationWindow.reason || "A janela de inscrição ainda não começou. Volte no horário indicado pelo organizador.",
+      actionView: "cronograma",
+      actionLabel: "Ver cronograma",
+      facts: [
+        { label: "Status", value: status.label || "Publicado" },
+        { label: "Inscrição", value: availability.shortLabel || "Em breve" },
+        { label: "Participantes", value: String(activeCount) }
+      ]
+    };
+  }
+
+  return {
+    className: availability.className || status.className || "draft",
+    icon: availability.className === "closed" ? "fa-lock" : "fa-circle-info",
+    eyebrow: availability.label || status.label || "Status do torneio",
+    title: availability.open ? "Torneio disponível" : "Aguardando próxima etapa",
+    message: availability.reason || "Acompanhe esta página para novas informações do organizador.",
+    actionView: availability.className === "closed" ? "cronograma" : "inscricao",
+    actionLabel: availability.className === "closed" ? "Ver cronograma" : "Ver inscrição",
+    facts: [
+      { label: "Status", value: status.label || "A definir" },
+      { label: "Inscrição", value: availability.shortLabel || "Fechada" },
+      { label: "Participantes", value: String(activeCount) }
+    ]
+  };
+}
+
+function sbwRenderPublicOperationalStatus(tournament, availability) {
+  const state = sbwBuildPublicOperationalStatus(tournament, availability);
+
+  return `
+    <article class="overview-operational-status-card ${escapeHTML(state.className)}">
+      <div class="overview-operational-status-icon">
+        <i class="fa-solid ${escapeHTML(state.icon)}"></i>
+      </div>
+      <div class="overview-operational-status-copy">
+        <span>${escapeHTML(state.eyebrow)}</span>
+        <strong>${escapeHTML(state.title)}</strong>
+        <p>${escapeHTML(state.message)}</p>
+      </div>
+      <div class="overview-operational-status-facts">
+        ${(state.facts || []).map((fact) => `
+          <div>
+            <small>${escapeHTML(fact.label)}</small>
+            <b>${escapeHTML(fact.value)}</b>
+          </div>
+        `).join("")}
+      </div>
+      <a class="detail-btn secondary overview-operational-status-action" href="${escapeHTML(sbwBuildTournamentViewUrl(tournament, state.actionView || "cronograma"))}">
+        ${escapeHTML(state.actionLabel || "Abrir etapa")}
+        <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </article>
+  `;
+}
+
 function renderTournamentOverviewCards(tournament, availability) {
   const status = getStatusInfo(tournament.status);
   const matches = sbwSortPublicMatchesForResults(sbwGetPublicMatches(tournament));
@@ -5674,6 +5935,8 @@ function renderTournamentOverviewCards(tournament, availability) {
           <em>${escapeHTML(currentScheduleItem ? `Etapa: ${currentScheduleItem.title}` : availability.label)}</em>
         </div>
       </section>
+
+      ${sbwRenderPublicOperationalStatus(tournament, availability)}
 
       <section class="overview-metric-grid">
         <article class="overview-metric-card ${escapeHTML(availability.className)}">

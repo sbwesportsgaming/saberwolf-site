@@ -62,12 +62,18 @@
           <span>Organizadores</span>
           <strong data-sbw-admin-stat="organizers">—</strong>
         </article>
+
+        <article class="sbw-admin-stat-card">
+          <span>Torneios</span>
+          <strong data-sbw-admin-stat="tournaments">—</strong>
+        </article>
       </section>
 
       <nav class="sbw-admin-tabs" aria-label="Navegação do admin">
         <button class="is-active" type="button" data-sbw-admin-tab="usuarios">Usuários</button>
         <button type="button" data-sbw-admin-tab="equipes">Equipes</button>
         <button type="button" data-sbw-admin-tab="organizadores">Organizadores</button>
+        <button type="button" data-sbw-admin-tab="torneios">Torneios</button>
         <button type="button" data-sbw-admin-tab="permissoes">Permissões</button>
         <button type="button" data-sbw-admin-tab="rls">RLS / Segurança</button>
         <button type="button" data-sbw-admin-tab="logs">Logs</button>
@@ -155,8 +161,82 @@
             Remover a permissão fecha a porta de criação de organização, mas não transforma nem remove organizações já existentes.
           </div>
 
+          <section class="sbw-admin-pretest" id="sbwAdminOrganizerPretest" aria-label="Pré-check de organizador externo">
+            <div class="sbw-admin-pretest__head">
+              <div>
+                <strong>Pré-check para organizador externo</strong>
+                <span>Use antes do teste real com a Rinha Online ou qualquer organização parceira.</span>
+              </div>
+
+              <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="copy-organizer-pretest">
+                Copiar checklist Admin
+              </button>
+            </div>
+
+            <div class="sbw-admin-pretest__body">
+              <p class="sbw-admin-muted">Carregando permissões de organizador...</p>
+            </div>
+          </section>
+
           <div class="sbw-admin-results" id="sbwAdminOrganizerResults">
             <p class="sbw-admin-muted">Carregando organizadores autorizados...</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="sbw-admin-tab-panel" data-sbw-admin-panel="torneios">
+        <div class="sbw-admin-card">
+          <div class="sbw-admin-card__header">
+            <div>
+              <h2>Torneios da plataforma</h2>
+              <p>Visão Admin Master de todos os torneios criados na plataforma -SBW-, com ações administrativas seguras.</p>
+            </div>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="refresh-tournaments">
+              Atualizar
+            </button>
+          </div>
+
+          <div class="sbw-admin-message sbw-admin-message--warning">
+            Use esta área para manutenção administrativa. A ação “Excluir do painel” é uma exclusão segura: oculta o torneio, marca como removido e preserva histórico para auditoria.
+          </div>
+
+          <form class="sbw-admin-search" data-sbw-admin-tournament-search>
+            <input type="search" name="query" placeholder="Buscar por nome, jogo, organizador, status ou slug..." autocomplete="off" />
+            <button type="submit">Buscar</button>
+          </form>
+
+          <div class="sbw-admin-inline-actions">
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="show-all-tournaments">
+              Mostrar todos
+            </button>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="show-less-tournaments" hidden>
+              Mostrar menos
+            </button>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="filter-tournaments" data-tournament-status="">
+              Todos
+            </button>
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="filter-tournaments" data-tournament-status="draft">
+              Rascunho
+            </button>
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="filter-tournaments" data-tournament-status="open">
+              Abertos
+            </button>
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="filter-tournaments" data-tournament-status="running">
+              Em andamento
+            </button>
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="filter-tournaments" data-tournament-status="finished">
+              Finalizados
+            </button>
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="filter-tournaments" data-tournament-status="archived">
+              Arquivados/removidos
+            </button>
+          </div>
+
+          <div class="sbw-admin-results" id="sbwAdminTournamentResults">
+            <p class="sbw-admin-muted">Clique em “Mostrar todos” ou busque por pelo menos 2 caracteres.</p>
           </div>
         </div>
       </section>

@@ -4519,6 +4519,7 @@
 .registration-panel-intro,
 .registration-journey-card,
 .registration-guidance-card,
+.registration-player-orientation-card,
 .registration-checkin-status-card,
 .rules-public-main-card,
 .rules-public-side-card {
@@ -4539,6 +4540,7 @@
 
 .registration-panel-intro span,
 .registration-journey-head span,
+.registration-player-orientation-head span,
 .rules-public-card-head span,
 .rules-public-side-card > span,
 .registration-checkin-status-card span {
@@ -4551,6 +4553,7 @@
 
 .registration-panel-intro strong,
 .registration-journey-head strong,
+.registration-player-orientation-head strong,
 .rules-public-card-head strong,
 .registration-checkin-status-card strong {
   color: #f8fafc;
@@ -4560,6 +4563,7 @@
 
 .registration-panel-intro p,
 .registration-guidance-card p,
+.registration-player-orientation-item p,
 .registration-checkin-status-card p,
 .rules-public-card-head p,
 .rules-empty-state p {
@@ -4683,6 +4687,53 @@
   display: block;
   margin-bottom: 4px;
   color: #f8fafc;
+}
+
+.registration-player-orientation-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.registration-player-orientation-head {
+  display: grid;
+  gap: 4px;
+}
+
+.registration-player-orientation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.registration-player-orientation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px;
+  border-radius: 15px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(2, 6, 23, 0.34);
+}
+
+.registration-player-orientation-item i {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.20);
+  background: rgba(56, 189, 248, 0.10);
+  color: #7dd3fc;
+}
+
+.registration-player-orientation-item strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #f8fafc;
+  font-size: 0.88rem;
 }
 
 .registration-checkin-status-card {
@@ -4855,6 +4906,7 @@
 
 @media (max-width: 980px) {
   .registration-journey-steps,
+  .registration-player-orientation-grid,
   .rules-public-layout {
     grid-template-columns: 1fr;
   }
@@ -6796,7 +6848,7 @@
   }
 }
 
-/* v1.6.76.0 — Playoffs -SBW- do Team Battle League 4v4 */
+/* v1.6.76.0 — Playoffs SFL Capcom do Team Battle League 4v4 */
 .overview-team-battle-playoff-preview {
   display: grid;
   gap: 14px;
@@ -7098,157 +7150,233 @@
   text-decoration: none;
 }
 
-/* v1.6.76.7 — classificação operacional oficial Team Battle League 4v4 */
-.overview-team-battle-standings-status {
+/*
+  -SBW- v1.6.77.6 — Resumo público de status operacional.
+  Mantém a página de torneio clara para testes reais sem refinamento visual profundo.
+*/
+.overview-operational-status-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(240px, 0.75fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(8, 19, 36, 0.90), rgba(3, 8, 18, 0.78));
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.20);
+  backdrop-filter: blur(16px);
+}
+
+.overview-operational-status-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  border-radius: 16px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #7dd3fc;
+  font-size: 1.2rem;
+}
+
+.overview-operational-status-copy {
+  min-width: 0;
   display: grid;
   gap: 4px;
-  margin-top: 12px;
-  padding: 11px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(34, 211, 238, 0.16);
-  background: rgba(34, 211, 238, 0.07);
 }
 
-.overview-team-battle-standings-status strong {
-  color: rgba(165, 243, 252, 0.96);
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
+.overview-operational-status-copy span {
+  color: #7dd3fc;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.overview-team-battle-standings-status span {
-  color: rgba(226, 232, 240, 0.72);
-  font-size: 0.78rem;
-  line-height: 1.45;
+.overview-operational-status-copy strong {
+  color: #f8fafc;
+  font-size: 1.05rem;
+  line-height: 1.18;
 }
 
-.overview-team-battle-playoff-preview__champion {
-  border: 1px solid rgba(0, 229, 255, 0.24);
-  border-radius: 18px;
-  padding: 16px;
-  margin: 14px 0;
-  background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(155, 92, 255, 0.08));
+.overview-operational-status-copy p {
+  margin: 0;
+  color: rgba(203, 213, 225, 0.76);
+  font-size: 0.85rem;
+  line-height: 1.48;
 }
 
-.overview-team-battle-playoff-preview__champion small {
+.overview-operational-status-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.overview-operational-status-facts div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 13px;
+  background: rgba(2, 6, 23, 0.36);
+}
+
+.overview-operational-status-facts small {
   display: block;
-  color: var(--sbw-cyan, #00e5ff);
-  font-size: 0.76rem;
-  font-weight: 800;
+  margin-bottom: 4px;
+  color: rgba(148, 163, 184, 0.86);
+  font-size: 0.64rem;
+  font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.overview-team-battle-playoff-preview__champion strong {
+.overview-operational-status-facts b {
   display: block;
-  margin-top: 6px;
-  color: #fff;
-  font-size: 1.08rem;
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.overview-team-battle-playoff-preview__champion p,
-.overview-team-battle-playoff-preview__winner {
-  margin: 6px 0 0;
-  color: rgba(255, 255, 255, 0.72);
+.overview-operational-status-action {
+  white-space: nowrap;
 }
 
-.overview-team-battle-playoff-preview__winner {
-  color: var(--sbw-cyan, #00e5ff);
-  font-weight: 700;
+.overview-operational-status-card.open,
+.overview-operational-status-card.checkin,
+.overview-operational-status-card.running {
+  border-color: rgba(34, 211, 238, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 48%),
+    linear-gradient(180deg, rgba(8, 19, 36, 0.92), rgba(3, 8, 18, 0.78));
 }
 
-/* v1.6.76.11 — pódio final público Team Battle League 4v4 */
-.overview-team-battle-final-summary {
-  border: 1px solid rgba(34, 211, 238, 0.22);
-  border-radius: 22px;
-  background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.13), transparent 42%), rgba(2, 6, 23, 0.74);
-  padding: 18px;
-  margin: 16px 0;
-  display: grid;
-  gap: 14px;
+.overview-operational-status-card.checkin .overview-operational-status-icon {
+  border-color: rgba(250, 204, 21, 0.26);
+  background: rgba(250, 204, 21, 0.10);
+  color: #fde68a;
 }
 
-.overview-team-battle-final-summary.is-finished {
-  border-color: rgba(16, 185, 129, 0.32);
-  background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.13), transparent 42%), rgba(2, 6, 23, 0.74);
+.overview-operational-status-card.finished .overview-operational-status-icon {
+  border-color: rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.10);
+  color: #86efac;
 }
 
-.overview-team-battle-final-summary__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
+@media (max-width: 980px) {
+  .overview-operational-status-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .overview-operational-status-facts,
+  .overview-operational-status-action {
+    grid-column: 1 / -1;
+  }
 }
 
-.overview-team-battle-final-summary__head small,
-.overview-team-battle-final-summary__head span {
+@media (max-width: 620px) {
+  .overview-operational-status-card {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-operational-status-icon {
+    width: 100%;
+    height: auto;
+    min-height: 46px;
+  }
+
+  .overview-operational-status-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-operational-status-action {
+    width: 100%;
+  }
+}
+
+/* v1.6.77.8 — Estados públicos guiados para testes reais */
+.not-found-card--guided {
+  max-width: 720px;
+  text-align: left;
+}
+
+.not-found-eyebrow {
   display: inline-flex;
-  width: fit-content;
-  border: 1px solid rgba(34, 211, 238, 0.24);
+  margin-bottom: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.20);
   border-radius: 999px;
-  padding: 4px 10px;
-  color: var(--sbw-cyan, #00e5ff);
+  background: rgba(8, 145, 178, 0.12);
+  color: #a5f3fc;
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.08em;
+  padding: 6px 9px;
   text-transform: uppercase;
 }
 
-.overview-team-battle-final-summary__head strong {
-  display: block;
-  margin-top: 8px;
-  color: #fff;
-  font-size: 1.12rem;
+.not-found-checklist {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: rgba(226, 232, 240, 0.82);
+  line-height: 1.55;
 }
 
-.overview-team-battle-final-summary__head p,
-.overview-team-battle-final-summary__meta {
-  margin: 6px 0 0;
-  color: rgba(226, 232, 240, 0.74);
-  line-height: 1.45;
+.not-found-checklist li + li {
+  margin-top: 4px;
 }
 
-.overview-team-battle-final-summary__podium {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  margin-top: 18px;
 }
 
-.overview-team-battle-final-summary__podium article {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.7);
-  padding: 13px;
+.detail-btn--ghost {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.70);
+  color: #e2e8f0;
 }
 
-.overview-team-battle-final-summary__podium small {
-  display: block;
-  color: rgba(165, 243, 252, 0.84);
-  font-size: 0.72rem;
+.participant-empty-state--guided {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.participant-empty-state--guided ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: rgba(226, 232, 240, 0.80);
+  line-height: 1.5;
+}
+
+.participant-empty-state--guided li + li {
+  margin-top: 4px;
+}
+
+.participant-empty-action {
+  display: inline-flex;
+  margin-top: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.26);
+  border-radius: 999px;
+  background: rgba(8, 145, 178, 0.12);
+  color: #cffafe;
+  font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  padding: 8px 12px;
+  text-decoration: none;
 }
 
-.overview-team-battle-final-summary__podium strong {
-  display: block;
-  margin-top: 6px;
-  color: #fff;
-}
-
-@media (max-width: 920px) {
-  .overview-team-battle-final-summary__head {
+@media (max-width: 620px) {
+  .not-found-actions {
     flex-direction: column;
   }
 
-  .overview-team-battle-final-summary__podium {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .overview-team-battle-final-summary__podium {
-    grid-template-columns: 1fr;
+  .not-found-actions .detail-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

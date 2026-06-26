@@ -3114,6 +3114,47 @@ function sbwOrganizerEditorUpdateParticipantsOperationalHint(total = 0, visible 
   sbwOrganizerTournamentParticipantsOperationalHint.textContent = `Exibindo ${visible}/${total} inscrito(s) ${filterLabel}. ${suffix}`;
 }
 
+function sbwOrganizerEditorRenderGuidedEmptyState(options = {}) {
+  const icon = options.icon || "fa-circle-info";
+  const title = options.title || "Nada para mostrar ainda";
+  const description = options.description || "Quando houver dados reais carregados pela plataforma -SBW-, eles aparecerão aqui.";
+  const tips = Array.isArray(options.tips) ? options.tips.filter(Boolean) : [];
+  const actions = Array.isArray(options.actions) ? options.actions.filter(Boolean) : [];
+
+  return `
+    <div class="organizer-admin-empty-row organizer-admin-empty-row--guided">
+      <div class="organizer-admin-empty-row__icon" aria-hidden="true">
+        <i class="fa-solid ${sbwOrganizerEditorEscape(icon)}"></i>
+      </div>
+      <div class="organizer-admin-empty-row__copy">
+        <strong>${sbwOrganizerEditorEscape(title)}</strong>
+        <p>${sbwOrganizerEditorEscape(description)}</p>
+        ${tips.length ? `
+          <ul>
+            ${tips.map((tip) => `<li>${sbwOrganizerEditorEscape(tip)}</li>`).join("")}
+          </ul>
+        ` : ""}
+        ${actions.length ? `
+          <div class="organizer-admin-empty-row__actions">
+            ${actions.map((action) => {
+              const label = sbwOrganizerEditorEscape(action.label || "Ação");
+              const href = action.href ? sbwOrganizerEditorEscape(action.href) : "";
+              const attr = action.dataAttr ? ` ${action.dataAttr}` : "";
+              const className = action.primary ? "organizer-admin-empty-action is-primary" : "organizer-admin-empty-action";
+
+              if (href) {
+                return `<a class="${className}" href="${href}"${attr}>${label}</a>`;
+              }
+
+              return `<button class="${className}" type="button"${attr}>${label}</button>`;
+            }).join("")}
+          </div>
+        ` : ""}
+      </div>
+    </div>
+  `;
+}
+
 function sbwOrganizerEditorBuildParticipantsCallList(participants = []) {
   const tournamentName = sbwOrganizerEditorGetTournamentTitle(sbwOrganizerEditorManagingTournament || {});
   const generatedAt = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date());
@@ -3182,20 +3223,38 @@ function sbwOrganizerEditorRenderParticipants(participants = []) {
   sbwOrganizerEditorUpdateParticipantsOperationalHint(sourceList.length, list.length);
 
   if (!sourceList.length) {
-    sbwOrganizerTournamentParticipantsList.innerHTML = `
-      <div class="organizer-admin-empty-row">
-        Nenhum inscrito real encontrado para este torneio. Quando usuários entrarem pela plataforma -SBW-, eles aparecerão aqui.
-      </div>
-    `;
+    const tournament = sbwOrganizerEditorManagingTournament;
+    const publicUrl = tournament ? sbwOrganizerEditorGetTournamentDetailUrl(tournament) : "";
+    const tournamentKey = tournament ? sbwOrganizerEditorGetTournamentKey(tournament) : "";
+
+    sbwOrganizerTournamentParticipantsList.innerHTML = sbwOrganizerEditorRenderGuidedEmptyState({
+      icon: "fa-user-plus",
+      title: "Nenhum inscrito real ainda",
+      description: "Este torneio ainda não recebeu inscrições reais pela plataforma -SBW-.",
+      tips: [
+        "Confirme se o torneio está publicado ou com inscrições abertas.",
+        "Confira se as janelas de inscrição e check-in foram configuradas.",
+        "Use a chamada pública do torneio para enviar o link aos jogadores."
+      ],
+      actions: [
+        publicUrl ? { label: "Abrir página pública", href: publicUrl, primary: true } : null,
+        tournamentKey ? { label: "Copiar chamada", dataAttr: `data-organizer-tournament-share="${sbwOrganizerEditorEscape(tournamentKey)}"` } : null,
+        { label: "Atualizar inscritos", dataAttr: 'data-organizer-participants-retry="true"' }
+      ]
+    });
     return;
   }
 
   if (!list.length) {
-    sbwOrganizerTournamentParticipantsList.innerHTML = `
-      <div class="organizer-admin-empty-row">
-        Nenhum inscrito encontrado no filtro atual. Troque o filtro para revisar todos os registros.
-      </div>
-    `;
+    sbwOrganizerTournamentParticipantsList.innerHTML = sbwOrganizerEditorRenderGuidedEmptyState({
+      icon: "fa-filter-circle-xmark",
+      title: "Nenhum inscrito neste filtro",
+      description: "Existem inscritos carregados, mas nenhum corresponde ao filtro selecionado.",
+      tips: [
+        "Troque o filtro para 'Todos' para revisar a lista completa.",
+        "Use 'Pendentes de check-in' para chamar quem ainda precisa confirmar presença."
+      ]
+    });
     return;
   }
 
@@ -3257,6 +3316,18 @@ async function sbwOrganizerEditorLoadParticipantsForTournament(tournament = sbwO
   if (!sbwOrganizerTournamentParticipantsList || !tournament) return;
 
   if (typeof sbwGetTournamentParticipantsForOrganizerAsync !== "function") {
+    sbwOrganizerTournamentParticipantsList.innerHTML = sbwOrganizerEditorRenderGuidedEmptyState({
+      icon: "fa-triangle-exclamation",
+      title: "Gestão de inscritos indisponível",
+      description: "A função de leitura dos inscritos não foi carregada nesta página.",
+      tips: [
+        "Recarregue a página antes de chamar jogadores para o teste.",
+        "Se o erro continuar, confira o Console do navegador e envie o erro para correção."
+      ],
+      actions: [
+        { label: "Tentar novamente", primary: true, dataAttr: 'data-organizer-participants-retry="true"' }
+      ]
+    });
     sbwOrganizerEditorSetParticipantsMessage("Função de gestão de inscritos não carregada.", "error");
     return;
   }
@@ -3282,11 +3353,18 @@ async function sbwOrganizerEditorLoadParticipantsForTournament(tournament = sbwO
     sbwOrganizerEditorParticipantsCache = [];
     sbwOrganizerEditorUpdateParticipantsStats([]);
     sbwOrganizerEditorUpdateParticipantsOperationalHint(0, 0);
-    sbwOrganizerTournamentParticipantsList.innerHTML = `
-      <div class="organizer-admin-empty-row">
-        Não foi possível carregar os inscritos deste torneio agora.
-      </div>
-    `;
+    sbwOrganizerTournamentParticipantsList.innerHTML = sbwOrganizerEditorRenderGuidedEmptyState({
+      icon: "fa-triangle-exclamation",
+      title: "Não foi possível carregar os inscritos",
+      description: "A lista de inscritos não foi carregada agora. O torneio não foi alterado.",
+      tips: [
+        "Confira sua conexão e tente atualizar a lista.",
+        "Se persistir, copie o erro do Console para corrigirmos antes do teste real."
+      ],
+      actions: [
+        { label: "Tentar novamente", primary: true, dataAttr: 'data-organizer-participants-retry="true"' }
+      ]
+    });
     sbwOrganizerEditorSetParticipantsMessage(error?.message || "Falha ao carregar inscritos.", "error");
   }
 }
@@ -4846,6 +4924,24 @@ function sbwOrganizerEditorBindParticipantsPanel() {
   if (sbwOrganizerTournamentParticipantsList && sbwOrganizerTournamentParticipantsList.dataset.bound !== "true") {
     sbwOrganizerTournamentParticipantsList.dataset.bound = "true";
     sbwOrganizerTournamentParticipantsList.addEventListener("click", (event) => {
+      const retryButton = event.target.closest?.("[data-organizer-participants-retry]");
+      const shareButton = event.target.closest?.("[data-organizer-tournament-share]");
+
+      if (retryButton) {
+        event.preventDefault();
+        sbwOrganizerEditorLoadParticipantsForTournament();
+        return;
+      }
+
+      if (shareButton) {
+        event.preventDefault();
+        const tournament = sbwOrganizerEditorManagingTournament;
+        if (tournament) {
+          sbwOrganizerEditorCopyTournamentShare(tournament);
+        }
+        return;
+      }
+
       const actionButton = event.target.closest?.("[data-organizer-participant-action]");
       if (!actionButton) return;
 
@@ -4974,16 +5070,22 @@ function sbwOrganizerEditorBindTournamentEditor() {
     sbwOrganizerEditorTournamentsList.dataset.boundTournamentEdit = "true";
 
     sbwOrganizerEditorTournamentsList.addEventListener("click", (event) => {
+      const retryButton = event.target.closest?.("[data-organizer-tournaments-retry]");
       const scheduleButton = event.target.closest?.("[data-organizer-tournament-schedule]");
       const resultsButton = event.target.closest?.("[data-organizer-tournament-results]");
       const playoffsButton = event.target.closest?.("[data-organizer-tournament-playoffs]");
       const participantButton = event.target.closest?.("[data-organizer-tournament-participants]");
       const shareButton = event.target.closest?.("[data-organizer-tournament-share]");
       const editButton = event.target.closest?.("[data-organizer-tournament-edit]");
-      const button = scheduleButton || resultsButton || playoffsButton || participantButton || shareButton || editButton;
+      const button = retryButton || scheduleButton || resultsButton || playoffsButton || participantButton || shareButton || editButton;
       if (!button) return;
 
       event.preventDefault();
+
+      if (retryButton) {
+        sbwOrganizerEditorLoadTournaments();
+        return;
+      }
 
       const key = scheduleButton
         ? scheduleButton.dataset.organizerTournamentSchedule || ""
@@ -5318,11 +5420,23 @@ async function sbwOrganizerEditorLoadTournaments() {
     sbwOrganizerEditorRenderSeasonTournamentsManager(sbwOrganizerEditorCurrent);
 
     if (!list.length) {
-      sbwOrganizerEditorTournamentsList.innerHTML = `
-        <div class="organizer-admin-empty-row">
-          Nenhum torneio vinculado a esta organização foi encontrado ainda.
-        </div>
-      `;
+      const createUrl = sbwOrganizerEditorCanCreateTournament(sbwOrganizerEditorCurrent)
+        ? sbwOrganizerEditorBuildCreateTournamentUrl(sbwOrganizerEditorCurrent)
+        : "";
+      sbwOrganizerEditorTournamentsList.innerHTML = sbwOrganizerEditorRenderGuidedEmptyState({
+        icon: "fa-trophy",
+        title: "Nenhum torneio vinculado ainda",
+        description: "A organização está carregada, mas ainda não possui torneios reais vinculados.",
+        tips: [
+          "Crie o primeiro torneio pelo painel da própria organização.",
+          "Configure janelas de inscrição e check-in antes de chamar jogadores.",
+          "Depois de criado, o torneio aparecerá nesta lista com atalhos de inscrição e gestão."
+        ],
+        actions: [
+          createUrl ? { label: "Criar torneio", href: createUrl, primary: true } : null,
+          { label: "Atualizar lista", dataAttr: 'data-organizer-tournaments-retry="true"' }
+        ]
+      });
       sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
       return;
     }
@@ -5368,11 +5482,18 @@ async function sbwOrganizerEditorLoadTournaments() {
     console.error("[SBW Organizadores] Erro ao carregar torneios do painel:", error);
     sbwOrganizerEditorTournamentsCache = [];
     sbwOrganizerEditorRenderTournamentOperationalSummary([]);
-    sbwOrganizerEditorTournamentsList.innerHTML = `
-      <div class="organizer-admin-empty-row">
-        Não foi possível carregar os torneios desta organização agora.
-      </div>
-    `;
+    sbwOrganizerEditorTournamentsList.innerHTML = sbwOrganizerEditorRenderGuidedEmptyState({
+      icon: "fa-triangle-exclamation",
+      title: "Não foi possível carregar os torneios",
+      description: "A lista de torneios da organização não foi carregada agora. Nenhum dado foi alterado.",
+      tips: [
+        "Confira a conexão e tente atualizar a lista.",
+        "Se persistir, copie o erro do Console para correção antes do teste real."
+      ],
+      actions: [
+        { label: "Tentar novamente", primary: true, dataAttr: 'data-organizer-tournaments-retry="true"' }
+      ]
+    });
     sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
   }
 }
@@ -6984,6 +7105,112 @@ function sbwOrganizerEditorBuildExternalOrganizerReadiness(organizer = sbwOrgani
   };
 }
 
+
+function sbwOrganizerEditorGetPreTestReportStatus(value) {
+  return value ? "OK" : "PENDENTE";
+}
+
+function sbwOrganizerEditorBuildPreTestReport(organizer = sbwOrganizerEditorCurrent, tournaments = sbwOrganizerEditorTournamentsCache) {
+  const list = Array.isArray(tournaments) ? tournaments : [];
+  const readiness = sbwOrganizerEditorBuildExternalOrganizerReadiness(organizer, list);
+  const summary = sbwOrganizerEditorBuildTournamentOperationalSummary(list);
+  const generatedAt = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date());
+  const organizerName = organizer?.name || organizer?.displayName || organizer?.title || "Organização não definida";
+  const lines = [
+    `Relatório pré-teste - plataforma -SBW-`,
+    `Organização: ${organizerName}`,
+    `Gerado em: ${generatedAt}`,
+    "",
+    `Status geral: ${readiness.statusLabel}`,
+    `Próximo foco: ${readiness.nextLabel}`,
+    "",
+    "Checklist operacional:"
+  ];
+
+  readiness.checks.forEach((check) => {
+    const marker = sbwOrganizerEditorGetPreTestReportStatus(check.done);
+    const suffix = check.optional ? " (acompanhamento)" : "";
+    lines.push(`- [${marker}] ${check.label}${suffix}: ${check.detail}`);
+  });
+
+  lines.push("", "Resumo dos torneios:");
+  lines.push(`- Total: ${summary.total}`);
+  lines.push(`- Rascunhos: ${summary.draft}`);
+  lines.push(`- Públicos/agendados: ${summary.registration + summary.published + summary.scheduled}`);
+  lines.push(`- Em andamento: ${summary.live}`);
+  lines.push(`- Finalizados: ${summary.finished}`);
+  lines.push(`- Inscritos: ${summary.registered}`);
+  lines.push(`- Check-ins: ${summary.checkedIn}`);
+  lines.push(`- Sem janelas configuradas: ${summary.missingWindows}`);
+  lines.push(`- Atenção atual: ${summary.nextLabel} — ${summary.nextDetail}`);
+
+  if (list.length) {
+    lines.push("", "Torneios carregados:");
+    list.slice(0, 12).forEach((tournament, index) => {
+      const title = sbwOrganizerEditorGetTournamentTitle(tournament);
+      const status = typeof sbwGetStatusInfo === "function"
+        ? sbwGetStatusInfo(tournament?.status)?.label || tournament?.status || "Status a definir"
+        : tournament?.status || "Status a definir";
+      const format = typeof sbwGetFormatLabel === "function"
+        ? sbwGetFormatLabel(sbwOrganizerEditorGetTournamentFormatValue(tournament))
+        : sbwOrganizerEditorGetTournamentFormatValue(tournament) || "Formato a definir";
+      const participants = typeof sbwGetParticipantsLabel === "function"
+        ? sbwGetParticipantsLabel(tournament)
+        : `${tournament?.currentParticipants || tournament?.current_participants || 0} / ${tournament?.maxParticipants || tournament?.max_participants || "—"}`;
+      const windows = sbwOrganizerEditorTournamentHasRegistrationWindows(tournament) ? "janelas OK" : "sem janelas";
+      const readinessItem = sbwOrganizerEditorBuildTournamentPublicationReadinessFromTournament(tournament);
+      const readyLabel = readinessItem.ready
+        ? "pronto para divulgação"
+        : readinessItem.requiresPublicReadiness
+          ? `${readinessItem.missingCount} pendência(s)`
+          : "rascunho livre";
+      lines.push(`${index + 1}. ${title} — ${status} — ${format} — ${participants} — ${windows} — ${readyLabel}`);
+    });
+
+    if (list.length > 12) {
+      lines.push(`... mais ${list.length - 12} torneio(s) não listados neste relatório curto.`);
+    }
+  } else {
+    lines.push("", "Nenhum torneio vinculado carregado ainda.");
+  }
+
+  lines.push(
+    "",
+    "Conferência antes de chamar jogadores:",
+    "- Conta comum continua bloqueada para criar organização/torneio.",
+    "- A organização precisa ter permissão de organizador.",
+    "- Torneios comuns devem ter inscrições e check-in configurados.",
+    "- Team Battle League 4v4 usa inscrição por equipe em fluxo próprio, não inscrição individual.",
+    "- Se o Console mostrar erro diferente de favicon.ico 404, pausar o teste e registrar o erro."
+  );
+
+  return lines.join("\n");
+}
+
+async function sbwOrganizerEditorCopyPreTestReport() {
+  const text = sbwOrganizerEditorBuildPreTestReport(sbwOrganizerEditorCurrent, sbwOrganizerEditorTournamentsCache);
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      if (sbwOrganizerEditorStatusText) {
+        sbwOrganizerEditorStatusText.textContent = "Relatório pré-teste copiado. Envie para a equipe validar antes de chamar jogadores.";
+      }
+      return;
+    }
+  } catch (error) {
+    console.warn("[SBW Organizadores] Clipboard indisponível para relatório pré-teste:", error);
+  }
+
+  window.prompt("Copie o relatório pré-teste:", text);
+}
+
 function sbwOrganizerEditorRenderTestReadinessGuide(organizer = sbwOrganizerEditorCurrent) {
   const overview = document.getElementById("organizerEditorOverview");
 
@@ -7034,6 +7261,7 @@ function sbwOrganizerEditorRenderTestReadinessGuide(organizer = sbwOrganizerEdit
       ${readiness.publicReady ? `<a href="${sbwOrganizerEditorEscape(publicUrl)}">Ver perfil público</a>` : ""}
       ${readiness.canCreateTournament ? `<a href="${sbwOrganizerEditorEscape(tournamentUrl)}">Criar torneio</a>` : ""}
       ${readiness.hasTournament ? `<a href="${sbwOrganizerEditorEscape(tournamentPanelUrl)}" data-organizer-admin-view="tournaments">Revisar torneios</a>` : ""}
+      <button type="button" data-organizer-copy-pretest-report="true">Copiar relatório pré-teste</button>
     </div>
   `;
 
@@ -7043,6 +7271,11 @@ function sbwOrganizerEditorRenderTestReadinessGuide(organizer = sbwOrganizerEdit
       sbwOrganizerEditorShowPanel(link.getAttribute("data-organizer-admin-view"));
     });
   });
+
+  const reportButton = guide.querySelector("[data-organizer-copy-pretest-report]");
+  if (reportButton) {
+    reportButton.addEventListener("click", sbwOrganizerEditorCopyPreTestReport);
+  }
 }
 
 async function sbwOrganizerEditorLoad() {
