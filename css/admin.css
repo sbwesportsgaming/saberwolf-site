@@ -563,3 +563,259 @@ body.sbw-has-sidebar .sbw-admin-page {
     grid-template-columns: 1fr;
   }
 }
+
+.sbw-admin-pretest {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sbw-admin-pretest__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sbw-admin-pretest__head strong,
+.sbw-admin-pretest-summary strong,
+.sbw-admin-pretest-list strong {
+  display: block;
+  color: #fff;
+}
+
+.sbw-admin-pretest__head span,
+.sbw-admin-pretest-summary span,
+.sbw-admin-pretest-list small {
+  display: block;
+  margin-top: 3px;
+  color: var(--sbw-admin-muted);
+  line-height: 1.45;
+}
+
+.sbw-admin-pretest-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(76, 202, 255, 0.16);
+  border-radius: 15px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.sbw-admin-pretest-summary[data-tone="success"] {
+  border-color: rgba(106, 255, 189, 0.28);
+  background: rgba(106, 255, 189, 0.075);
+}
+
+.sbw-admin-pretest-summary[data-tone="warning"] {
+  border-color: rgba(255, 209, 102, 0.28);
+  background: rgba(255, 209, 102, 0.075);
+}
+
+.sbw-admin-pretest-list {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sbw-admin-pretest-list li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid rgba(76, 202, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sbw-admin-pretest-list li > span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #06111d;
+  background: var(--sbw-admin-warning);
+  font-weight: 950;
+}
+
+.sbw-admin-pretest-list li[data-done="true"] > span {
+  background: var(--sbw-admin-success);
+}
+
+@media (max-width: 680px) {
+  .sbw-admin-pretest__head,
+  .sbw-admin-pretest-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* =========================================================
+   v1.6.79.0 — Admin Master: torneios da plataforma
+   ========================================================= */
+.sbw-admin-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.sbw-admin-tournament-card {
+  align-items: flex-start;
+}
+
+.sbw-admin-tournament-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sbw-admin-tournament-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 999px;
+  color: var(--sbw-admin-muted);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sbw-admin-tournament-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.sbw-admin-tournament-summary article {
+  padding: 14px;
+  border: 1px solid rgba(76, 202, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.sbw-admin-tournament-summary span {
+  display: block;
+  color: var(--sbw-admin-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sbw-admin-tournament-summary strong {
+  display: block;
+  margin-top: 6px;
+  color: #fff;
+  font-size: 1.35rem;
+}
+
+.sbw-admin-badge--danger {
+  border-color: rgba(255, 95, 122, 0.30);
+  color: #ffd7df;
+  background: rgba(255, 95, 122, 0.10);
+}
+
+.sbw-admin-badge--warning {
+  border-color: rgba(255, 209, 102, 0.30);
+  color: #ffe7a3;
+  background: rgba(255, 209, 102, 0.10);
+}
+
+.sbw-admin-badge--muted {
+  opacity: 0.72;
+}
+
+@media (max-width: 980px) {
+  .sbw-admin-stats,
+  .sbw-admin-tournament-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .sbw-admin-stats,
+  .sbw-admin-tournament-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* v1.6.79.1 — Ajustes operacionais do Admin Master */
+.sbw-admin-search button,
+.sbw-admin-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.05;
+  text-align: center;
+  text-decoration: none;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.sbw-admin-button:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.sbw-admin-button.is-active,
+.sbw-admin-inline-actions .sbw-admin-button.is-active {
+  border-color: rgba(56, 215, 255, 0.54);
+  background: rgba(56, 215, 255, 0.18);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(56, 215, 255, 0.10) inset;
+}
+
+.sbw-admin-result-card[data-team-state="deleted"] {
+  border-color: rgba(255, 95, 122, 0.20);
+  background: rgba(255, 95, 122, 0.045);
+}
+
+.sbw-admin-result-card[data-team-state="deleted"] .sbw-admin-result-title,
+.sbw-admin-result-card[data-team-state="deleted"] .sbw-admin-avatar {
+  opacity: 0.72;
+}
+
+@media (max-width: 720px) {
+  .sbw-admin-actions {
+    align-items: stretch;
+  }
+
+  .sbw-admin-actions .sbw-admin-button {
+    width: 100%;
+  }
+}
+
+
+/* v1.6.79.2 — Hotfix visual Admin Master */
+.sbw-admin-actions {
+  align-items: center;
+}
+
+.sbw-admin-actions .sbw-admin-button,
+.sbw-admin-actions a.sbw-admin-button,
+.sbw-admin-actions button.sbw-admin-button {
+  min-height: 38px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.sbw-admin-result-card .sbw-admin-result-main {
+  align-items: center;
+}

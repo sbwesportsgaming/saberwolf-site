@@ -1221,3 +1221,159 @@ body.sbw-has-sidebar :where(
   text-transform: uppercase !important;
   box-shadow: 0 0 16px rgba(34, 211, 238, 0.08) !important;
 }
+
+/* v1.6.79.1 — Conta no topo da sidebar + foto de perfil */
+.sbw-sidebar__top {
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+}
+
+.sbw-sidebar__brand--mark-only {
+  min-height: 58px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.sbw-sidebar__brand--mark-only .sbw-sidebar__brand-mark {
+  margin: 0 !important;
+}
+
+.sbw-sidebar__account--top {
+  margin-top: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  min-width: 0 !important;
+}
+
+.sbw-sidebar__account--top .sbw-account-card {
+  padding: 9px !important;
+  border: 1px solid rgba(76, 202, 255, 0.18) !important;
+  border-radius: 16px !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+
+.sbw-sidebar__account--top .sbw-account-card__top {
+  gap: 8px !important;
+}
+
+.sbw-sidebar__account--top .sbw-account-card small,
+.sbw-sidebar__account--top .sbw-account-card__actions {
+  display: none !important;
+}
+
+.sbw-sidebar__account--top .sbw-account-card strong {
+  font-size: 12.5px !important;
+  line-height: 1.1 !important;
+}
+
+.sbw-sidebar__account--top .sbw-account-compact__button {
+  width: 100% !important;
+  justify-content: flex-start !important;
+  min-height: 54px !important;
+  padding: 6px 8px !important;
+  border: 1px solid rgba(76, 202, 255, 0.18) !important;
+  border-radius: 16px !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+
+.sbw-sidebar__account--top .sbw-account-card__avatar {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  overflow: hidden !important;
+}
+
+.sbw-account-card__avatar--image {
+  background: rgba(56, 215, 255, 0.12) !important;
+}
+
+.sbw-account-card__avatar--image img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  object-fit: cover !important;
+}
+
+.sbw-sidebar__account--top .sbw-account-dropdown {
+  left: 0 !important;
+  right: 0 !important;
+  top: calc(100% + 8px) !important;
+  z-index: 50 !important;
+}
+
+@media (max-height: 780px) {
+  .sbw-sidebar__top {
+    margin-bottom: 8px !important;
+  }
+
+  .sbw-sidebar__account--top .sbw-account-compact__button {
+    min-height: 48px !important;
+  }
+}
+
+
+/* v1.6.79.2 — Conta no topo sem marca duplicada e atalho Admin consistente */
+.sbw-sidebar__top--account-only {
+  display: block;
+  min-height: auto;
+}
+
+.sbw-sidebar__top--account-only .sbw-sidebar__account {
+  width: 100%;
+  margin-top: 0;
+}
+
+.sbw-sidebar__top--account-only + .sbw-sidebar__nav {
+  margin-top: 4px;
+}
+
+.sbw-account-card__avatar--image {
+  overflow: hidden;
+  padding: 0;
+}
+
+.sbw-account-card__avatar--image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.sbw-account-admin-shortcut {
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  padding: 7px 10px;
+  border-radius: 11px;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 900;
+  background:
+    linear-gradient(90deg, rgba(55, 200, 255, 0.22), rgba(18, 103, 255, 0.10)),
+    rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(76, 202, 255, 0.34);
+}
+
+.sbw-account-admin-shortcut:hover {
+  border-color: rgba(76, 202, 255, 0.56);
+  background:
+    linear-gradient(90deg, rgba(55, 200, 255, 0.30), rgba(18, 103, 255, 0.14)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sbw-account-admin-shortcut span {
+  display: inline-grid;
+  place-items: center;
+  color: var(--sbw-cyan);
+}

@@ -6,12 +6,16 @@
     client: null,
     profiles: [],
     teams: [],
+    tournaments: [],
     logs: [],
     rlsResults: [],
     profileListExpanded: false,
     teamListExpanded: false,
+    tournamentListExpanded: false,
     profileLetterFilter: "",
     teamLetterFilter: "",
+    tournamentStatusFilter: "",
+    tournamentSearchQuery: "",
     organizerPermissions: new Map(),
     organizerPermissionRows: []
   };
@@ -57,6 +61,12 @@
 
   function asObject(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function isTruthyFlag(value) {
+    if (value === true || value === 1) return true;
+    const normalized = String(value || "").trim().toLowerCase();
+    return ["true", "1", "yes", "sim", "verified", "active", "enabled"].includes(normalized);
   }
 
   function getProfileName(profile) {
@@ -212,12 +222,169 @@
     return team?.tag || team?.shortName || team?.teamTag || "";
   }
 
-  function isVerifiedTeam(team) {
+  function getTeamStatusValue(team) {
+    return String(team?.status || team?.state || (team?.is_active === false || team?.isActive === false ? "deleted" : "active")).trim().toLowerCase();
+  }
+
+  function isTeamDeleted(team) {
+    const status = getTeamStatusValue(team);
     return Boolean(
-      team?.isVerified === true ||
-      team?.is_verified === true ||
-      team?.verificationStatus === "verified" ||
-      team?.verification_status === "verified"
+      team?.is_active === false ||
+      team?.isActive === false ||
+      team?.metadata?.adminDeleted === true ||
+      ["deleted", "archived", "hidden", "inactive", "removed"].includes(status)
+    );
+  }
+
+  function getTeamStatusLabel(team) {
+    if (isTeamDeleted(team)) return "Removida";
+    const status = getTeamStatusValue(team);
+    const labels = {
+      active: "Ativa",
+      pending: "Pendente",
+      private: "Privada",
+      inactive: "Inativa",
+      archived: "Arquivada",
+      deleted: "Removida"
+    };
+    return labels[status] || status || "Ativa";
+  }
+
+  function getTournamentKey(tournament) {
+    return String(tournament?.slug || tournament?.id || tournament?.supabaseId || tournament?.tournament_id || "").trim();
+  }
+
+  function getTournamentDatabaseKey(tournament) {
+    return String(tournament?.supabaseId || tournament?.id || tournament?.slug || "").trim();
+  }
+
+  function getTournamentName(tournament) {
+    return String(tournament?.title || tournament?.name || "Torneio sem nome").trim();
+  }
+
+  function getTournamentOrganizerLabel(tournament) {
+    return String(
+      tournament?.organizer_name ||
+      tournament?.organizerName ||
+      tournament?.organizer_slug ||
+      tournament?.organizerSlug ||
+      tournament?.organizer ||
+      "Organizador não informado"
+    ).trim();
+  }
+
+  function getTournamentStatusValue(tournament) {
+    return String(tournament?.status || tournament?.state || tournament?.metadata?.status || "draft").trim().toLowerCase();
+  }
+
+  function getTournamentStatusLabel(status) {
+    const normalized = String(status || "draft").toLowerCase();
+    const labels = {
+      draft: "Rascunho",
+      published: "Publicado",
+      scheduled: "Agendado",
+      open: "Inscrições abertas",
+      "registration-open": "Inscrições abertas",
+      running: "Em andamento",
+      "in-progress": "Em andamento",
+      in_progress: "Em andamento",
+      ongoing: "Em andamento",
+      active: "Em andamento",
+      started: "Em andamento",
+      live: "Em andamento",
+      finished: "Finalizado",
+      completed: "Finalizado",
+      complete: "Finalizado",
+      finalized: "Finalizado",
+      ended: "Finalizado",
+      closed: "Finalizado",
+      archived: "Arquivado",
+      deleted: "Removido",
+      hidden: "Oculto",
+      cancelled: "Cancelado"
+    };
+
+    return labels[normalized] || normalized || "Rascunho";
+  }
+
+  function getTournamentStatusBucket(tournament) {
+    const status = getTournamentStatusValue(tournament);
+    const normalized = status.replaceAll("_", "-").replaceAll(" ", "-");
+
+    if (["open", "registration-open", "registration", "registration-opened", "published", "public", "scheduled", "upcoming"].includes(normalized)) return "open";
+    if (["running", "in-progress", "structure-generated", "active", "ongoing", "started", "live", "em-andamento"].includes(normalized)) return "running";
+    if (["finished", "completed", "complete", "closed", "finalized", "ended", "done", "encerrado", "finalizado"].includes(normalized)) return "finished";
+    if (["archived", "deleted", "hidden", "cancelled", "removed", "private"].includes(normalized)) return "archived";
+    return "draft";
+  }
+
+  function getTournamentFormatLabel(tournament) {
+    const value = String(tournament?.format || tournament?.formatLabel || "").toLowerCase();
+    const labels = {
+      "double-elimination": "Double Elimination",
+      double_elimination: "Double Elimination",
+      "groups-playoffs": "Grupos + Playoffs",
+      groups_playoffs: "Grupos + Playoffs",
+      "round-robin": "Pontos Corridos",
+      round_robin: "Pontos Corridos",
+      "team-battle-league-4v4": "Team Battle League 4v4"
+    };
+
+    return labels[value] || tournament?.formatLabel || tournament?.format || "Formato não informado";
+  }
+
+  function formatAdminDateTime(value) {
+    if (!value) return "Sem data";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return String(value || "Sem data");
+    }
+
+    return date.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+
+  function normalizeTournamentFromAdminRow(row = {}) {
+    const raw = row && typeof row === "object" ? row : {};
+    const metadata = raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {};
+
+    return {
+      ...raw,
+      id: raw.id || raw.tournament_id || raw.slug || "",
+      supabaseId: raw.supabase_id || raw.supabaseId || raw.id || "",
+      slug: raw.slug || raw.tournament_slug || metadata.slug || "",
+      title: raw.title || raw.name || raw.tournament_name || "Torneio sem nome",
+      name: raw.title || raw.name || raw.tournament_name || "Torneio sem nome",
+      game: raw.game_name || raw.game || raw.game_id || "Jogo não informado",
+      gameName: raw.game_name || raw.game || raw.game_id || "Jogo não informado",
+      format: raw.format || metadata.format || "",
+      status: raw.status || metadata.status || "draft",
+      visibility: raw.visibility || metadata.visibility || "public",
+      organizerName: raw.organizer_name || raw.organizerName || metadata.organizerName || metadata.organizer_name || "Organizador não informado",
+      organizerSlug: raw.organizer_slug || raw.organizerSlug || metadata.organizerSlug || metadata.organizer_slug || "",
+      maxParticipants: Number(raw.max_participants || raw.maxParticipants || 0) || 0,
+      currentParticipants: Number(raw.current_participants || raw.currentParticipants || raw.participant_count || raw.participants_count || 0) || 0,
+      participantCount: Number(raw.participant_count || raw.participants_count || raw.current_participants || 0) || 0,
+      checkedInCount: Number(raw.checked_in_count || raw.checkins_count || 0) || 0,
+      startsAt: raw.starts_at || raw.startsAt || raw.start_date || "",
+      createdAt: raw.created_at || raw.createdAt || "",
+      updatedAt: raw.updated_at || raw.updatedAt || ""
+    };
+  }
+
+  function isVerifiedTeam(team) {
+    const metadata = asObject(team?.metadata);
+    return Boolean(
+      isTruthyFlag(team?.isVerified) ||
+      isTruthyFlag(team?.is_verified) ||
+      String(team?.verificationStatus || team?.verification_status || metadata.verificationStatus || metadata.verification_status || "").trim().toLowerCase() === "verified"
     );
   }
 
@@ -463,9 +630,36 @@
   function updateListControls() {
     const profileLess = $("[data-admin-action='show-less-profiles']");
     const teamLess = $("[data-admin-action='show-less-teams']");
+    const tournamentLess = $("[data-admin-action='show-less-tournaments']");
 
     if (profileLess) profileLess.hidden = !state.profileListExpanded && !state.profileLetterFilter;
     if (teamLess) teamLess.hidden = !state.teamListExpanded && !state.teamLetterFilter;
+    if (tournamentLess) tournamentLess.hidden = !state.tournamentListExpanded && !state.tournamentStatusFilter && !state.tournamentSearchQuery;
+  }
+
+  function resetProfileResults() {
+    const root = $("#sbwAdminProfileResults");
+    if (root) root.innerHTML = `<p class="sbw-admin-muted">Clique em “Mostrar todos” ou busque por pelo menos 2 caracteres.</p>`;
+    updateListControls();
+  }
+
+  function resetTeamResults() {
+    const root = $("#sbwAdminTeamResults");
+    if (root) root.innerHTML = `<p class="sbw-admin-muted">Clique em “Mostrar todas” ou busque por pelo menos 2 caracteres.</p>`;
+    updateListControls();
+  }
+
+  function resetTournamentResults() {
+    const root = $("#sbwAdminTournamentResults");
+    if (root) root.innerHTML = `<p class="sbw-admin-muted">Clique em “Mostrar todos” ou busque por pelo menos 2 caracteres.</p>`;
+    updateListControls();
+  }
+
+  function updateTournamentFilterButtons() {
+    $all("[data-admin-action='filter-tournaments']").forEach((button) => {
+      const value = button.dataset.tournamentStatus || "";
+      button.classList.toggle("is-active", value === String(state.tournamentStatusFilter || ""));
+    });
   }
 
   function setStatus(message, tone = "muted") {
@@ -772,6 +966,35 @@
     return [];
   }
 
+  async function loadTournamentsForAdmin() {
+    if (!state.client) return [];
+
+    try {
+      const rpcResult = await state.client.rpc("sbw_admin_list_tournaments");
+
+      if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+        return rpcResult.data.map(normalizeTournamentFromAdminRow);
+      }
+    } catch (error) {
+      console.warn("[SBW Admin] RPC sbw_admin_list_tournaments indisponível, tentando leitura direta:", error);
+    }
+
+    try {
+      const table = getTable("tournaments", "tournaments");
+      const result = await state.client
+        .from(table)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+
+      if (result.error) throw result.error;
+      return (result.data || []).map(normalizeTournamentFromAdminRow);
+    } catch (error) {
+      console.warn("[SBW Admin] Falha ao carregar torneios:", error);
+      return [];
+    }
+  }
+
   async function loadOrganizerPermissions() {
     if (!state.client) return [];
 
@@ -824,10 +1047,11 @@
   }
 
   async function refreshData() {
-    const [supabaseProfiles, fallbackProfiles, teams, organizerPermissionRows] = await Promise.all([
+    const [supabaseProfiles, fallbackProfiles, teams, tournaments, organizerPermissionRows] = await Promise.all([
       loadProfilesFromSupabase(),
       loadProfilesFromFallback(),
       loadTeams(),
+      loadTournamentsForAdmin(),
       loadOrganizerPermissions()
     ]);
 
@@ -844,8 +1068,12 @@
 
     state.profiles = sortProfilesByName(Array.from(profilesByKey.values()));
     state.teams = sortTeamsByName(teams);
+    state.tournaments = Array.isArray(tournaments)
+      ? tournaments.sort((a, b) => String(b.createdAt || b.startsAt || "").localeCompare(String(a.createdAt || a.startsAt || "")))
+      : [];
 
     renderStats(organizerCount);
+    renderOrganizerExternalPretest();
     renderOrganizerPermissionResults();
   }
 
@@ -854,13 +1082,120 @@
       profiles: state.profiles.length,
       teams: state.teams.length,
       verifiedTeams: state.teams.filter(isVerifiedTeam).length,
-      organizers: organizerCount
+      organizers: organizerCount,
+      tournaments: state.tournaments.length
     };
 
     Object.entries(stats).forEach(([key, value]) => {
       const el = $(`[data-sbw-admin-stat="${key}"]`);
       if (el) el.textContent = String(value);
     });
+  }
+
+  function getOrganizerExternalPretestItems() {
+    const rows = getActiveOrganizerPermissionRows();
+    const hasPermission = rows.length > 0;
+    const firstTarget = hasPermission ? getOrganizerPermissionTarget(null, rows[0]) : null;
+
+    return {
+      rows,
+      firstTarget,
+      items: [
+        {
+          label: "Conta parceira cadastrada na plataforma",
+          done: state.profiles.length > 0,
+          hint: "Confirme se a conta da Rinha Online aparece na busca de usuários antes de liberar a permissão."
+        },
+        {
+          label: "Permissão de organizador concedida",
+          done: hasPermission,
+          hint: hasPermission
+            ? `${firstTarget?.displayName || "Organizador"} possui permissão ativa para criar organização.`
+            : "Busque a conta parceira na aba Usuários e use ‘Permitir criar organização’."
+        },
+        {
+          label: "Conta comum continua bloqueada",
+          done: true,
+          hint: "A permissão é individual. Usuários comuns continuam sem criar organização ou torneio."
+        },
+        {
+          label: "Próximo passo será feito pela organização",
+          done: hasPermission,
+          hint: "Depois da permissão, a Rinha deve acessar o painel do organizador, criar a organização e criar torneios vinculados."
+        },
+        {
+          label: "Teste real deve validar organização + torneio + inscrição/check-in",
+          done: hasPermission,
+          hint: "A -SBW- acompanha o fluxo, mas não precisa criar tudo manualmente pela organização."
+        }
+      ]
+    };
+  }
+
+  function renderOrganizerExternalPretest() {
+    const root = $("#sbwAdminOrganizerPretest .sbw-admin-pretest__body");
+    if (!root) return;
+
+    const pretest = getOrganizerExternalPretestItems();
+    const completed = pretest.items.filter((item) => item.done).length;
+    const total = pretest.items.length;
+    const tone = completed === total ? "success" : pretest.rows.length ? "warning" : "neutral";
+
+    root.innerHTML = `
+      <div class="sbw-admin-pretest-summary" data-tone="${escapeHtml(tone)}">
+        <strong>${escapeHtml(completed)} / ${escapeHtml(total)} itens prontos</strong>
+        <span>${pretest.rows.length ? `${escapeHtml(pretest.rows.length)} organizador(es) autorizado(s).` : "Nenhum organizador externo autorizado ainda."}</span>
+      </div>
+
+      <ul class="sbw-admin-pretest-list">
+        ${pretest.items.map((item) => `
+          <li data-done="${item.done ? "true" : "false"}">
+            <span>${item.done ? "✓" : "!"}</span>
+            <div>
+              <strong>${escapeHtml(item.label)}</strong>
+              <small>${escapeHtml(item.hint)}</small>
+            </div>
+          </li>
+        `).join("")}
+      </ul>
+    `;
+  }
+
+  function buildOrganizerExternalPretestReport() {
+    const pretest = getOrganizerExternalPretestItems();
+    const completed = pretest.items.filter((item) => item.done).length;
+    const lines = [
+      "Pré-check Admin Master — organizador externo",
+      "",
+      `Status: ${completed}/${pretest.items.length} itens prontos`,
+      `Organizadores autorizados: ${pretest.rows.length}`,
+      "",
+      "Itens:",
+      ...pretest.items.map((item) => `${item.done ? "[OK]" : "[PENDENTE]"} ${item.label} — ${item.hint}`),
+      "",
+      "Regra operacional:",
+      "- Conta comum não cria organização nem torneio.",
+      "- A conta parceira precisa receber permissão de organizador pela -SBW-.",
+      "- Depois disso, a organização cria o próprio perfil organizacional e seus torneios vinculados.",
+      "- A -SBW- acompanha o teste, mas não deve operar manualmente todo o fluxo pela parceira."
+    ];
+
+    return lines.join("\n");
+  }
+
+  async function copyTextToClipboard(text, fallbackLabel) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        addLog(`${fallbackLabel || "Texto"} copiado para a área de transferência.`);
+        return;
+      }
+    } catch (error) {
+      console.warn("[SBW Admin] Falha ao copiar via clipboard:", error);
+    }
+
+    window.prompt("Copie o texto abaixo:", text);
+    addLog(`${fallbackLabel || "Texto"} aberto para cópia manual.`, "warning");
   }
 
   function renderProfileResults(profiles, options = {}) {
@@ -967,24 +1302,26 @@
     const name = getTeamName(team);
     const tag = getTeamTag(team);
     const verified = isVerifiedTeam(team);
+    const deleted = isTeamDeleted(team);
     const memberLimit = team.memberLimit || team.member_limit || (verified ? 100 : 50);
     const modalities = Array.isArray(team.modalities) ? team.modalities.slice(0, 4).join(", ") : "";
     const visibility = team.isPublic === false || team.is_public === false ? "Privada" : "Pública";
-    const status = team.status || team.state || "active";
+    const statusLabel = getTeamStatusLabel(team);
     const captain = team.captainName || team.captain_name || team.captainProfileSlug || team.captain_profile_slug || team.captainUserId || team.captain_user_id || "";
 
     return `
-      <article class="sbw-admin-result-card" data-team-key="${escapeHtml(key)}">
+      <article class="sbw-admin-result-card" data-team-key="${escapeHtml(key)}" data-team-state="${deleted ? "deleted" : "active"}">
         <div class="sbw-admin-result-main">
           <div class="sbw-admin-avatar">${escapeHtml(tag || name.charAt(0).toUpperCase())}</div>
 
           <div class="sbw-admin-result-title">
             <strong>${escapeHtml(name)}</strong>
-            <small>${escapeHtml([tag, key, visibility, status, captain ? `Capitão: ${captain}` : "", modalities].filter(Boolean).join(" · "))}</small>
+            <small>${escapeHtml([tag, key, visibility, statusLabel, captain ? `Capitão: ${captain}` : "", modalities].filter(Boolean).join(" · "))}</small>
           </div>
 
           <div class="sbw-admin-badges">
             <span class="sbw-admin-badge ${verified ? "sbw-admin-badge--success" : ""}">${verified ? "Verificada" : "Comum"}</span>
+            <span class="sbw-admin-badge ${deleted ? "sbw-admin-badge--danger" : ""}">${escapeHtml(statusLabel)}</span>
             <span class="sbw-admin-badge">Limite ${escapeHtml(memberLimit)}</span>
           </div>
         </div>
@@ -998,16 +1335,328 @@
             Gerenciar
           </a>
 
-          <button class="sbw-admin-button" type="button" data-admin-action="verify-team" data-team-key="${escapeHtml(key)}">
-            Verificar equipe
-          </button>
+          ${!deleted && !verified ? `
+            <button class="sbw-admin-button" type="button" data-admin-action="verify-team" data-team-key="${escapeHtml(key)}">
+              Verificar equipe
+            </button>
+          ` : ""}
 
-          <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="unverify-team" data-team-key="${escapeHtml(key)}">
-            Remover verificação
+          ${!deleted && verified ? `
+            <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="unverify-team" data-team-key="${escapeHtml(key)}">
+              Remover verificação
+            </button>
+          ` : ""}
+
+          ${!deleted ? `
+            <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="admin-team-action" data-team-key="${escapeHtml(key)}" data-team-action="delete">
+              Excluir do painel
+            </button>
+          ` : `
+            <span class="sbw-admin-muted">Equipe removida do painel público.</span>
+          `}
+        </div>
+      </article>
+    `;
+  }
+
+  function getFilteredAdminTournaments() {
+    const query = normalizeSearch(state.tournamentSearchQuery || "");
+    const statusFilter = String(state.tournamentStatusFilter || "").trim();
+
+    return (state.tournaments || []).filter((tournament) => {
+      const bucket = getTournamentStatusBucket(tournament);
+
+      if (statusFilter && bucket !== statusFilter) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const haystack = normalizeSearch([
+        getTournamentName(tournament),
+        tournament.gameName,
+        tournament.game,
+        tournament.slug,
+        getTournamentOrganizerLabel(tournament),
+        tournament.organizerSlug,
+        getTournamentStatusLabel(tournament.status),
+        getTournamentFormatLabel(tournament)
+      ].join(" "));
+
+      return haystack.includes(query);
+    });
+  }
+
+  function renderTournamentsList() {
+    const root = $("#sbwAdminTournamentResults");
+    if (!root) return;
+
+    const filtered = getFilteredAdminTournaments();
+    const shouldLimit = !state.tournamentListExpanded && !state.tournamentSearchQuery && !state.tournamentStatusFilter;
+    renderTournamentResults(filtered, { limit: shouldLimit ? 30 : 0 });
+    updateListControls();
+  }
+
+  function getTournamentAdminSummary(tournaments = []) {
+    const items = Array.isArray(tournaments) ? tournaments : [];
+
+    return {
+      total: items.length,
+      open: items.filter((item) => getTournamentStatusBucket(item) === "open").length,
+      running: items.filter((item) => getTournamentStatusBucket(item) === "running").length,
+      finished: items.filter((item) => getTournamentStatusBucket(item) === "finished").length,
+      archived: items.filter((item) => getTournamentStatusBucket(item) === "archived").length
+    };
+  }
+
+  function renderTournamentResults(tournaments, options = {}) {
+    const root = $("#sbwAdminTournamentResults");
+    if (!root) return;
+
+    const safeTournaments = Array.isArray(tournaments) ? tournaments : [];
+    const limit = Number.isFinite(options.limit) ? Number(options.limit) : 30;
+    const visibleTournaments = limit > 0 ? safeTournaments.slice(0, limit) : safeTournaments;
+    const summary = getTournamentAdminSummary(state.tournaments || []);
+
+    if (!safeTournaments.length) {
+      root.innerHTML = `
+        <div class="sbw-admin-tournament-summary">
+          <article><span>Total</span><strong>${escapeHtml(summary.total)}</strong></article>
+          <article><span>Abertos</span><strong>${escapeHtml(summary.open)}</strong></article>
+          <article><span>Em andamento</span><strong>${escapeHtml(summary.running)}</strong></article>
+          <article><span>Arquivados</span><strong>${escapeHtml(summary.archived)}</strong></article>
+        </div>
+        <p class="sbw-admin-muted">Nenhum torneio encontrado para o filtro atual.</p>
+      `;
+      return;
+    }
+
+    root.innerHTML = `
+      <div class="sbw-admin-tournament-summary">
+        <article><span>Total</span><strong>${escapeHtml(summary.total)}</strong></article>
+        <article><span>Abertos</span><strong>${escapeHtml(summary.open)}</strong></article>
+        <article><span>Em andamento</span><strong>${escapeHtml(summary.running)}</strong></article>
+        <article><span>Arquivados/removidos</span><strong>${escapeHtml(summary.archived)}</strong></article>
+      </div>
+
+      <p class="sbw-admin-muted">
+        ${visibleTournaments.length} de ${safeTournaments.length} torneio(s) exibido(s). Ações administrativas são registradas no metadata do torneio.
+      </p>
+      ${visibleTournaments.map((tournament) => renderTournamentCard(tournament)).join("")}
+    `;
+  }
+
+  function renderTournamentCard(tournament) {
+    const key = getTournamentKey(tournament);
+    const dbKey = getTournamentDatabaseKey(tournament) || key;
+    const title = getTournamentName(tournament);
+    const status = getTournamentStatusValue(tournament);
+    const bucket = getTournamentStatusBucket(tournament);
+    const statusLabel = getTournamentStatusLabel(status);
+    const badgeClass = bucket === "archived" ? "sbw-admin-badge--danger" : bucket === "open" ? "sbw-admin-badge--success" : bucket === "draft" ? "sbw-admin-badge--warning" : "";
+    const publicUrl = key
+      ? `../torneios/detalhe-torneio.html?id=${encodeURIComponent(key)}`
+      : "../torneios/torneios.html";
+    const manageUrl = key
+      ? `../torneios/editar-organizador.html?torneio=${encodeURIComponent(key)}`
+      : "../torneios/editar-organizador.html";
+    const participantCount = Number(tournament.participantCount || tournament.currentParticipants || 0) || 0;
+    const checkedInCount = Number(tournament.checkedInCount || 0) || 0;
+    const maxParticipants = Number(tournament.maxParticipants || 0) || 0;
+
+    return `
+      <article class="sbw-admin-result-card sbw-admin-tournament-card" data-tournament-key="${escapeHtml(dbKey)}">
+        <div class="sbw-admin-result-main">
+          <div class="sbw-admin-avatar">${escapeHtml(String(title || "T").charAt(0).toUpperCase())}</div>
+
+          <div class="sbw-admin-result-title">
+            <strong>${escapeHtml(title)}</strong>
+            <small>${escapeHtml([key, getTournamentOrganizerLabel(tournament), tournament.gameName || tournament.game].filter(Boolean).join(" · "))}</small>
+            <div class="sbw-admin-tournament-meta">
+              <span>${escapeHtml(getTournamentFormatLabel(tournament))}</span>
+              <span>Início: ${escapeHtml(formatAdminDateTime(tournament.startsAt))}</span>
+              <span>Inscritos: ${escapeHtml(participantCount)}${maxParticipants ? `/${escapeHtml(maxParticipants)}` : ""}</span>
+              <span>Check-ins: ${escapeHtml(checkedInCount)}</span>
+            </div>
+          </div>
+
+          <div class="sbw-admin-badges">
+            <span class="sbw-admin-badge ${badgeClass}">${escapeHtml(statusLabel)}</span>
+            <span class="sbw-admin-badge ${tournament.visibility === "private" ? "sbw-admin-badge--warning" : ""}">${escapeHtml(tournament.visibility === "private" ? "Privado" : "Público")}</span>
+          </div>
+        </div>
+
+        <div class="sbw-admin-actions">
+          <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">Ver público</a>
+          <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(manageUrl)}">Gerenciar</a>
+
+          <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="admin-tournament-action" data-tournament-key="${escapeHtml(dbKey)}" data-tournament-action="draft">
+            Rascunho
+          </button>
+          <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="admin-tournament-action" data-tournament-key="${escapeHtml(dbKey)}" data-tournament-action="hide">
+            Ocultar
+          </button>
+          <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="admin-tournament-action" data-tournament-key="${escapeHtml(dbKey)}" data-tournament-action="publish">
+            Publicar
+          </button>
+          <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="admin-tournament-action" data-tournament-key="${escapeHtml(dbKey)}" data-tournament-action="archive">
+            Arquivar
+          </button>
+          <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="admin-tournament-action" data-tournament-key="${escapeHtml(dbKey)}" data-tournament-action="delete">
+            Excluir do painel
           </button>
         </div>
       </article>
     `;
+  }
+
+  function buildAdminActionMetadata(currentMetadata, action, previous = {}, reason = "") {
+    return {
+      ...asObject(currentMetadata),
+      adminManaged: true,
+      adminDeleted: action === "delete" ? true : Boolean(asObject(currentMetadata).adminDeleted),
+      adminLastAction: {
+        action,
+        previousStatus: previous.status || "",
+        previousVisibility: previous.visibility || "",
+        reason: reason || "Ação executada pelo Admin Master.",
+        at: new Date().toISOString(),
+        source: "admin-master-panel"
+      }
+    };
+  }
+
+  async function directUpdateTournamentAdminAction(tournament, safeKey, safeAction) {
+    if (!state.client) return false;
+
+    const table = getTable("tournaments", "tournaments");
+    const previousStatus = getTournamentStatusValue(tournament || {});
+    const previousVisibility = String(tournament?.visibility || tournament?.metadata?.visibility || "public").toLowerCase();
+    let nextStatus = previousStatus || "draft";
+    let nextVisibility = previousVisibility || "public";
+
+    if (safeAction === "draft") {
+      nextStatus = "draft";
+      nextVisibility = "private";
+    } else if (safeAction === "hide") {
+      nextVisibility = "private";
+      if (["public", "published", "open"].includes(nextStatus)) nextStatus = "hidden";
+    } else if (safeAction === "publish") {
+      nextVisibility = "public";
+      if (["draft", "archived", "deleted", "hidden", "cancelled", "removed"].includes(nextStatus)) nextStatus = "published";
+    } else if (safeAction === "archive") {
+      nextStatus = "archived";
+      nextVisibility = "private";
+    } else if (safeAction === "delete") {
+      nextStatus = "deleted";
+      nextVisibility = "private";
+    }
+
+    const patch = {
+      status: nextStatus,
+      visibility: nextVisibility,
+      metadata: buildAdminActionMetadata(tournament?.metadata, safeAction, { status: previousStatus, visibility: previousVisibility }, "Ação executada pelo Admin Master na central de torneios."),
+      updated_at: new Date().toISOString()
+    };
+
+    const attempts = [];
+    if (tournament?.supabaseId) attempts.push(["id", tournament.supabaseId]);
+    if (tournament?.id) attempts.push(["id", tournament.id]);
+    if (tournament?.slug) attempts.push(["slug", tournament.slug]);
+    if (safeKey) {
+      attempts.push(["id", safeKey]);
+      attempts.push(["slug", safeKey]);
+    }
+
+    const seen = new Set();
+    for (const [column, value] of attempts) {
+      const key = `${column}:${value}`;
+      if (!value || seen.has(key)) continue;
+      seen.add(key);
+
+      try {
+        const result = await state.client
+          .from(table)
+          .update(patch)
+          .eq(column, value)
+          .select("*")
+          .maybeSingle();
+
+        if (!result.error && result.data) return true;
+      } catch (error) {
+        // tenta próximo identificador
+      }
+    }
+
+    return false;
+  }
+
+  async function runAdminTournamentAction(tournamentKey, action) {
+    const safeKey = String(tournamentKey || "").trim();
+    const safeAction = String(action || "").trim().toLowerCase();
+
+    if (!safeKey || !safeAction) {
+      addLog("Torneio ou ação administrativa inválida.", "error");
+      return;
+    }
+
+    const labels = {
+      draft: "marcar como rascunho",
+      hide: "ocultar",
+      publish: "publicar",
+      archive: "arquivar",
+      delete: "excluir do painel"
+    };
+
+    const tournament = (state.tournaments || []).find((item) => {
+      return [getTournamentDatabaseKey(item), getTournamentKey(item), item.slug, item.supabaseId, item.id]
+        .map((value) => String(value || "").trim())
+        .includes(safeKey);
+    });
+
+    const name = getTournamentName(tournament || {});
+    const isDanger = ["archive", "delete"].includes(safeAction);
+    const shouldRun = window.confirm(
+      `${isDanger ? "Atenção: " : ""}Deseja ${labels[safeAction] || safeAction} o torneio “${name || safeKey}”?\n\n` +
+      "Esta ação é administrativa e será registrada no metadata do torneio."
+    );
+
+    if (!shouldRun) return;
+
+    if (!state.client) {
+      addLog("Supabase não disponível para ação administrativa em torneio.", "error");
+      return;
+    }
+
+    try {
+      const { data, error } = await state.client.rpc("sbw_admin_manage_tournament", {
+        p_tournament: safeKey,
+        p_action: safeAction,
+        p_reason: "Ação executada pelo Admin Master na central de torneios."
+      });
+
+      if (error) throw error;
+
+      const result = data && typeof data === "object" ? data : {};
+      addLog(result.message || `Ação ${safeAction} executada no torneio ${name || safeKey}.`);
+      await refreshData();
+      renderTournamentsList();
+    } catch (error) {
+      console.warn("[SBW Admin] Falha na ação administrativa do torneio:", error);
+
+      const fallbackSaved = await directUpdateTournamentAdminAction(tournament, safeKey, safeAction);
+
+      if (fallbackSaved) {
+        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.2 para manter a RPC como caminho principal.`, "warning");
+        await refreshData();
+        renderTournamentsList();
+        return;
+      }
+
+      addLog(error.message || "Não foi possível executar a ação administrativa no torneio. Rode o SQL da v1.6.79.2 no Supabase e confira a permissão Admin Master.", "error");
+    }
   }
 
   function renderOrganizerPermissionResults() {
@@ -1209,6 +1858,7 @@
       addLog(`Permissão para criar organização concedida a ${getProfileName(profile)}.`);
       await refreshData();
       renderProfilesList();
+      renderOrganizerExternalPretest();
       renderOrganizerPermissionResults();
     } catch (error) {
       console.warn("[SBW Admin] Falha ao liberar criação de organização:", error);
@@ -1279,6 +1929,7 @@
       addLog(`Permissão de criar organização removida de ${target.displayName || "usuário"}.`);
       await refreshData();
       renderProfilesList();
+      renderOrganizerExternalPretest();
       renderOrganizerPermissionResults();
     } catch (error) {
       console.warn("[SBW Admin] Falha ao remover permissão de organização:", error);
@@ -1359,6 +2010,111 @@
     }
   }
 
+  async function directUpdateTeamAdminAction(team, safeKey, safeAction) {
+    if (!state.client || safeAction !== "delete") return false;
+
+    const table = getTable("teams", "teams");
+    const previousStatus = getTeamStatusValue(team || {});
+    const previousVisibility = team?.isPublic !== false && team?.is_public !== false;
+    const previousActive = team?.isActive !== false && team?.is_active !== false;
+    const patch = {
+      is_active: false,
+      is_public: false,
+      is_verified: false,
+      verification_status: "not_verified",
+      member_limit: 50,
+      status: "deleted",
+      metadata: buildAdminActionMetadata(team?.metadata, safeAction, { status: previousStatus, visibility: previousVisibility, active: previousActive }, "Ação executada pelo Admin Master na central de equipes."),
+      updated_at: new Date().toISOString()
+    };
+
+    const attempts = [];
+    if (team?.id) attempts.push(["id", team.id]);
+    if (team?.slug) attempts.push(["slug", team.slug]);
+    if (safeKey) {
+      attempts.push(["id", safeKey]);
+      attempts.push(["slug", safeKey]);
+    }
+
+    const seen = new Set();
+    for (const [column, value] of attempts) {
+      const key = `${column}:${value}`;
+      if (!value || seen.has(key)) continue;
+      seen.add(key);
+
+      try {
+        const result = await state.client
+          .from(table)
+          .update(patch)
+          .eq(column, value)
+          .select("*")
+          .maybeSingle();
+
+        if (!result.error && result.data) return true;
+      } catch (error) {
+        // tenta próximo identificador
+      }
+    }
+
+    return false;
+  }
+
+  async function runAdminTeamAction(teamKey, action) {
+    const safeKey = String(teamKey || "").trim();
+    const safeAction = String(action || "").trim().toLowerCase();
+
+    if (!safeKey || !safeAction) {
+      addLog("Equipe ou ação administrativa inválida.", "error");
+      return;
+    }
+
+    const team = getTeamByKey(safeKey);
+    const name = getTeamName(team || {});
+    const labels = {
+      delete: "excluir do painel"
+    };
+
+    const shouldRun = window.confirm(
+      `Atenção: deseja ${labels[safeAction] || safeAction} a equipe “${name || safeKey}”?\n\n` +
+      "Esta é uma exclusão administrativa segura: a equipe fica privada/inativa e o histórico é preservado."
+    );
+
+    if (!shouldRun) return;
+
+    if (!state.client) {
+      addLog("Supabase não disponível para ação administrativa em equipe.", "error");
+      return;
+    }
+
+    try {
+      const { data, error } = await state.client.rpc("sbw_admin_manage_team", {
+        p_team: safeKey,
+        p_action: safeAction,
+        p_reason: "Ação executada pelo Admin Master na central de equipes."
+      });
+
+      if (error) throw error;
+
+      const result = data && typeof data === "object" ? data : {};
+      addLog(result.message || `Ação ${safeAction} executada na equipe ${name || safeKey}.`);
+      await refreshData();
+      renderTeamsList();
+    } catch (error) {
+      console.warn("[SBW Admin] Falha na ação administrativa da equipe:", error);
+
+      const fallbackSaved = await directUpdateTeamAdminAction(team, safeKey, safeAction);
+
+      if (fallbackSaved) {
+        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.2 para manter a RPC como caminho principal.`, "warning");
+        await refreshData();
+        renderTeamsList();
+        return;
+      }
+
+      addLog(error.message || "Não foi possível executar a ação administrativa na equipe. Rode o SQL da v1.6.79.2 no Supabase e confira a permissão Admin Master.", "error");
+    }
+  }
+
   function bindTabs() {
     $all("[data-sbw-admin-tab]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1378,6 +2134,7 @@
   function bindSearchForms() {
     const profileForm = $("[data-sbw-admin-profile-search]");
     const teamForm = $("[data-sbw-admin-team-search]");
+    const tournamentForm = $("[data-sbw-admin-tournament-search]");
 
     if (profileForm) {
       profileForm.addEventListener("submit", (event) => {
@@ -1418,6 +2175,26 @@
         renderTeamsList();
       });
     }
+
+    if (tournamentForm) {
+      tournamentForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const query = tournamentForm.query.value || "";
+
+        state.tournamentListExpanded = false;
+        state.tournamentSearchQuery = query.trim();
+
+        if (query.trim().length > 0 && query.trim().length < 2) {
+          renderTournamentResults([]);
+          $("#sbwAdminTournamentResults").innerHTML = `<p class="sbw-admin-muted">Digite pelo menos 2 caracteres para buscar torneios.</p>`;
+          updateListControls();
+          return;
+        }
+
+        renderTournamentsList();
+      });
+    }
+
   }
 
   function bindActions() {
@@ -1444,15 +2221,59 @@
         if (action === "show-less-profiles") {
           state.profileListExpanded = false;
           state.profileLetterFilter = "";
+          const form = $("[data-sbw-admin-profile-search]");
+          if (form?.query) form.query.value = "";
           renderAlphaFilters();
           renderProfilesList();
-          addLog("Lista de perfis recolhida.");
+          addLog("Lista de perfis recolhida para a visualização inicial.");
         }
 
         if (action === "refresh-organizers") {
           await refreshData();
+          renderOrganizerExternalPretest();
           renderOrganizerPermissionResults();
           addLog("Lista de organizadores autorizados atualizada.");
+        }
+
+        if (action === "refresh-tournaments") {
+          await refreshData();
+          renderTournamentsList();
+          addLog("Lista global de torneios atualizada.");
+        }
+
+        if (action === "show-all-tournaments") {
+          state.tournamentListExpanded = true;
+          state.tournamentSearchQuery = "";
+          state.tournamentStatusFilter = "";
+          updateTournamentFilterButtons();
+          renderTournamentsList();
+          addLog(`Listando todos os ${state.tournaments.length} torneio(s) carregado(s) para a conta Admin.`);
+        }
+
+        if (action === "show-less-tournaments") {
+          state.tournamentListExpanded = false;
+          state.tournamentSearchQuery = "";
+          state.tournamentStatusFilter = "";
+          const form = $("[data-sbw-admin-tournament-search]");
+          if (form?.query) form.query.value = "";
+          updateTournamentFilterButtons();
+          renderTournamentsList();
+          addLog("Lista global de torneios recolhida para a visualização inicial.");
+        }
+
+        if (action === "filter-tournaments") {
+          state.tournamentStatusFilter = button.dataset.tournamentStatus || "";
+          state.tournamentListExpanded = true;
+          updateTournamentFilterButtons();
+          renderTournamentsList();
+        }
+
+        if (action === "admin-tournament-action") {
+          await runAdminTournamentAction(button.dataset.tournamentKey, button.dataset.tournamentAction);
+        }
+
+        if (action === "copy-organizer-pretest") {
+          await copyTextToClipboard(buildOrganizerExternalPretestReport(), "Checklist Admin do organizador externo");
         }
 
         if (action === "show-all-teams") {
@@ -1466,9 +2287,11 @@
         if (action === "show-less-teams") {
           state.teamListExpanded = false;
           state.teamLetterFilter = "";
+          const form = $("[data-sbw-admin-team-search]");
+          if (form?.query) form.query.value = "";
           renderAlphaFilters();
           renderTeamsList();
-          addLog("Lista de equipes recolhida.");
+          addLog("Lista de equipes recolhida para a visualização inicial.");
         }
 
         if (action === "filter-list-letter") {
@@ -1530,6 +2353,10 @@
           const team = getTeamByKey(button.dataset.teamKey);
           await saveTeamVerification(team, false);
         }
+
+        if (action === "admin-team-action") {
+          await runAdminTeamAction(button.dataset.teamKey, button.dataset.teamAction);
+        }
       } finally {
         button.disabled = false;
       }
@@ -1581,6 +2408,8 @@
       showShell();
       await refreshData();
       renderAlphaFilters();
+      renderTournamentsList();
+      updateTournamentFilterButtons();
       updateListControls();
       addLog("Painel Admin Master inicial carregado.");
     } catch (error) {
