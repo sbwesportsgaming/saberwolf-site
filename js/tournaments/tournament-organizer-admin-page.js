@@ -16,6 +16,7 @@ const sbwOrganizerStaffRole = document.getElementById("organizerStaffRole");
 const sbwOrganizerStaffInviteButton = document.getElementById("organizerStaffInviteButton");
 const sbwOrganizerStaffMessage = document.getElementById("organizerStaffMessage");
 const sbwOrganizerEditorTournamentsList = document.getElementById("organizerEditorTournamentsList");
+const sbwOrganizerTournamentsOperationalSummary = document.getElementById("organizerTournamentsOperationalSummary");
 const sbwOrganizerEditorTournamentCreateInline = document.getElementById("organizerEditorTournamentCreateInline");
 const sbwOrganizerSeasonForm = document.getElementById("organizerSeasonForm");
 const sbwOrganizerSeasonName = document.getElementById("organizerSeasonName");
@@ -34,6 +35,7 @@ const sbwOrganizerTournamentEditName = document.getElementById("organizerTournam
 const sbwOrganizerTournamentEditGame = document.getElementById("organizerTournamentEditGame");
 const sbwOrganizerTournamentEditFormat = document.getElementById("organizerTournamentEditFormat");
 const sbwOrganizerTournamentEditFormatPreview = document.getElementById("organizerTournamentEditFormatPreview");
+const sbwOrganizerTournamentPublicationGuard = document.getElementById("organizerTournamentPublicationGuard");
 const sbwOrganizerTournamentEditStatus = document.getElementById("organizerTournamentEditStatus");
 const sbwOrganizerTournamentEditStartDate = document.getElementById("organizerTournamentEditStartDate");
 const sbwOrganizerTournamentEditStartTime = document.getElementById("organizerTournamentEditStartTime");
@@ -65,8 +67,13 @@ const sbwOrganizerTournamentParticipantsMessage = document.getElementById("organ
 const sbwOrganizerTournamentParticipantsPublicLink = document.getElementById("organizerTournamentParticipantsPublicLink");
 const sbwOrganizerTournamentParticipantsRegistered = document.getElementById("organizerTournamentParticipantsRegistered");
 const sbwOrganizerTournamentParticipantsCheckedIn = document.getElementById("organizerTournamentParticipantsCheckedIn");
+const sbwOrganizerTournamentParticipantsPending = document.getElementById("organizerTournamentParticipantsPending");
 const sbwOrganizerTournamentParticipantsWaitlist = document.getElementById("organizerTournamentParticipantsWaitlist");
 const sbwOrganizerTournamentParticipantsRemoved = document.getElementById("organizerTournamentParticipantsRemoved");
+const sbwOrganizerTournamentParticipantsFilter = document.getElementById("organizerTournamentParticipantsFilter");
+const sbwOrganizerTournamentParticipantsRefresh = document.getElementById("organizerTournamentParticipantsRefresh");
+const sbwOrganizerTournamentParticipantsCopy = document.getElementById("organizerTournamentParticipantsCopy");
+const sbwOrganizerTournamentParticipantsOperationalHint = document.getElementById("organizerTournamentParticipantsOperationalHint");
 const sbwOrganizerTeamBattleSchedulePanel = document.getElementById("organizerTeamBattleSchedulePanel");
 const sbwOrganizerTeamBattleScheduleTitle = document.getElementById("organizerTeamBattleScheduleTitle");
 const sbwOrganizerTeamBattleScheduleMeta = document.getElementById("organizerTeamBattleScheduleMeta");
@@ -105,6 +112,7 @@ let sbwOrganizerEditorSchedulingTournament = null;
 let sbwOrganizerEditorResultsTournament = null;
 let sbwOrganizerEditorPlayoffsTournament = null;
 let sbwOrganizerEditorParticipantsCache = [];
+let sbwOrganizerEditorParticipantsFilter = "active";
 let sbwOrganizerTeamBattleScheduleRowsCache = [];
 let sbwOrganizerTeamBattleResultsRowsCache = [];
 let sbwOrganizerTeamBattlePlayoffsStateCache = null;
@@ -2355,6 +2363,106 @@ function sbwOrganizerEditorGetTournamentDetailUrl(tournament) {
   return `detalhe-torneio.html?id=${encodeURIComponent(key)}`;
 }
 
+function sbwOrganizerEditorGetTournamentAbsoluteDetailUrl(tournament) {
+  const relativeUrl = sbwOrganizerEditorGetTournamentDetailUrl(tournament);
+
+  try {
+    return new URL(relativeUrl, window.location.href).href;
+  } catch (error) {
+    return relativeUrl;
+  }
+}
+
+function sbwOrganizerEditorFormatShareDateTime(rawValue) {
+  if (!rawValue) return "A definir";
+
+  const date = new Date(rawValue);
+  if (Number.isNaN(date.getTime())) {
+    return String(rawValue);
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function sbwOrganizerEditorGetTournamentShareWindow(tournament, keys = []) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata || tournament?.raw?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings || tournament?.raw?.settings);
+  const registration = sbwOrganizerEditorAsObject(metadata.registration || settings.registration || {});
+  const checkin = sbwOrganizerEditorAsObject(metadata.checkin || settings.checkin || settings.checkIn || {});
+  const sources = [tournament, tournament?.raw, settings, metadata, registration, checkin];
+
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
+    for (const key of keys) {
+      if (source[key] !== undefined && source[key] !== null && String(source[key]).trim() !== "") {
+        return source[key];
+      }
+    }
+  }
+
+  return "";
+}
+
+function sbwOrganizerEditorBuildTournamentShareText(tournament) {
+  const title = sbwOrganizerEditorGetTournamentTitle(tournament);
+  const game = sbwOrganizerEditorGetTournamentGame(tournament);
+  const format = typeof sbwGetFormatLabel === "function"
+    ? sbwGetFormatLabel(sbwOrganizerEditorGetTournamentFormatValue(tournament))
+    : sbwOrganizerEditorGetTournamentFormatValue(tournament) || "Formato a definir";
+  const status = typeof sbwGetStatusInfo === "function"
+    ? sbwGetStatusInfo(tournament?.status)?.label || tournament?.status || "Status a definir"
+    : tournament?.status || "Status a definir";
+  const participants = typeof sbwGetParticipantsLabel === "function"
+    ? sbwGetParticipantsLabel(tournament)
+    : `${tournament?.currentParticipants || tournament?.current_participants || 0} / ${tournament?.maxParticipants || tournament?.max_participants || "—"}`;
+  const publicUrl = sbwOrganizerEditorGetTournamentAbsoluteDetailUrl(tournament);
+  const registrationOpen = sbwOrganizerEditorGetTournamentShareWindow(tournament, ["registrationOpensAt", "registration_opens_at", "opensAt", "opens_at"]);
+  const registrationClose = sbwOrganizerEditorGetTournamentShareWindow(tournament, ["registrationClosesAt", "registration_closes_at", "closesAt", "closes_at"]);
+  const checkinStart = sbwOrganizerEditorGetTournamentShareWindow(tournament, ["checkinStartsAt", "checkInStartsAt", "checkin_starts_at", "check_in_starts_at", "startsAt", "starts_at"]);
+  const checkinEnd = sbwOrganizerEditorGetTournamentShareWindow(tournament, ["checkinEndsAt", "checkInEndsAt", "checkin_ends_at", "check_in_ends_at", "endsAt", "ends_at"]);
+  const isTeamBattleLeagueTournament = sbwOrganizerEditorIsTeamBattleLeague4v4Format(sbwOrganizerEditorGetTournamentFormatValue(tournament));
+
+  const lines = [
+    `🔥 ${title}`,
+    `Jogo: ${game}`,
+    `Formato: ${format}`,
+    `Status: ${status}`,
+    `Vagas/inscritos: ${participants}`,
+    "",
+    `Inscrições: ${sbwOrganizerEditorFormatShareDateTime(registrationOpen)} até ${sbwOrganizerEditorFormatShareDateTime(registrationClose)}`,
+    `Check-in: ${sbwOrganizerEditorFormatShareDateTime(checkinStart)} até ${sbwOrganizerEditorFormatShareDateTime(checkinEnd)}`,
+    "",
+    isTeamBattleLeagueTournament
+      ? "Atenção: este formato usa inscrição por equipe. Os jogadores devem pertencer à mesma equipe real da plataforma -SBW-."
+      : "Faça sua inscrição pela página pública e acompanhe a janela de check-in.",
+    publicUrl
+  ];
+
+  return lines.join("\n");
+}
+
+async function sbwOrganizerEditorCopyTournamentShare(tournament) {
+  const text = sbwOrganizerEditorBuildTournamentShareText(tournament);
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      sbwOrganizerEditorSetTournamentEditMessage("Chamada pública do torneio copiada.", "success");
+      return;
+    }
+  } catch (error) {
+    console.warn("[SBW Organizadores] Clipboard indisponível para chamada pública:", error);
+  }
+
+  window.prompt("Copie a chamada pública do torneio:", text);
+}
+
 function sbwOrganizerEditorGetTournamentManageUrl(tournament) {
   const key = tournament?.id || tournament?.supabaseId || tournament?.slug || tournament?.raw?.id || "";
   const organizerKey = sbwOrganizerEditorCurrent?.slug || sbwOrganizerEditorCurrent?.id || sbwOrganizerEditorSlug || "";
@@ -2426,6 +2534,268 @@ function sbwOrganizerEditorValidateTournamentWindows(registrationOpensAt, regist
   }
 
   return "";
+}
+
+function sbwOrganizerEditorNormalizePublicationStatus(status) {
+  return String(status || "draft")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-");
+}
+
+function sbwOrganizerEditorStatusRequiresPublicationReadiness(status) {
+  return ["published", "registration-open", "scheduled", "in-progress"].includes(
+    sbwOrganizerEditorNormalizePublicationStatus(status)
+  );
+}
+
+function sbwOrganizerEditorGetTournamentReadinessValue(tournament, keys = []) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata || tournament?.raw?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings || tournament?.raw?.settings);
+  const registration = sbwOrganizerEditorAsObject(metadata.registration || settings.registration || {});
+  const checkin = sbwOrganizerEditorAsObject(metadata.checkin || settings.checkin || settings.checkIn || {});
+
+  for (const key of keys) {
+    const value =
+      tournament?.[key] ??
+      tournament?.raw?.[key] ??
+      settings?.[key] ??
+      metadata?.[key] ??
+      registration?.[key] ??
+      checkin?.[key];
+
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function sbwOrganizerEditorBuildTournamentPublicationReadiness(values = {}) {
+  const title = String(values.title || "").trim();
+  const game = String(values.game || "").trim();
+  const status = sbwOrganizerEditorNormalizePublicationStatus(values.status || "draft");
+  const format = String(values.format || "double-elimination").trim() || "double-elimination";
+  const startsAt = String(values.startsAt || "").trim();
+  const capacity = Number(values.capacity || 0);
+  const registrationOpensAt = String(values.registrationOpensAt || "").trim();
+  const registrationClosesAt = String(values.registrationClosesAt || "").trim();
+  const checkinStartsAt = String(values.checkinStartsAt || "").trim();
+  const checkinEndsAt = String(values.checkinEndsAt || "").trim();
+  const windowValidationMessage = sbwOrganizerEditorValidateTournamentWindows(
+    registrationOpensAt,
+    registrationClosesAt,
+    checkinStartsAt,
+    checkinEndsAt
+  );
+  const isTeamBattle = sbwOrganizerEditorIsTeamBattleLeague4v4Format(format);
+  const capacityUnit = isTeamBattle ? "equipes" : "participantes";
+  const requiresPublicReadiness = sbwOrganizerEditorStatusRequiresPublicationReadiness(status);
+
+  const checks = [
+    {
+      key: "title",
+      label: "Nome público",
+      detail: title ? "Nome informado." : "Informe o nome público do torneio.",
+      done: Boolean(title)
+    },
+    {
+      key: "game",
+      label: "Jogo",
+      detail: game ? "Jogo informado." : "Informe o jogo principal do torneio.",
+      done: Boolean(game)
+    },
+    {
+      key: "format",
+      label: "Formato liberado",
+      detail: sbwOrganizerEditorIsFormatAvailableForSave(format)
+        ? "Formato permitido para salvamento."
+        : sbwOrganizerEditorGetFormatBlockReason(format),
+      done: sbwOrganizerEditorIsFormatAvailableForSave(format)
+    },
+    {
+      key: "date",
+      label: "Data de referência",
+      detail: startsAt ? "Data/horário de referência configurados." : "Configure a data de referência do torneio.",
+      done: Boolean(startsAt)
+    },
+    {
+      key: "capacity",
+      label: `Limite de ${capacityUnit}`,
+      detail: Number.isInteger(capacity) && capacity >= 2 && capacity <= 256 && capacity % 2 === 0
+        ? `Capacidade de ${capacity} ${capacityUnit} configurada.`
+        : `Use um limite par entre 2 e 256 ${capacityUnit}.`,
+      done: Number.isInteger(capacity) && capacity >= 2 && capacity <= 256 && capacity % 2 === 0
+    },
+    {
+      key: "registration_windows",
+      label: "Janela de inscrição",
+      detail: registrationOpensAt && registrationClosesAt
+        ? "Abertura e fechamento das inscrições configurados."
+        : "Configure abertura e fechamento das inscrições.",
+      done: Boolean(registrationOpensAt && registrationClosesAt)
+    },
+    {
+      key: "checkin_windows",
+      label: "Janela de check-in",
+      detail: checkinStartsAt && checkinEndsAt
+        ? "Abertura e fechamento do check-in configurados."
+        : "Configure abertura e fechamento do check-in.",
+      done: Boolean(checkinStartsAt && checkinEndsAt)
+    },
+    {
+      key: "window_order",
+      label: "Ordem dos horários",
+      detail: windowValidationMessage || "Janelas em ordem coerente.",
+      done: !windowValidationMessage
+    }
+  ];
+
+  const missingChecks = checks.filter((check) => !check.done);
+
+  return {
+    checks,
+    missingChecks,
+    missingCount: missingChecks.length,
+    ready: missingChecks.length === 0,
+    requiresPublicReadiness,
+    status,
+    statusLabel: requiresPublicReadiness
+      ? (missingChecks.length ? `${missingChecks.length} pendência(s) antes de chamar jogadores` : "Pronto para teste real")
+      : "Rascunho pode ser salvo incompleto",
+    blockMessage: missingChecks.length
+      ? `Antes de publicar/abrir inscrições, resolva: ${missingChecks.map((check) => check.label).join(", ")}.`
+      : ""
+  };
+}
+
+function sbwOrganizerEditorBuildTournamentPublicationReadinessFromTournament(tournament = {}) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata || tournament?.raw?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings || tournament?.raw?.settings);
+  const registration = sbwOrganizerEditorAsObject(metadata.registration || settings.registration || {});
+  const checkin = sbwOrganizerEditorAsObject(metadata.checkin || settings.checkin || settings.checkIn || {});
+  const startsAt = sbwOrganizerEditorGetTournamentReadinessValue(tournament, ["starts_at", "startsAt", "date"]);
+  const format = sbwOrganizerEditorGetTournamentFormatValue(tournament);
+  const capacity = Number(
+    tournament?.maxParticipants ||
+    tournament?.max_participants ||
+    tournament?.raw?.max_participants ||
+    settings.maxParticipants ||
+    settings.maxPlayers ||
+    settings.maxTeams ||
+    settings.teamLimit ||
+    0
+  );
+
+  return sbwOrganizerEditorBuildTournamentPublicationReadiness({
+    title: sbwOrganizerEditorGetTournamentTitle(tournament),
+    game: sbwOrganizerEditorGetTournamentGame(tournament),
+    format,
+    status: tournament?.status || tournament?.raw?.status || "draft",
+    startsAt,
+    capacity,
+    registrationOpensAt:
+      tournament?.registrationOpensAt ||
+      tournament?.registration_opens_at ||
+      tournament?.raw?.registration_opens_at ||
+      settings.registrationOpensAt ||
+      registration.opensAt ||
+      registration.opens_at ||
+      "",
+    registrationClosesAt:
+      tournament?.registrationClosesAt ||
+      tournament?.registration_closes_at ||
+      tournament?.raw?.registration_closes_at ||
+      settings.registrationClosesAt ||
+      registration.closesAt ||
+      registration.closes_at ||
+      "",
+    checkinStartsAt:
+      tournament?.checkinStartsAt ||
+      tournament?.checkInStartsAt ||
+      tournament?.checkin_starts_at ||
+      tournament?.raw?.checkin_starts_at ||
+      settings.checkinStartsAt ||
+      settings.checkInStartsAt ||
+      checkin.startsAt ||
+      checkin.starts_at ||
+      "",
+    checkinEndsAt:
+      tournament?.checkinEndsAt ||
+      tournament?.checkInEndsAt ||
+      tournament?.checkin_ends_at ||
+      tournament?.raw?.checkin_ends_at ||
+      settings.checkinEndsAt ||
+      settings.checkInEndsAt ||
+      checkin.endsAt ||
+      checkin.ends_at ||
+      ""
+  });
+}
+
+function sbwOrganizerEditorBuildTournamentPublicationReadinessFromForm(overrides = {}) {
+  const startDate = overrides.startDate ?? sbwOrganizerTournamentEditStartDate?.value ?? "";
+  const startTime = overrides.startTime ?? sbwOrganizerTournamentEditStartTime?.value ?? "";
+  const startsAt = overrides.startsAt ?? (startDate ? `${startDate}T${startTime || "00:00"}:00` : "");
+  const format = overrides.format ?? sbwOrganizerTournamentEditFormat?.value ?? "double-elimination";
+
+  return sbwOrganizerEditorBuildTournamentPublicationReadiness({
+    title: overrides.title ?? sbwOrganizerTournamentEditName?.value ?? "",
+    game: overrides.game ?? sbwOrganizerTournamentEditGame?.value ?? "",
+    format,
+    status: overrides.status ?? sbwOrganizerTournamentEditStatus?.value ?? "draft",
+    startsAt,
+    capacity: overrides.capacity ?? sbwOrganizerEditorNormalizeEvenCapacity(sbwOrganizerTournamentEditMax?.value, {
+      fallback: sbwOrganizerEditorIsTeamBattleLeague4v4Format(format) ? 8 : 32
+    }),
+    registrationOpensAt: overrides.registrationOpensAt ?? sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditRegistrationOpens),
+    registrationClosesAt: overrides.registrationClosesAt ?? sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditRegistrationCloses),
+    checkinStartsAt: overrides.checkinStartsAt ?? sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditCheckinStarts),
+    checkinEndsAt: overrides.checkinEndsAt ?? sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditCheckinEnds)
+  });
+}
+
+function sbwOrganizerEditorRenderTournamentPublicationGuard(readiness) {
+  if (!sbwOrganizerTournamentPublicationGuard || !readiness) return;
+
+  const stateClass = readiness.ready
+    ? "is-ready"
+    : readiness.requiresPublicReadiness
+      ? "is-blocked"
+      : "is-draft";
+
+  sbwOrganizerTournamentPublicationGuard.innerHTML = `
+    <div class="organizer-admin-publication-guard ${stateClass}">
+      <div class="organizer-admin-publication-guard__head">
+        <div>
+          <span class="organizer-admin-eyebrow">Pré-validação do teste real</span>
+          <strong>${sbwOrganizerEditorEscape(readiness.statusLabel)}</strong>
+        </div>
+        <em>${readiness.ready ? "OK" : `${sbwOrganizerEditorEscape(readiness.missingCount)} pendência(s)`}</em>
+      </div>
+      <div class="organizer-admin-publication-guard__grid">
+        ${readiness.checks.map((check) => `
+          <span class="${check.done ? "is-ok" : "is-warning"}">
+            <strong>${check.done ? "✓" : "!"}</strong>
+            ${sbwOrganizerEditorEscape(check.label)}
+          </span>
+        `).join("")}
+      </div>
+      <p>${sbwOrganizerEditorEscape(readiness.ready
+        ? "Este torneio está estruturalmente pronto para ser publicado/aberto aos jogadores."
+        : readiness.requiresPublicReadiness
+          ? readiness.blockMessage
+          : "Rascunhos podem ser salvos com pendências. Para publicar ou abrir inscrições, resolva os itens marcados.")}</p>
+    </div>
+  `;
+}
+
+function sbwOrganizerEditorUpdateTournamentPublicationGuard() {
+  if (!sbwOrganizerTournamentPublicationGuard) return null;
+  const readiness = sbwOrganizerEditorBuildTournamentPublicationReadinessFromForm();
+  sbwOrganizerEditorRenderTournamentPublicationGuard(readiness);
+  return readiness;
 }
 
 function sbwOrganizerEditorGetTournamentAssets(tournament = sbwOrganizerEditorEditingTournament) {
@@ -2685,15 +3055,120 @@ function sbwOrganizerEditorFindTournamentByKey(key) {
   }) || null;
 }
 
+function sbwOrganizerEditorGetParticipantStatusValue(participant) {
+  return String(participant?.status || participant?.raw?.status || "registered").toLowerCase().replaceAll("-", "_");
+}
+
+function sbwOrganizerEditorGetParticipantCheckInValue(participant) {
+  return String(participant?.checkInStatus || participant?.check_in_status || participant?.raw?.check_in_status || "pending").toLowerCase().replaceAll("-", "_");
+}
+
+function sbwOrganizerEditorIsParticipantRemoved(participant) {
+  return ["removed", "cancelled", "canceled", "disqualified"].includes(sbwOrganizerEditorGetParticipantStatusValue(participant));
+}
+
+function sbwOrganizerEditorIsParticipantCheckedIn(participant) {
+  const checkInStatus = sbwOrganizerEditorGetParticipantCheckInValue(participant);
+  return Boolean(participant?.checkedIn || participant?.checked_in) || ["checked_in", "confirmed"].includes(checkInStatus);
+}
+
+function sbwOrganizerEditorIsParticipantWaitlist(participant) {
+  return sbwOrganizerEditorGetParticipantStatusValue(participant) === "waitlist";
+}
+
+function sbwOrganizerEditorIsParticipantActive(participant) {
+  return !sbwOrganizerEditorIsParticipantRemoved(participant);
+}
+
+function sbwOrganizerEditorFilterParticipants(participants = []) {
+  const list = Array.isArray(participants) ? participants : [];
+  const filter = String(sbwOrganizerEditorParticipantsFilter || "active");
+
+  if (filter === "all") return list;
+  if (filter === "checked_in") return list.filter((participant) => sbwOrganizerEditorIsParticipantCheckedIn(participant) && sbwOrganizerEditorIsParticipantActive(participant));
+  if (filter === "pending_checkin") return list.filter((participant) => sbwOrganizerEditorIsParticipantActive(participant) && !sbwOrganizerEditorIsParticipantWaitlist(participant) && !sbwOrganizerEditorIsParticipantCheckedIn(participant));
+  if (filter === "waitlist") return list.filter(sbwOrganizerEditorIsParticipantWaitlist);
+  if (filter === "removed") return list.filter(sbwOrganizerEditorIsParticipantRemoved);
+
+  return list.filter(sbwOrganizerEditorIsParticipantActive);
+}
+
+function sbwOrganizerEditorGetParticipantsFilterLabel(filter = sbwOrganizerEditorParticipantsFilter) {
+  const labels = {
+    active: "ativos",
+    pending_checkin: "pendentes de check-in",
+    checked_in: "com check-in feito",
+    waitlist: "em lista de espera",
+    removed: "removidos",
+    all: "todos"
+  };
+  return labels[String(filter || "active")] || "ativos";
+}
+
+function sbwOrganizerEditorUpdateParticipantsOperationalHint(total = 0, visible = 0) {
+  if (!sbwOrganizerTournamentParticipantsOperationalHint) return;
+  const filterLabel = sbwOrganizerEditorGetParticipantsFilterLabel();
+  const pending = (Array.isArray(sbwOrganizerEditorParticipantsCache) ? sbwOrganizerEditorParticipantsCache : [])
+    .filter((participant) => sbwOrganizerEditorIsParticipantActive(participant) && !sbwOrganizerEditorIsParticipantWaitlist(participant) && !sbwOrganizerEditorIsParticipantCheckedIn(participant)).length;
+  const suffix = pending ? `${pending} pendente(s) de check-in.` : "Nenhum check-in pendente entre inscritos ativos.";
+  sbwOrganizerTournamentParticipantsOperationalHint.textContent = `Exibindo ${visible}/${total} inscrito(s) ${filterLabel}. ${suffix}`;
+}
+
+function sbwOrganizerEditorBuildParticipantsCallList(participants = []) {
+  const tournamentName = sbwOrganizerEditorGetTournamentTitle(sbwOrganizerEditorManagingTournament || {});
+  const generatedAt = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date());
+  const lines = [
+    `Lista de chamada - ${tournamentName}`,
+    `Gerada em ${generatedAt}`,
+    `Filtro: ${sbwOrganizerEditorGetParticipantsFilterLabel()}`,
+    ""
+  ];
+
+  const list = sbwOrganizerEditorFilterParticipants(participants);
+  if (!list.length) {
+    lines.push("Nenhum inscrito neste filtro.");
+    return lines.join("\n");
+  }
+
+  list.forEach((participant, index) => {
+    const name = participant?.name || participant?.playerName || participant?.displayName || "Jogador";
+    const slug = participant?.playerSlug || participant?.raw?.player_slug || "";
+    const status = sbwOrganizerEditorGetStatusLabel(sbwOrganizerEditorGetParticipantStatusValue(participant));
+    const checkIn = sbwOrganizerEditorGetCheckInLabel(sbwOrganizerEditorGetParticipantCheckInValue(participant));
+    const team = participant?.team || participant?.teamName || participant?.raw?.team_name || "Sem equipe";
+    lines.push(`${index + 1}. ${name}${slug ? ` (@${slug})` : ""} — ${team} — ${status} — ${checkIn}`);
+  });
+
+  return lines.join("\n");
+}
+
+async function sbwOrganizerEditorCopyParticipantsCallList() {
+  const text = sbwOrganizerEditorBuildParticipantsCallList(sbwOrganizerEditorParticipantsCache);
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      sbwOrganizerEditorSetParticipantsMessage("Lista de chamada copiada.", "success");
+      return;
+    }
+  } catch (error) {
+    console.warn("[SBW Organizadores] Clipboard indisponível para lista de chamada:", error);
+  }
+
+  window.prompt("Copie a lista de chamada:", text);
+}
+
 function sbwOrganizerEditorUpdateParticipantsStats(participants = []) {
   const list = Array.isArray(participants) ? participants : [];
-  const registered = list.filter((participant) => String(participant?.status || "registered").toLowerCase() === "registered").length;
-  const waitlist = list.filter((participant) => String(participant?.status || "").toLowerCase() === "waitlist").length;
-  const removed = list.filter((participant) => ["removed", "cancelled", "canceled", "disqualified"].includes(String(participant?.status || "").toLowerCase())).length;
-  const checkedIn = list.filter((participant) => Boolean(participant?.checkedIn) || ["checked_in", "checked-in", "confirmed"].includes(String(participant?.checkInStatus || "").toLowerCase())).length;
+  const registered = list.filter((participant) => sbwOrganizerEditorGetParticipantStatusValue(participant) === "registered").length;
+  const waitlist = list.filter(sbwOrganizerEditorIsParticipantWaitlist).length;
+  const removed = list.filter(sbwOrganizerEditorIsParticipantRemoved).length;
+  const checkedIn = list.filter((participant) => sbwOrganizerEditorIsParticipantCheckedIn(participant) && sbwOrganizerEditorIsParticipantActive(participant)).length;
+  const pending = list.filter((participant) => sbwOrganizerEditorIsParticipantActive(participant) && !sbwOrganizerEditorIsParticipantWaitlist(participant) && !sbwOrganizerEditorIsParticipantCheckedIn(participant)).length;
 
   if (sbwOrganizerTournamentParticipantsRegistered) sbwOrganizerTournamentParticipantsRegistered.textContent = String(registered);
   if (sbwOrganizerTournamentParticipantsCheckedIn) sbwOrganizerTournamentParticipantsCheckedIn.textContent = String(checkedIn);
+  if (sbwOrganizerTournamentParticipantsPending) sbwOrganizerTournamentParticipantsPending.textContent = String(pending);
   if (sbwOrganizerTournamentParticipantsWaitlist) sbwOrganizerTournamentParticipantsWaitlist.textContent = String(waitlist);
   if (sbwOrganizerTournamentParticipantsRemoved) sbwOrganizerTournamentParticipantsRemoved.textContent = String(removed);
 }
@@ -2701,10 +3176,12 @@ function sbwOrganizerEditorUpdateParticipantsStats(participants = []) {
 function sbwOrganizerEditorRenderParticipants(participants = []) {
   if (!sbwOrganizerTournamentParticipantsList) return;
 
-  const list = Array.isArray(participants) ? participants : [];
-  sbwOrganizerEditorUpdateParticipantsStats(list);
+  const sourceList = Array.isArray(participants) ? participants : [];
+  const list = sbwOrganizerEditorFilterParticipants(sourceList);
+  sbwOrganizerEditorUpdateParticipantsStats(sourceList);
+  sbwOrganizerEditorUpdateParticipantsOperationalHint(sourceList.length, list.length);
 
-  if (!list.length) {
+  if (!sourceList.length) {
     sbwOrganizerTournamentParticipantsList.innerHTML = `
       <div class="organizer-admin-empty-row">
         Nenhum inscrito real encontrado para este torneio. Quando usuários entrarem pela plataforma -SBW-, eles aparecerão aqui.
@@ -2713,25 +3190,36 @@ function sbwOrganizerEditorRenderParticipants(participants = []) {
     return;
   }
 
+  if (!list.length) {
+    sbwOrganizerTournamentParticipantsList.innerHTML = `
+      <div class="organizer-admin-empty-row">
+        Nenhum inscrito encontrado no filtro atual. Troque o filtro para revisar todos os registros.
+      </div>
+    `;
+    return;
+  }
+
   sbwOrganizerTournamentParticipantsList.innerHTML = list.map((participant, index) => {
     const participantKey = sbwOrganizerEditorGetParticipantKey(participant);
-    const status = String(participant?.status || "registered").toLowerCase();
-    const checkInStatus = String(participant?.checkInStatus || participant?.raw?.check_in_status || "pending").toLowerCase();
-    const checkedIn = Boolean(participant?.checkedIn) || ["checked_in", "checked-in", "confirmed"].includes(checkInStatus);
-    const removed = ["removed", "cancelled", "canceled", "disqualified"].includes(status);
+    const status = sbwOrganizerEditorGetParticipantStatusValue(participant);
+    const checkInStatus = sbwOrganizerEditorGetParticipantCheckInValue(participant);
+    const checkedIn = sbwOrganizerEditorIsParticipantCheckedIn(participant);
+    const removed = sbwOrganizerEditorIsParticipantRemoved(participant);
     const createdAt = participant?.createdAt || participant?.created_at || participant?.raw?.created_at || "";
+    const checkedAt = participant?.checkedInAt || participant?.checked_in_at || participant?.raw?.checked_in_at || "";
     const seed = participant?.seed || participant?.raw?.seed || "";
     const playerSlug = participant?.playerSlug || participant?.raw?.player_slug || "";
     const team = participant?.team || participant?.teamName || participant?.raw?.team_name || "Sem equipe";
 
     return `
-      <article class="organizer-admin-participant-card ${removed ? "is-muted" : ""}" data-organizer-participant-id="${sbwOrganizerEditorEscape(participantKey)}">
+      <article class="organizer-admin-participant-card ${removed ? "is-muted" : ""} ${checkedIn ? "is-checked-in" : ""}" data-organizer-participant-id="${sbwOrganizerEditorEscape(participantKey)}">
         <div class="organizer-admin-participant-main">
           <div class="organizer-admin-participant-avatar" aria-hidden="true">${sbwOrganizerEditorEscape(sbwOrganizerEditorGetParticipantInitial(participant))}</div>
           <div class="organizer-admin-participant-copy">
             <span class="organizer-admin-eyebrow">#${sbwOrganizerEditorEscape(seed || index + 1)} · ${sbwOrganizerEditorEscape(team)}</span>
             <strong>${sbwOrganizerEditorEscape(participant?.name || participant?.playerName || participant?.displayName || "Jogador")}</strong>
             <small>${playerSlug ? `@${sbwOrganizerEditorEscape(playerSlug)} · ` : ""}${sbwOrganizerEditorEscape(sbwOrganizerEditorFormatDateTime(createdAt))}</small>
+            ${checkedAt ? `<small>Check-in em ${sbwOrganizerEditorEscape(sbwOrganizerEditorFormatDateTime(checkedAt))}</small>` : ""}
           </div>
         </div>
         <div class="organizer-admin-participant-tags">
@@ -2754,12 +3242,15 @@ function sbwOrganizerEditorRenderParticipants(participants = []) {
 function sbwOrganizerEditorHideParticipantsPanel() {
   sbwOrganizerEditorManagingTournament = null;
   sbwOrganizerEditorParticipantsCache = [];
+  sbwOrganizerEditorParticipantsFilter = "active";
+  if (sbwOrganizerTournamentParticipantsFilter) sbwOrganizerTournamentParticipantsFilter.value = "active";
 
   if (sbwOrganizerTournamentParticipantsPanel) {
     sbwOrganizerTournamentParticipantsPanel.hidden = true;
   }
 
   sbwOrganizerEditorSetParticipantsMessage("");
+  sbwOrganizerEditorUpdateParticipantsOperationalHint(0, 0);
 }
 
 async function sbwOrganizerEditorLoadParticipantsForTournament(tournament = sbwOrganizerEditorManagingTournament) {
@@ -2790,6 +3281,7 @@ async function sbwOrganizerEditorLoadParticipantsForTournament(tournament = sbwO
     console.error("[SBW Organizadores] Erro ao carregar inscritos:", error);
     sbwOrganizerEditorParticipantsCache = [];
     sbwOrganizerEditorUpdateParticipantsStats([]);
+    sbwOrganizerEditorUpdateParticipantsOperationalHint(0, 0);
     sbwOrganizerTournamentParticipantsList.innerHTML = `
       <div class="organizer-admin-empty-row">
         Não foi possível carregar os inscritos deste torneio agora.
@@ -2822,6 +3314,9 @@ function sbwOrganizerEditorOpenParticipantsPanel(tournament) {
   if (sbwOrganizerTournamentParticipantsPublicLink) {
     sbwOrganizerTournamentParticipantsPublicLink.href = sbwOrganizerEditorGetTournamentDetailUrl(tournament);
   }
+
+  sbwOrganizerEditorParticipantsFilter = "active";
+  if (sbwOrganizerTournamentParticipantsFilter) sbwOrganizerTournamentParticipantsFilter.value = "active";
 
   sbwOrganizerTournamentParticipantsPanel.hidden = false;
   sbwOrganizerTournamentParticipantsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -4326,6 +4821,28 @@ function sbwOrganizerEditorBindParticipantsPanel() {
     sbwOrganizerTournamentParticipantsClose.addEventListener("click", sbwOrganizerEditorHideParticipantsPanel);
   }
 
+  if (sbwOrganizerTournamentParticipantsFilter && sbwOrganizerTournamentParticipantsFilter.dataset.bound !== "true") {
+    sbwOrganizerTournamentParticipantsFilter.dataset.bound = "true";
+    sbwOrganizerTournamentParticipantsFilter.addEventListener("change", () => {
+      sbwOrganizerEditorParticipantsFilter = String(sbwOrganizerTournamentParticipantsFilter.value || "active");
+      sbwOrganizerEditorRenderParticipants(sbwOrganizerEditorParticipantsCache);
+    });
+  }
+
+  if (sbwOrganizerTournamentParticipantsRefresh && sbwOrganizerTournamentParticipantsRefresh.dataset.bound !== "true") {
+    sbwOrganizerTournamentParticipantsRefresh.dataset.bound = "true";
+    sbwOrganizerTournamentParticipantsRefresh.addEventListener("click", () => {
+      sbwOrganizerEditorLoadParticipantsForTournament();
+    });
+  }
+
+  if (sbwOrganizerTournamentParticipantsCopy && sbwOrganizerTournamentParticipantsCopy.dataset.bound !== "true") {
+    sbwOrganizerTournamentParticipantsCopy.dataset.bound = "true";
+    sbwOrganizerTournamentParticipantsCopy.addEventListener("click", () => {
+      sbwOrganizerEditorCopyParticipantsCallList();
+    });
+  }
+
   if (sbwOrganizerTournamentParticipantsList && sbwOrganizerTournamentParticipantsList.dataset.bound !== "true") {
     sbwOrganizerTournamentParticipantsList.dataset.bound = "true";
     sbwOrganizerTournamentParticipantsList.addEventListener("click", (event) => {
@@ -4380,6 +4897,7 @@ function sbwOrganizerEditorOpenTournamentEditForm(tournament) {
   if (sbwOrganizerTournamentEditCheckinEnds) sbwOrganizerTournamentEditCheckinEnds.value = sbwOrganizerEditorFormatInputDateTime(tournament?.checkinEndsAt || tournament?.checkInEndsAt || tournament?.check_in_ends_at || tournament?.raw?.checkin_ends_at);
   sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat?.value);
   sbwOrganizerEditorApplyTournamentCapacityMode(sbwOrganizerTournamentEditFormat?.value);
+  sbwOrganizerEditorUpdateTournamentPublicationGuard();
   sbwOrganizerEditorSetTournamentCoverFrameForm(sbwOrganizerEditorGetTournamentCoverFrame(tournament));
   sbwOrganizerEditorSetTournamentCoverUrl(tournament?.coverUrl || tournament?.cover_url || tournament?.raw?.cover_url || "");
   sbwOrganizerEditorSetTournamentCoverMessage("");
@@ -4460,8 +4978,9 @@ function sbwOrganizerEditorBindTournamentEditor() {
       const resultsButton = event.target.closest?.("[data-organizer-tournament-results]");
       const playoffsButton = event.target.closest?.("[data-organizer-tournament-playoffs]");
       const participantButton = event.target.closest?.("[data-organizer-tournament-participants]");
+      const shareButton = event.target.closest?.("[data-organizer-tournament-share]");
       const editButton = event.target.closest?.("[data-organizer-tournament-edit]");
-      const button = scheduleButton || resultsButton || playoffsButton || participantButton || editButton;
+      const button = scheduleButton || resultsButton || playoffsButton || participantButton || shareButton || editButton;
       if (!button) return;
 
       event.preventDefault();
@@ -4474,7 +4993,9 @@ function sbwOrganizerEditorBindTournamentEditor() {
             ? playoffsButton.dataset.organizerTournamentPlayoffs || ""
             : participantButton
             ? participantButton.dataset.organizerTournamentParticipants || ""
-            : editButton.dataset.organizerTournamentEdit || "";
+            : shareButton
+              ? shareButton.dataset.organizerTournamentShare || ""
+              : editButton.dataset.organizerTournamentEdit || "";
 
       const tournament = sbwOrganizerEditorFindTournamentByKey(key);
 
@@ -4487,7 +5008,9 @@ function sbwOrganizerEditorBindTournamentEditor() {
               ? "Torneio não encontrado para liberar playoffs."
               : participantButton
               ? "Torneio não encontrado para carregar inscritos."
-              : "Torneio não encontrado na lista carregada.";
+              : shareButton
+                ? "Torneio não encontrado para copiar chamada pública."
+                : "Torneio não encontrado na lista carregada.";
         sbwOrganizerEditorSetTournamentEditMessage(message, "error");
         sbwOrganizerEditorSetParticipantsMessage(message, "error");
         sbwOrganizerEditorSetTeamBattleScheduleMessage(message, "error");
@@ -4516,6 +5039,11 @@ function sbwOrganizerEditorBindTournamentEditor() {
         return;
       }
 
+      if (shareButton) {
+        sbwOrganizerEditorCopyTournamentShare(tournament);
+        return;
+      }
+
       sbwOrganizerEditorOpenTournamentEditForm(tournament);
     });
   }
@@ -4538,6 +5066,25 @@ function sbwOrganizerEditorBindTournamentEditor() {
     sbwOrganizerTournamentEditMax.addEventListener("change", () => sbwOrganizerEditorGetTournamentCapacityInputValue(sbwOrganizerTournamentEditFormat?.value));
     sbwOrganizerTournamentEditMax.addEventListener("blur", () => sbwOrganizerEditorGetTournamentCapacityInputValue(sbwOrganizerTournamentEditFormat?.value));
   }
+
+  [
+    sbwOrganizerTournamentEditName,
+    sbwOrganizerTournamentEditGame,
+    sbwOrganizerTournamentEditFormat,
+    sbwOrganizerTournamentEditStatus,
+    sbwOrganizerTournamentEditStartDate,
+    sbwOrganizerTournamentEditStartTime,
+    sbwOrganizerTournamentEditMax,
+    sbwOrganizerTournamentEditRegistrationOpens,
+    sbwOrganizerTournamentEditRegistrationCloses,
+    sbwOrganizerTournamentEditCheckinStarts,
+    sbwOrganizerTournamentEditCheckinEnds
+  ].forEach((field) => {
+    if (!field || field.dataset.boundPublicationGuard === "true") return;
+    field.dataset.boundPublicationGuard = "true";
+    field.addEventListener("input", sbwOrganizerEditorUpdateTournamentPublicationGuard);
+    field.addEventListener("change", sbwOrganizerEditorUpdateTournamentPublicationGuard);
+  });
 
   if (sbwOrganizerTournamentEditForm && sbwOrganizerTournamentEditForm.dataset.bound !== "true") {
     sbwOrganizerTournamentEditForm.dataset.bound = "true";
@@ -4594,6 +5141,24 @@ function sbwOrganizerEditorBindTournamentEditor() {
         game,
         organizerName: sbwOrganizerEditorCurrent?.name || sbwOrganizerEditorCurrent?.displayName || sbwOrganizerEditorCurrent?.slug || ""
       });
+      const publicationReadiness = sbwOrganizerEditorBuildTournamentPublicationReadinessFromForm({
+        title,
+        game,
+        status: sbwOrganizerTournamentEditStatus?.value || "draft",
+        startsAt,
+        format: selectedFormat,
+        capacity: capacityValue,
+        registrationOpensAt,
+        registrationClosesAt,
+        checkinStartsAt,
+        checkinEndsAt
+      });
+      sbwOrganizerEditorRenderTournamentPublicationGuard(publicationReadiness);
+
+      if (publicationReadiness.requiresPublicReadiness && !publicationReadiness.ready) {
+        sbwOrganizerEditorSetTournamentEditMessage(publicationReadiness.blockMessage || "Complete a pré-validação antes de publicar ou abrir inscrições.", "error");
+        return;
+      }
 
       if (!Number.isInteger(capacityValue) || capacityValue < 2 || capacityValue > 256 || capacityValue % 2 !== 0) {
         sbwOrganizerEditorSetTournamentEditMessage(`O limite de ${isTeamBattleLeagueTournament ? "equipes" : "participantes"} precisa estar entre 2 e 256 e sempre em número par.`, "error");
@@ -4734,6 +5299,7 @@ async function sbwOrganizerEditorLoadTournaments() {
 
   if (!sbwOrganizerEditorCurrent) {
     sbwOrganizerEditorTournamentsCache = [];
+    sbwOrganizerEditorRenderTournamentOperationalSummary([]);
     sbwOrganizerEditorTournamentsList.innerHTML = `<div class="organizer-admin-empty-row">Organizador ainda não carregado.</div>`;
     return;
   }
@@ -4747,6 +5313,7 @@ async function sbwOrganizerEditorLoadTournaments() {
 
     const list = Array.isArray(tournaments) ? tournaments : [];
     sbwOrganizerEditorTournamentsCache = list;
+    sbwOrganizerEditorRenderTournamentOperationalSummary(list);
     sbwOrganizerEditorRenderSeasonGuard(sbwOrganizerEditorCurrent);
     sbwOrganizerEditorRenderSeasonTournamentsManager(sbwOrganizerEditorCurrent);
 
@@ -4780,10 +5347,12 @@ async function sbwOrganizerEditorLoadTournaments() {
               ${formatBadge}
               <small>${sbwOrganizerEditorEscape(participants)} · ${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentDate(tournament))}</small>
             </div>
+            ${sbwOrganizerEditorRenderTournamentOperationalBadges(tournament)}
           </div>
           <span class="status-pill ${sbwOrganizerEditorEscape(status.className || "open")}">${sbwOrganizerEditorEscape(status.label || "Ativo")}</span>
           <div class="organizer-admin-tournament-actions">
             <a class="organizer-admin-small-link" href="${sbwOrganizerEditorEscape(sbwOrganizerEditorGetTournamentDetailUrl(tournament))}">Ver</a>
+            <button class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--share" type="button" data-organizer-tournament-share="${sbwOrganizerEditorEscape(key)}">Copiar chamada</button>
             <button class="organizer-admin-small-link organizer-admin-small-link--button" type="button" data-organizer-tournament-edit="${sbwOrganizerEditorEscape(key)}">Editar</button>
             ${isTeamBattleLeagueTournament ? `<button class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--cyan" type="button" data-organizer-tournament-schedule="${sbwOrganizerEditorEscape(key)}">Agenda 4v4</button>` : ""}
             ${isTeamBattleLeagueTournament ? `<button class="organizer-admin-small-link organizer-admin-small-link--button organizer-admin-small-link--cyan" type="button" data-organizer-tournament-results="${sbwOrganizerEditorEscape(key)}">Resultados 4v4</button>` : ""}
@@ -4798,6 +5367,7 @@ async function sbwOrganizerEditorLoadTournaments() {
   } catch (error) {
     console.error("[SBW Organizadores] Erro ao carregar torneios do painel:", error);
     sbwOrganizerEditorTournamentsCache = [];
+    sbwOrganizerEditorRenderTournamentOperationalSummary([]);
     sbwOrganizerEditorTournamentsList.innerHTML = `
       <div class="organizer-admin-empty-row">
         Não foi possível carregar os torneios desta organização agora.
@@ -6118,7 +6688,7 @@ function sbwOrganizerEditorGetTournamentStatusKey(tournament) {
 function sbwOrganizerEditorGetTournamentWindowValue(tournament, keys = []) {
   const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
   const settings = sbwOrganizerEditorAsObject(tournament?.settings);
-  const sourceList = [tournament, tournament?.raw, metadata, settings, sbwOrganizerEditorAsObject(metadata.registration), sbwOrganizerEditorAsObject(settings.registration)];
+  const sourceList = [tournament, tournament?.raw, metadata, settings, sbwOrganizerEditorAsObject(metadata.registration), sbwOrganizerEditorAsObject(metadata.checkin), sbwOrganizerEditorAsObject(settings.registration), sbwOrganizerEditorAsObject(settings.checkin)];
 
   for (const source of sourceList) {
     if (!source || typeof source !== "object") continue;
@@ -6152,6 +6722,187 @@ function sbwOrganizerEditorGetTournamentParticipantTotals(tournament) {
   const checkedIn = Number(tournament?.checkedInParticipants ?? tournament?.checked_in_participants ?? stats.checkedIn ?? stats.checked_in ?? 0) || 0;
 
   return { registered, checkedIn };
+}
+
+function sbwOrganizerEditorGetTournamentOperationalStatus(tournament) {
+  const status = sbwOrganizerEditorGetTournamentStatusKey(tournament);
+  const map = {
+    draft: { bucket: "draft", label: "Rascunho", detail: "Revise dados, formato e janelas antes de publicar." },
+    published: { bucket: "published", label: "Publicado", detail: "Página pública disponível. Confira se as inscrições estão abertas." },
+    "registration-open": { bucket: "registration", label: "Inscrições abertas", detail: "Acompanhe inscrições reais e prepare o check-in." },
+    registration_open: { bucket: "registration", label: "Inscrições abertas", detail: "Acompanhe inscrições reais e prepare o check-in." },
+    open: { bucket: "registration", label: "Inscrições abertas", detail: "Acompanhe inscrições reais e prepare o check-in." },
+    scheduled: { bucket: "scheduled", label: "Agendado", detail: "Confirme janelas e participantes antes do início." },
+    "in-progress": { bucket: "live", label: "Em andamento", detail: "Registre resultados e acompanhe o avanço do torneio." },
+    in_progress: { bucket: "live", label: "Em andamento", detail: "Registre resultados e acompanhe o avanço do torneio." },
+    completed: { bucket: "finished", label: "Finalizado", detail: "Confira resultados finais e impacto no ranking." },
+    finished: { bucket: "finished", label: "Finalizado", detail: "Confira resultados finais e impacto no ranking." },
+    cancelled: { bucket: "cancelled", label: "Cancelado", detail: "Torneio não deve receber novas inscrições." },
+    archived: { bucket: "archived", label: "Arquivado", detail: "Mantido apenas para histórico." }
+  };
+
+  return map[status] || { bucket: status || "unknown", label: status || "Status a definir", detail: "Revise o status operacional do torneio." };
+}
+
+function sbwOrganizerEditorGetTournamentOperationalAction(tournament) {
+  const status = sbwOrganizerEditorGetTournamentStatusKey(tournament);
+  const windowsReady = sbwOrganizerEditorTournamentHasRegistrationWindows(tournament);
+  const totals = sbwOrganizerEditorGetTournamentParticipantTotals(tournament);
+
+  if (status === "draft") {
+    return windowsReady ? "Publicar ou abrir inscrições" : "Configurar janelas";
+  }
+
+  if (!windowsReady && !["completed", "finished", "cancelled", "archived"].includes(status)) {
+    return "Completar janelas";
+  }
+
+  if (sbwOrganizerEditorTournamentAcceptsPublicRegistrations(tournament) && totals.registered <= 0) {
+    return "Divulgar inscrição";
+  }
+
+  if (totals.registered > 0 && totals.checkedIn <= 0 && !["completed", "finished", "cancelled", "archived"].includes(status)) {
+    return "Acompanhar check-in";
+  }
+
+  if (["in-progress", "in_progress"].includes(status)) {
+    return "Registrar resultados";
+  }
+
+  if (["completed", "finished"].includes(status)) {
+    return "Revisar fechamento";
+  }
+
+  if (["cancelled", "archived"].includes(status)) {
+    return "Somente histórico";
+  }
+
+  return "Revisar torneio";
+}
+
+function sbwOrganizerEditorRenderTournamentOperationalBadges(tournament) {
+  const windowsReady = sbwOrganizerEditorTournamentHasRegistrationWindows(tournament);
+  const totals = sbwOrganizerEditorGetTournamentParticipantTotals(tournament);
+  const action = sbwOrganizerEditorGetTournamentOperationalAction(tournament);
+  const readiness = sbwOrganizerEditorBuildTournamentPublicationReadinessFromTournament(tournament);
+  const readinessLabel = readiness.ready
+    ? "Pronto p/ teste"
+    : readiness.requiresPublicReadiness
+      ? `${readiness.missingCount} pendência(s)`
+      : "Rascunho livre";
+
+  return `
+    <div class="organizer-admin-tournament-flags organizer-admin-tournament-flags--ops">
+      <span class="organizer-admin-ops-badge ${windowsReady ? "is-ok" : "is-warning"}">${windowsReady ? "Janelas OK" : "Sem janelas"}</span>
+      <span class="organizer-admin-ops-badge ${readiness.ready ? "is-ok" : readiness.requiresPublicReadiness ? "is-warning" : ""}">${sbwOrganizerEditorEscape(readinessLabel)}</span>
+      <span class="organizer-admin-ops-badge">${sbwOrganizerEditorEscape(totals.registered)} inscrito(s)</span>
+      <span class="organizer-admin-ops-badge">${sbwOrganizerEditorEscape(totals.checkedIn)} check-in(s)</span>
+      <span class="organizer-admin-ops-badge is-focus">${sbwOrganizerEditorEscape(action)}</span>
+    </div>
+  `;
+}
+
+function sbwOrganizerEditorBuildTournamentOperationalSummary(list = []) {
+  const safeList = Array.isArray(list) ? list : [];
+  const initial = {
+    total: safeList.length,
+    draft: 0,
+    published: 0,
+    registration: 0,
+    scheduled: 0,
+    live: 0,
+    finished: 0,
+    cancelled: 0,
+    archived: 0,
+    missingWindows: 0,
+    registered: 0,
+    checkedIn: 0
+  };
+
+  const summary = safeList.reduce((acc, tournament) => {
+    const status = sbwOrganizerEditorGetTournamentOperationalStatus(tournament);
+    const totals = sbwOrganizerEditorGetTournamentParticipantTotals(tournament);
+    const bucket = status.bucket || "published";
+
+    if (Object.prototype.hasOwnProperty.call(acc, bucket)) {
+      acc[bucket] += 1;
+    }
+
+    if (!sbwOrganizerEditorTournamentHasRegistrationWindows(tournament)) {
+      acc.missingWindows += 1;
+    }
+
+    acc.registered += totals.registered;
+    acc.checkedIn += totals.checkedIn;
+    return acc;
+  }, initial);
+
+  let nextLabel = "Criar torneio vinculado";
+  let nextDetail = "A organização ainda não possui torneio carregado para teste real.";
+
+  if (summary.total && summary.missingWindows) {
+    nextLabel = "Configurar janelas";
+    nextDetail = "Complete abertura/fechamento de inscrições e check-in nos torneios do teste.";
+  } else if (summary.total && !summary.registration && !summary.published && !summary.scheduled && !summary.live) {
+    nextLabel = "Publicar ou abrir inscrições";
+    nextDetail = "Deixe pelo menos um torneio comum disponível para jogadores reais.";
+  } else if (summary.total && summary.registered <= 0) {
+    nextLabel = "Chamar jogadores";
+    nextDetail = "Com o torneio preparado, divulgue a página pública e acompanhe inscrições.";
+  } else if (summary.registered > 0 && summary.checkedIn <= 0) {
+    nextLabel = "Acompanhar check-in";
+    nextDetail = "Confirme se os jogadores inscritos conseguem fazer check-in pela página pública.";
+  } else if (summary.live) {
+    nextLabel = "Registrar resultados";
+    nextDetail = "Há torneio em andamento. A prioridade é registrar resultados e manter a página pública atualizada.";
+  } else if (summary.finished) {
+    nextLabel = "Revisar fechamento";
+    nextDetail = "Confira resultados finais, rankings e histórico antes de encerrar o teste.";
+  }
+
+  return { ...summary, nextLabel, nextDetail };
+}
+
+function sbwOrganizerEditorRenderTournamentOperationalSummary(list = []) {
+  if (!sbwOrganizerTournamentsOperationalSummary) return;
+
+  const summary = sbwOrganizerEditorBuildTournamentOperationalSummary(list);
+
+  if (!summary.total) {
+    sbwOrganizerTournamentsOperationalSummary.innerHTML = `
+      <div class="organizer-admin-operational-empty">
+        <strong>Nenhum torneio vinculado ainda</strong>
+        <small>Crie o primeiro torneio da organização para iniciar o teste operacional com jogadores reais.</small>
+      </div>
+    `;
+    return;
+  }
+
+  sbwOrganizerTournamentsOperationalSummary.innerHTML = `
+    <div class="organizer-admin-operational-head">
+      <div>
+        <span class="organizer-admin-eyebrow">Controle rápido</span>
+        <strong>Resumo operacional dos torneios</strong>
+        <small>Use este bloco para acompanhar a organização externa antes e durante o teste real.</small>
+      </div>
+      <em>${sbwOrganizerEditorEscape(summary.nextLabel)}</em>
+    </div>
+    <div class="organizer-admin-operational-grid">
+      <span><strong>${sbwOrganizerEditorEscape(summary.total)}</strong> total</span>
+      <span><strong>${sbwOrganizerEditorEscape(summary.draft)}</strong> rascunho</span>
+      <span><strong>${sbwOrganizerEditorEscape(summary.registration + summary.published + summary.scheduled)}</strong> públicos/agendados</span>
+      <span><strong>${sbwOrganizerEditorEscape(summary.live)}</strong> em andamento</span>
+      <span><strong>${sbwOrganizerEditorEscape(summary.finished)}</strong> finalizados</span>
+      <span><strong>${sbwOrganizerEditorEscape(summary.registered)}</strong> inscritos</span>
+      <span><strong>${sbwOrganizerEditorEscape(summary.checkedIn)}</strong> check-ins</span>
+      <span class="${summary.missingWindows ? "is-warning" : "is-ok"}"><strong>${sbwOrganizerEditorEscape(summary.missingWindows)}</strong> sem janelas</span>
+    </div>
+    <div class="organizer-admin-operational-next">
+      <span>Próxima atenção</span>
+      <strong>${sbwOrganizerEditorEscape(summary.nextLabel)}</strong>
+      <small>${sbwOrganizerEditorEscape(summary.nextDetail)}</small>
+    </div>
+  `;
 }
 
 function sbwOrganizerEditorBuildExternalOrganizerReadiness(organizer = sbwOrganizerEditorCurrent, tournaments = sbwOrganizerEditorTournamentsCache) {
