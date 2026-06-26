@@ -2023,8 +2023,16 @@ async function sbwOrganizerEditorCheckAccess() {
   if (!canCreateOrganization) {
     if (sbwOrganizerEditorAccess) {
       sbwOrganizerEditorAccess.innerHTML = `
-        <strong>Acesso restrito.</strong><br>
-        Sua conta ainda não possui permissão da -SBW- para criar ou gerenciar uma Organização de Torneios.
+        <strong>Acesso restrito a organizadores autorizados.</strong><br>
+        Conta comum não cria organização nem torneio na plataforma -SBW-.
+        <div class="organizer-admin-access-steps">
+          <span>Pré-requisito para a Rinha Online:</span>
+          <ol>
+            <li>A -SBW- libera a permissão de organizador para esta conta.</li>
+            <li>A organização cria o próprio perfil organizacional por este painel.</li>
+            <li>Depois disso, os torneios são criados vinculados à organização.</li>
+          </ol>
+        </div>
       `;
     }
 
@@ -2253,6 +2261,7 @@ function sbwOrganizerEditorBindSave() {
 
       sbwOrganizerEditorHydrateForm(organizer);
       sbwOrganizerEditorRenderPreview();
+      sbwOrganizerEditorRenderTestReadinessGuide(organizer);
       sbwOrganizerEditorBindStaff();
       await sbwOrganizerEditorLoadStaff();
       await sbwOrganizerEditorLoadTournaments();
@@ -2296,6 +2305,7 @@ function sbwOrganizerEditorBindReset() {
         theme: {}
       });
       sbwOrganizerEditorRenderPreview();
+      sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
       sbwOrganizerEditorSetMessage("Formulário limpo. Preencha novamente para criar a organização.");
       return;
     }
@@ -2315,6 +2325,7 @@ function sbwOrganizerEditorBindReset() {
     sbwOrganizerEditorCurrent = organizer;
     sbwOrganizerEditorHydrateForm(organizer);
     sbwOrganizerEditorRenderPreview();
+    sbwOrganizerEditorRenderTestReadinessGuide(organizer);
     sbwOrganizerEditorUpdateCreateTournamentLink(organizer);
     sbwOrganizerEditorSetMessage("Dados recarregados do Supabase.");
   });
@@ -4745,6 +4756,7 @@ async function sbwOrganizerEditorLoadTournaments() {
           Nenhum torneio vinculado a esta organização foi encontrado ainda.
         </div>
       `;
+      sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
       return;
     }
 
@@ -4782,6 +4794,7 @@ async function sbwOrganizerEditorLoadTournaments() {
         </article>
       `;
     }).join("");
+    sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
   } catch (error) {
     console.error("[SBW Organizadores] Erro ao carregar torneios do painel:", error);
     sbwOrganizerEditorTournamentsCache = [];
@@ -4790,6 +4803,7 @@ async function sbwOrganizerEditorLoadTournaments() {
         Não foi possível carregar os torneios desta organização agora.
       </div>
     `;
+    sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
   }
 }
 
@@ -6046,14 +6060,270 @@ function sbwOrganizerEditorBindStaff() {
   }
 }
 
+
+function sbwOrganizerEditorAccessItemCanManage(item) {
+  if (!item) return false;
+  const role = String(item.memberRole || item.role || item.currentUserRole || "").toLowerCase();
+
+  return Boolean(
+    item.canCreateTournament === true ||
+    item.can_create_tournaments === true ||
+    item.canManage === true ||
+    item.can_manage === true ||
+    ["owner", "admin", "manager", "organizer_admin", "tournament_admin", "admin_sbw"].includes(role)
+  );
+}
+
+async function sbwOrganizerEditorGetEntryOrganizations() {
+  if (typeof sbwGetMyTournamentOrganizerAccessAsync !== "function") {
+    return [];
+  }
+
+  try {
+    const accessList = await sbwGetMyTournamentOrganizerAccessAsync();
+    return Array.isArray(accessList) ? accessList : [];
+  } catch (error) {
+    console.warn("[SBW Organizadores] Não foi possível resolver organizações vinculadas à conta:", error);
+    return [];
+  }
+}
+
+function sbwOrganizerEditorGetEntryOrganizationKey(organizer) {
+  return String(organizer?.slug || organizer?.id || organizer?.raw?.slug || organizer?.raw?.id || "").trim();
+}
+
+function sbwOrganizerEditorApplyEntryUrl(params = {}) {
+  if (!window.history?.replaceState) return;
+
+  const nextParams = new URLSearchParams(window.location.search);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const safeValue = String(value || "").trim();
+    if (safeValue) {
+      nextParams.set(key, safeValue);
+    } else {
+      nextParams.delete(key);
+    }
+  });
+
+  const query = nextParams.toString();
+  window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+}
+
+function sbwOrganizerEditorGetTournamentStatusKey(tournament) {
+  return String(tournament?.status || tournament?.status_key || tournament?.state || "")
+    .trim()
+    .toLowerCase();
+}
+
+function sbwOrganizerEditorGetTournamentWindowValue(tournament, keys = []) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const settings = sbwOrganizerEditorAsObject(tournament?.settings);
+  const sourceList = [tournament, tournament?.raw, metadata, settings, sbwOrganizerEditorAsObject(metadata.registration), sbwOrganizerEditorAsObject(settings.registration)];
+
+  for (const source of sourceList) {
+    if (!source || typeof source !== "object") continue;
+    for (const key of keys) {
+      const value = source[key];
+      if (value) return value;
+    }
+  }
+
+  return "";
+}
+
+function sbwOrganizerEditorTournamentHasRegistrationWindows(tournament) {
+  const registrationOpen = sbwOrganizerEditorGetTournamentWindowValue(tournament, ["registration_opens_at", "registrationOpensAt", "registration_open_at", "registrationOpenAt"]);
+  const registrationClose = sbwOrganizerEditorGetTournamentWindowValue(tournament, ["registration_closes_at", "registrationClosesAt", "registration_close_at", "registrationCloseAt"]);
+  const checkinStart = sbwOrganizerEditorGetTournamentWindowValue(tournament, ["checkin_starts_at", "checkinStartsAt", "check_in_starts_at", "checkInStartsAt"]);
+  const checkinEnd = sbwOrganizerEditorGetTournamentWindowValue(tournament, ["checkin_ends_at", "checkinEndsAt", "check_in_ends_at", "checkInEndsAt"]);
+
+  return Boolean(registrationOpen && registrationClose && checkinStart && checkinEnd);
+}
+
+function sbwOrganizerEditorTournamentAcceptsPublicRegistrations(tournament) {
+  const status = sbwOrganizerEditorGetTournamentStatusKey(tournament);
+  return ["published", "registration-open", "registration_open", "open", "scheduled"].includes(status);
+}
+
+function sbwOrganizerEditorGetTournamentParticipantTotals(tournament) {
+  const metadata = sbwOrganizerEditorAsObject(tournament?.metadata);
+  const stats = sbwOrganizerEditorAsObject(tournament?.stats || tournament?.statistics || metadata.stats || metadata.participants);
+  const registered = Number(tournament?.currentParticipants ?? tournament?.current_participants ?? stats.registered ?? stats.total ?? 0) || 0;
+  const checkedIn = Number(tournament?.checkedInParticipants ?? tournament?.checked_in_participants ?? stats.checkedIn ?? stats.checked_in ?? 0) || 0;
+
+  return { registered, checkedIn };
+}
+
+function sbwOrganizerEditorBuildExternalOrganizerReadiness(organizer = sbwOrganizerEditorCurrent, tournaments = sbwOrganizerEditorTournamentsCache) {
+  const list = Array.isArray(tournaments) ? tournaments : [];
+  const isNew = Boolean(sbwOrganizerEditorIsNew || !organizer?.slug);
+  const canCreateTournament = sbwOrganizerEditorCanCreateTournament(organizer);
+  const profileReady = Boolean(!isNew && organizer?.slug && (organizer?.name || organizer?.displayName));
+  const publicReady = Boolean(profileReady && organizer?.slug);
+  const hasTournament = list.length > 0;
+  const openTournament = list.find(sbwOrganizerEditorTournamentAcceptsPublicRegistrations) || null;
+  const windowsTournament = list.find(sbwOrganizerEditorTournamentHasRegistrationWindows) || null;
+  const totals = list.reduce((acc, tournament) => {
+    const itemTotals = sbwOrganizerEditorGetTournamentParticipantTotals(tournament);
+    acc.registered += itemTotals.registered;
+    acc.checkedIn += itemTotals.checkedIn;
+    return acc;
+  }, { registered: 0, checkedIn: 0 });
+
+  const checks = [
+    {
+      key: "permission",
+      label: "Permissão de organizador",
+      detail: "Conta autorizada para operar organização de torneios. Conta comum permanece bloqueada.",
+      done: true
+    },
+    {
+      key: "profile",
+      label: "Perfil organizacional",
+      detail: profileReady ? "Organização criada e carregada no painel." : "Preencha e salve o perfil da Rinha Online antes de criar torneios.",
+      done: profileReady
+    },
+    {
+      key: "public_profile",
+      label: "Perfil público acessível",
+      detail: publicReady ? "Perfil público pode ser aberto para conferência." : "Disponível depois que a organização tiver slug salvo.",
+      done: publicReady
+    },
+    {
+      key: "tournament",
+      label: "Torneio vinculado",
+      detail: hasTournament ? `${list.length} torneio(s) vinculado(s) encontrados.` : "Crie pelo menos um torneio pelo botão deste painel.",
+      done: hasTournament
+    },
+    {
+      key: "registration_windows",
+      label: "Janelas de inscrição e check-in",
+      detail: windowsTournament ? "Pelo menos um torneio já possui janelas reais configuradas." : "Configure abertura/fechamento de inscrições e check-in para o teste real.",
+      done: Boolean(windowsTournament)
+    },
+    {
+      key: "public_registration",
+      label: "Inscrição pública preparada",
+      detail: openTournament ? `Torneio pronto para inscrição pública: ${sbwOrganizerEditorGetTournamentTitle(openTournament)}.` : "Publique ou abra inscrições em um torneio comum antes de chamar jogadores.",
+      done: Boolean(openTournament)
+    },
+    {
+      key: "participants",
+      label: "Acompanhamento de inscritos",
+      detail: totals.registered > 0 ? `${totals.registered} inscrito(s) e ${totals.checkedIn} check-in(s) detectados no painel.` : "Durante o teste, acompanhe inscritos e check-ins pela aba Torneios.",
+      done: totals.registered > 0,
+      optional: true
+    }
+  ];
+
+  const requiredChecks = checks.filter((check) => !check.optional);
+  const doneRequired = requiredChecks.filter((check) => check.done).length;
+  const next = checks.find((check) => !check.done && !check.optional) || checks.find((check) => !check.done) || null;
+
+  return {
+    checks,
+    requiredTotal: requiredChecks.length,
+    doneRequired,
+    statusLabel: doneRequired >= requiredChecks.length ? "Fluxo pronto para teste real" : `${doneRequired}/${requiredChecks.length} etapas obrigatórias prontas`,
+    nextLabel: next ? next.label : "Acompanhar execução real",
+    canCreateTournament,
+    isNew,
+    hasTournament,
+    publicReady
+  };
+}
+
+function sbwOrganizerEditorRenderTestReadinessGuide(organizer = sbwOrganizerEditorCurrent) {
+  const overview = document.getElementById("organizerEditorOverview");
+
+  if (!overview) return;
+
+  let guide = overview.querySelector("[data-organizer-test-readiness]");
+
+  if (!guide) {
+    guide = document.createElement("div");
+    guide.className = "organizer-admin-readiness-guide";
+    guide.setAttribute("data-organizer-test-readiness", "true");
+    overview.appendChild(guide);
+  }
+
+  const readiness = sbwOrganizerEditorBuildExternalOrganizerReadiness(organizer);
+  const publicUrl = organizer?.slug ? `organizador.html?slug=${encodeURIComponent(organizer.slug)}` : "organizador.html";
+  const tournamentUrl = organizer ? sbwOrganizerEditorBuildCreateTournamentUrl(organizer) : "create-tournament/criar-torneio.html";
+  const tournamentPanelUrl = "#organizerEditorTournaments";
+
+  guide.innerHTML = `
+    <div class="organizer-admin-readiness-head">
+      <div>
+        <span class="organizer-admin-eyebrow">Teste real com organizador externo</span>
+        <strong>Checklist operacional da Rinha Online</strong>
+      </div>
+      <em>${sbwOrganizerEditorEscape(readiness.statusLabel)}</em>
+    </div>
+    <div class="organizer-admin-readiness-next">
+      <span>Próximo foco</span>
+      <strong>${sbwOrganizerEditorEscape(readiness.nextLabel)}</strong>
+      <small>Use este card como conferência rápida antes de chamar jogadores reais.</small>
+    </div>
+    <ol class="organizer-admin-readiness-list">
+      ${readiness.checks.map((check, index) => `
+        <li class="${check.done ? "is-done" : index === readiness.doneRequired ? "is-current" : ""} ${check.optional ? "is-optional" : ""}">
+          <span>${check.done ? "✓" : index + 1}</span>
+          <p>
+            <strong>${sbwOrganizerEditorEscape(check.label)}${check.optional ? " · acompanhamento" : ""}</strong>
+            <small>${sbwOrganizerEditorEscape(check.detail)}</small>
+          </p>
+        </li>
+      `).join("")}
+    </ol>
+    <div class="organizer-admin-readiness-note">
+      A Rinha Online só deve conseguir operar depois da permissão de organizador. Criação de organização/torneio por conta comum continua bloqueada.
+    </div>
+    <div class="organizer-admin-readiness-actions">
+      ${readiness.publicReady ? `<a href="${sbwOrganizerEditorEscape(publicUrl)}">Ver perfil público</a>` : ""}
+      ${readiness.canCreateTournament ? `<a href="${sbwOrganizerEditorEscape(tournamentUrl)}">Criar torneio</a>` : ""}
+      ${readiness.hasTournament ? `<a href="${sbwOrganizerEditorEscape(tournamentPanelUrl)}" data-organizer-admin-view="tournaments">Revisar torneios</a>` : ""}
+    </div>
+  `;
+
+  guide.querySelectorAll("[data-organizer-admin-view]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      sbwOrganizerEditorShowPanel(link.getAttribute("data-organizer-admin-view"));
+    });
+  });
+}
+
 async function sbwOrganizerEditorLoad() {
-  const isNewOrganizationEntry = sbwGetQueryParam("novo") === "1" || sbwGetQueryParam("create") === "1";
+  let isNewOrganizationEntry = sbwGetQueryParam("novo") === "1" || sbwGetQueryParam("create") === "1";
   sbwOrganizerEditorSlug = sbwGetQueryParam("slug") || sbwGetQueryParam("id") || "";
 
   const hasAccess = await sbwOrganizerEditorCheckAccess();
 
   if (!hasAccess) {
     return;
+  }
+
+  if (!sbwOrganizerEditorSlug && !isNewOrganizationEntry) {
+    const entryOrganizations = await sbwOrganizerEditorGetEntryOrganizations();
+    const preferredOrganization = entryOrganizations.find(sbwOrganizerEditorAccessItemCanManage) || entryOrganizations[0] || null;
+    const preferredKey = sbwOrganizerEditorGetEntryOrganizationKey(preferredOrganization);
+
+    if (preferredKey) {
+      sbwOrganizerEditorSlug = preferredKey;
+      sbwOrganizerEditorApplyEntryUrl({ slug: preferredKey, novo: "", create: "" });
+
+      if (sbwOrganizerEditorStatusText) {
+        sbwOrganizerEditorStatusText.textContent = "Organização vinculada encontrada. Carregando painel operacional...";
+      }
+    } else {
+      isNewOrganizationEntry = true;
+      sbwOrganizerEditorApplyEntryUrl({ novo: "1", create: "", slug: "", id: "" });
+
+      if (sbwOrganizerEditorStatusText) {
+        sbwOrganizerEditorStatusText.textContent = "Permissão confirmada. Crie o perfil organizacional para liberar a operação de torneios.";
+      }
+    }
   }
 
   if (!sbwOrganizerEditorSlug && isNewOrganizationEntry) {
@@ -6081,7 +6351,7 @@ async function sbwOrganizerEditorLoad() {
     }
 
     if (sbwOrganizerEditorStatusText) {
-      sbwOrganizerEditorStatusText.textContent = "Permissão confirmada. Preencha os dados para criar uma Organização de Torneios real no Supabase.";
+      sbwOrganizerEditorStatusText.textContent = "Permissão confirmada. Preencha e salve o perfil organizacional. Depois disso, a criação de torneios vinculados será liberada.";
     }
 
     if (sbwOrganizerOpenPublic) {
@@ -6100,6 +6370,7 @@ async function sbwOrganizerEditorLoad() {
     sbwOrganizerEditorBindSeasonForm();
   sbwOrganizerEditorBindSeasonTournamentActions();
     sbwOrganizerEditorRenderPreview();
+    sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
     sbwOrganizerEditorHydrateSeasonForm(sbwOrganizerEditorCurrent);
     sbwOrganizerEditorRenderRankings();
     sbwOrganizerEditorLoadTournaments();
@@ -6173,6 +6444,7 @@ async function sbwOrganizerEditorLoad() {
   sbwOrganizerEditorBindSeasonForm();
   sbwOrganizerEditorBindSeasonTournamentActions();
   sbwOrganizerEditorRenderPreview();
+  sbwOrganizerEditorRenderTestReadinessGuide(sbwOrganizerEditorCurrent);
   sbwOrganizerEditorHydrateSeasonForm(sbwOrganizerEditorCurrent);
   sbwOrganizerEditorRenderRankings();
   sbwOrganizerEditorLoadTournaments();

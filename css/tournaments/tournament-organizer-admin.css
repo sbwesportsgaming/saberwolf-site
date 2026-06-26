@@ -4664,3 +4664,196 @@
     text-align: left;
   }
 }
+
+.organizer-admin-access-steps {
+  margin-top: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.62);
+  padding: 12px 14px;
+  color: rgba(226, 232, 240, 0.82);
+  text-align: left;
+}
+
+.organizer-admin-access-steps span {
+  display: block;
+  margin-bottom: 8px;
+  color: #fff;
+  font-weight: 800;
+}
+
+.organizer-admin-access-steps ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.organizer-admin-access-steps li + li {
+  margin-top: 5px;
+}
+
+.organizer-admin-readiness-guide {
+  margin-top: 18px;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.1), transparent 35%),
+    rgba(15, 23, 42, 0.72);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.organizer-admin-readiness-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.organizer-admin-readiness-head strong {
+  color: #fff;
+  font-size: 1rem;
+}
+
+.organizer-admin-readiness-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.organizer-admin-readiness-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.46);
+  padding: 10px;
+}
+
+.organizer-admin-readiness-list li > span {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  color: var(--sbw-cyan, #00e5ff);
+  font-weight: 900;
+  font-size: 0.78rem;
+}
+
+.organizer-admin-readiness-list li.is-current {
+  border-color: rgba(34, 211, 238, 0.32);
+  background: rgba(8, 47, 73, 0.28);
+}
+
+.organizer-admin-readiness-list li.is-done > span {
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.38);
+}
+
+.organizer-admin-readiness-list p {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.organizer-admin-readiness-list strong {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.organizer-admin-readiness-list small {
+  color: rgba(226, 232, 240, 0.66);
+  line-height: 1.4;
+}
+
+.organizer-admin-readiness-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.organizer-admin-readiness-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  background: rgba(34, 211, 238, 0.08);
+  color: #e0faff;
+  padding: 7px 12px;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .organizer-admin-readiness-head {
+    flex-direction: column;
+  }
+}
+
+.organizer-admin-readiness-head em {
+  align-self: flex-start;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.08);
+  color: #cffafe;
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 900;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.organizer-admin-readiness-next {
+  border: 1px solid rgba(250, 204, 21, 0.16);
+  border-radius: 16px;
+  background: rgba(250, 204, 21, 0.07);
+  padding: 12px;
+  display: grid;
+  gap: 3px;
+}
+
+.organizer-admin-readiness-next span {
+  color: rgba(253, 224, 71, 0.82);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.organizer-admin-readiness-next strong {
+  color: #fff7ad;
+  font-size: 0.98rem;
+}
+
+.organizer-admin-readiness-next small {
+  color: rgba(254, 249, 195, 0.68);
+  line-height: 1.45;
+}
+
+.organizer-admin-readiness-list li.is-optional {
+  border-style: dashed;
+  opacity: 0.9;
+}
+
+.organizer-admin-readiness-list li.is-optional > span {
+  color: #c4b5fd;
+  border-color: rgba(196, 181, 253, 0.32);
+}
+
+.organizer-admin-readiness-note {
+  border-left: 3px solid rgba(34, 211, 238, 0.42);
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  padding-left: 10px;
+}
