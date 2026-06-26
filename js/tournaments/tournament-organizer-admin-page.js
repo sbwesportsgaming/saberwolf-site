@@ -40,6 +40,10 @@ const sbwOrganizerTournamentEditStartTime = document.getElementById("organizerTo
 const sbwOrganizerTournamentEditMax = document.getElementById("organizerTournamentEditMax");
 const sbwOrganizerTournamentEditMaxLabel = document.querySelector('label[for="organizerTournamentEditMax"]');
 const sbwOrganizerTournamentEditMaxNote = document.getElementById("organizerTournamentEditMaxNote");
+const sbwOrganizerTournamentEditRegistrationOpens = document.getElementById("organizerTournamentEditRegistrationOpens");
+const sbwOrganizerTournamentEditRegistrationCloses = document.getElementById("organizerTournamentEditRegistrationCloses");
+const sbwOrganizerTournamentEditCheckinStarts = document.getElementById("organizerTournamentEditCheckinStarts");
+const sbwOrganizerTournamentEditCheckinEnds = document.getElementById("organizerTournamentEditCheckinEnds");
 const sbwOrganizerTournamentEditCover = document.getElementById("organizerTournamentEditCover");
 const sbwOrganizerTournamentEditCoverManual = document.getElementById("organizerTournamentEditCoverManual");
 const sbwOrganizerTournamentCoverFile = document.getElementById("organizerTournamentCoverFile");
@@ -2380,6 +2384,39 @@ function sbwOrganizerEditorFormatInputTime(raw) {
   return date.toISOString().slice(11, 16);
 }
 
+function sbwOrganizerEditorFormatInputDateTime(raw) {
+  const date = sbwOrganizerEditorFormatInputDate(raw);
+  const time = sbwOrganizerEditorFormatInputTime(raw);
+
+  if (!date) return "";
+
+  return `${date}T${time || "00:00"}`;
+}
+
+function sbwOrganizerEditorGetWindowDateTimeValue(input) {
+  const value = String(input?.value || "").trim();
+  return value ? `${value}:00` : "";
+}
+
+function sbwOrganizerEditorValidateTournamentWindows(registrationOpensAt, registrationClosesAt, checkinStartsAt, checkinEndsAt) {
+  const checks = [
+    [registrationOpensAt, registrationClosesAt, "A abertura das inscrições precisa ser antes do fechamento."],
+    [checkinStartsAt, checkinEndsAt, "A abertura do check-in precisa ser antes do fechamento."]
+  ];
+
+  for (const [start, end, message] of checks) {
+    if (start && end && new Date(start).getTime() >= new Date(end).getTime()) {
+      return message;
+    }
+  }
+
+  if (registrationClosesAt && checkinStartsAt && new Date(registrationClosesAt).getTime() > new Date(checkinStartsAt).getTime()) {
+    return "O check-in deve abrir no mesmo momento ou depois do fechamento das inscrições.";
+  }
+
+  return "";
+}
+
 function sbwOrganizerEditorGetTournamentAssets(tournament = sbwOrganizerEditorEditingTournament) {
   const metadata = sbwOrganizerEditorAsObject(tournament?.metadata || tournament?.raw?.metadata);
   return sbwOrganizerEditorAsObject(
@@ -4326,6 +4363,10 @@ function sbwOrganizerEditorOpenTournamentEditForm(tournament) {
   if (sbwOrganizerTournamentEditStartDate) sbwOrganizerTournamentEditStartDate.value = sbwOrganizerEditorFormatInputDate(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.date);
   if (sbwOrganizerTournamentEditStartTime) sbwOrganizerTournamentEditStartTime.value = sbwOrganizerEditorFormatInputTime(tournament?.startsAt || tournament?.starts_at || tournament?.raw?.starts_at || tournament?.time);
   if (sbwOrganizerTournamentEditMax) sbwOrganizerTournamentEditMax.value = tournament?.maxParticipants || tournament?.max_participants || tournament?.raw?.max_participants || "";
+  if (sbwOrganizerTournamentEditRegistrationOpens) sbwOrganizerTournamentEditRegistrationOpens.value = sbwOrganizerEditorFormatInputDateTime(tournament?.registrationOpensAt || tournament?.registration_opens_at || tournament?.raw?.registration_opens_at);
+  if (sbwOrganizerTournamentEditRegistrationCloses) sbwOrganizerTournamentEditRegistrationCloses.value = sbwOrganizerEditorFormatInputDateTime(tournament?.registrationClosesAt || tournament?.registration_closes_at || tournament?.raw?.registration_closes_at);
+  if (sbwOrganizerTournamentEditCheckinStarts) sbwOrganizerTournamentEditCheckinStarts.value = sbwOrganizerEditorFormatInputDateTime(tournament?.checkinStartsAt || tournament?.checkInStartsAt || tournament?.check_in_starts_at || tournament?.raw?.checkin_starts_at);
+  if (sbwOrganizerTournamentEditCheckinEnds) sbwOrganizerTournamentEditCheckinEnds.value = sbwOrganizerEditorFormatInputDateTime(tournament?.checkinEndsAt || tournament?.checkInEndsAt || tournament?.check_in_ends_at || tournament?.raw?.checkin_ends_at);
   sbwOrganizerEditorRenderFormatPreview(sbwOrganizerTournamentEditFormat?.value);
   sbwOrganizerEditorApplyTournamentCapacityMode(sbwOrganizerTournamentEditFormat?.value);
   sbwOrganizerEditorSetTournamentCoverFrameForm(sbwOrganizerEditorGetTournamentCoverFrame(tournament));
@@ -4521,6 +4562,16 @@ function sbwOrganizerEditorBindTournamentEditor() {
       const startsAt = startDate
         ? `${startDate}T${startTime || "00:00"}:00`
         : "";
+      const registrationOpensAt = sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditRegistrationOpens);
+      const registrationClosesAt = sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditRegistrationCloses);
+      const checkinStartsAt = sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditCheckinStarts);
+      const checkinEndsAt = sbwOrganizerEditorGetWindowDateTimeValue(sbwOrganizerTournamentEditCheckinEnds);
+      const windowValidationMessage = sbwOrganizerEditorValidateTournamentWindows(registrationOpensAt, registrationClosesAt, checkinStartsAt, checkinEndsAt);
+
+      if (windowValidationMessage) {
+        sbwOrganizerEditorSetTournamentEditMessage(windowValidationMessage, "error");
+        return;
+      }
 
       const tournamentId = sbwOrganizerTournamentEditId?.value || sbwOrganizerEditorGetTournamentKey(sbwOrganizerEditorEditingTournament);
       const selectedFormat = sbwOrganizerTournamentEditFormat?.value || "double-elimination";
@@ -4563,6 +4614,10 @@ function sbwOrganizerEditorBindTournamentEditor() {
             format_label: formatMetadata.label,
             status: sbwOrganizerTournamentEditStatus?.value || "draft",
             starts_at: startsAt,
+            registration_opens_at: registrationOpensAt,
+            registration_closes_at: registrationClosesAt,
+            checkin_starts_at: checkinStartsAt,
+            checkin_ends_at: checkinEndsAt,
             max_participants: capacityValue || null,
             cover_url: sbwOrganizerTournamentEditCover?.value || "",
             description: sbwOrganizerTournamentEditDescription?.value || "",
@@ -4576,6 +4631,12 @@ function sbwOrganizerEditorBindTournamentEditor() {
               maxParticipants: capacityValue,
               participantCapacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
               capacityUnit: isTeamBattleLeagueTournament ? "teams" : "participants",
+              registrationOpensAt,
+              registrationClosesAt,
+              checkinStartsAt,
+              checkInStartsAt: checkinStartsAt,
+              checkinEndsAt,
+              checkInEndsAt: checkinEndsAt,
               ...(isTeamBattleLeagueTournament ? {
                 matchScheduling: teamBattleLeagueDraft?.settings?.matchScheduling || {
                   organizerManaged: true,
@@ -4602,6 +4663,15 @@ function sbwOrganizerEditorBindTournamentEditor() {
                 value: capacityValue,
                 unit: isTeamBattleLeagueTournament ? "teams" : "participants",
                 evenOnly: true
+              },
+              registration: {
+                opensAt: registrationOpensAt,
+                closesAt: registrationClosesAt
+              },
+              checkin: {
+                startsAt: checkinStartsAt,
+                endsAt: checkinEndsAt,
+                required: true
               },
               ...(isTeamBattleLeagueTournament ? {
                 matchScheduling: teamBattleLeagueDraft?.metadata?.matchScheduling || teamBattleLeagueDraft?.settings?.matchScheduling || {

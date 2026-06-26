@@ -788,18 +788,12 @@ function getTournamentFormat(tournament) {
       ? window.SBWTeamBattleLeague.buildTeamBattleLeagueVisualPreviewBoard(tournament || {}, { leagueMode: "basic_single_division" })
       : null;
     const standings = Array.isArray(board?.standings) ? board.standings : [];
-    const standingsStatus = board?.standingsStatus || null;
-    const standingsStatusLabel = standingsStatus?.progressLabel || (standings.length ? "Classificação oficial" : "Aguardando classificação");
-    const standingsStatusDetail = standingsStatus?.detailLabel || "Somente confrontos finalizados pelo organizador entram na classificação.";
     const matches = Array.isArray(board?.matches) ? board.matches : [];
     const boardByes = Array.isArray(board?.byes) ? board.byes.slice(0, 4) : [];
     const playoffPreview = board?.playoffPreview || null;
     const playoffMatches = Array.isArray(playoffPreview?.matches) ? playoffPreview.matches.slice(0, 4) : [];
     const playoffTeams = Array.isArray(playoffPreview?.qualifiedTeams) ? playoffPreview.qualifiedTeams.slice(0, 4) : [];
     const playoffRules = Array.isArray(playoffPreview?.rules) ? playoffPreview.rules.slice(0, 4) : [];
-    const playoffChampion = playoffPreview?.championTeam || null;
-    const finalSummary = board?.finalSummary || null;
-    const finalPlacements = Array.isArray(finalSummary?.placements) ? finalSummary.placements.slice(0, 4) : [];
     const scheduleSummary = board?.scheduleSummary || model?.scheduleSummary || (window.SBWTeamBattleLeague && typeof window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary === "function"
       ? window.SBWTeamBattleLeague.buildTeamBattleScheduleAutonomySummary(tournament || {}, { leagueMode: "basic_single_division" })
       : null);
@@ -816,7 +810,7 @@ function getTournamentFormat(tournament) {
       { label: "3", title: "Check-in de equipes", text: "Somente equipes reais confirmadas entram no grupo e nos confrontos." },
       { label: "4", title: "Agenda livre", text: "O organizador define datas e horários por rodada/confronto, sem prender tudo ao mesmo dia." },
       { label: "5", title: "Rodadas e resultados", text: "Confrontos, pontos e classificação alimentam a fase final." },
-      { label: "6", title: "Playoffs -SBW-", text: "Top 4 da Divisão Única entra na escada -SBW-: 3º x 4º, vencedor contra 2º e Grande Final contra 1º." }
+      { label: "6", title: "Playoffs -SBW-", text: "Top 4 da Divisão Única entra na Escada -SBW-: 3º x 4º, vencedor contra 2º e Grande Final contra 1º." }
     ];
 
     return `
@@ -840,30 +834,6 @@ function getTournamentFormat(tournament) {
             ${scoreModel.map((slot) => `
               <span><strong>${escapeHTML(slot.points || 0)}</strong>${escapeHTML(slot.label || "Partida")}${slot.conditional ? " · se empate" : ""}</span>
             `).join("")}
-          </div>
-        ` : ""}
-
-        ${finalSummary && finalSummary.readyToFinalize ? `
-          <div class="overview-team-battle-final-summary ${finalSummary.finalized ? "is-finished" : "is-ready"}" aria-label="Resumo final Team Battle League 4v4">
-            <div class="overview-team-battle-final-summary__head">
-              <div>
-                <small>${escapeHTML(finalSummary.statusLabel || "Final Team Battle")}</small>
-                <strong>${escapeHTML(finalSummary.publicTitle || "Campeão definido")}</strong>
-                <p>${escapeHTML(finalSummary.publicDescription || "O pódio final será publicado após o encerramento pelo organizador.")}</p>
-              </div>
-              <span>${escapeHTML(finalSummary.finalized ? "Concluído" : "Aguardando encerramento")}</span>
-            </div>
-            ${finalPlacements.length ? `
-              <div class="overview-team-battle-final-summary__podium">
-                ${finalPlacements.map((team) => `
-                  <article>
-                    <small>${escapeHTML(team.label || `${team.position || ""}º lugar`)}</small>
-                    <strong>${escapeHTML(team.teamName || team.name || "Equipe")}</strong>
-                  </article>
-                `).join("")}
-              </div>
-            ` : ""}
-            <p class="overview-team-battle-final-summary__meta">${escapeHTML(finalSummary.progressLabel || "Playoffs finalizados.")}${finalSummary.finalizedAt ? ` · Encerrado em ${escapeHTML(String(finalSummary.finalizedAt).slice(0, 16).replace("T", " "))}` : ""}</p>
           </div>
         ` : ""}
 
@@ -903,12 +873,7 @@ function getTournamentFormat(tournament) {
             `}
           </div>
 
-          <div class="overview-team-battle-standings-status">
-            <strong>${escapeHTML(standingsStatusLabel)}</strong>
-            <span>${escapeHTML(standingsStatusDetail)}</span>
-          </div>
-
-          <p>${escapeHTML(standings.length ? "A tabela oficial ignora confrontos parciais, ao vivo, adiados ou sem finalização." : emptyState.tableHint || "A tabela será preenchida apenas com equipes reais confirmadas.")}</p>
+          <p>${escapeHTML(emptyState.tableHint || "A tabela será preenchida apenas com equipes reais confirmadas.")}</p>
         </div>
 
         <div class="overview-team-battle-match-model" aria-label="Modelo de confronto sem equipes demo">
@@ -985,23 +950,15 @@ function getTournamentFormat(tournament) {
         ` : ""}
 
         ${playoffPreview ? `
-          <div class="overview-team-battle-playoff-preview" aria-label="Playoffs Team Battle League 4v4 no modelo -SBW- em escada">
+          <div class="overview-team-battle-playoff-preview" aria-label="Playoffs Team Battle League 4v4 em escada -SBW-">
             <div class="overview-team-battle-playoff-preview__head">
               <div>
-                <small>${escapeHTML(playoffPreview.rulesetLabel || "-SBW- · escada Top 4")}</small>
+                <small>${escapeHTML(playoffPreview.rulesetLabel || "Modelo -SBW- em escada")}</small>
                 <strong>${escapeHTML(playoffPreview.title || "Playoffs -SBW-")}</strong>
                 <p>${escapeHTML(playoffPreview.description || "Fase final montada pela classificação real da liga.")}</p>
               </div>
               <span>${escapeHTML(playoffPreview.statusLabel || "Aguardando classificação")}</span>
             </div>
-
-            ${playoffChampion ? `
-              <div class="overview-team-battle-playoff-preview__champion">
-                <small>Campeão dos Playoffs -SBW-</small>
-                <strong>${escapeHTML(playoffChampion.teamName || playoffChampion.name || "Campeão")}</strong>
-                <p>Grande Final encerrada pelo organizador.</p>
-              </div>
-            ` : ""}
 
             <div class="overview-team-battle-playoff-preview__teams">
               ${playoffTeams.length ? playoffTeams.map((team) => `
@@ -1017,8 +974,7 @@ function getTournamentFormat(tournament) {
                   <small>${escapeHTML(match.stageLabel || "Playoff")}</small>
                   <strong>${escapeHTML(match.firstToLabel || "FT")}</strong>
                   <div><span>${escapeHTML(match.homeTeamLabel || "Classificado")}</span><em>vs</em><span>${escapeHTML(match.awayTeamLabel || "Classificado")}</span></div>
-                  <p>${escapeHTML(match.statusLabel || "Aguardando")} · ${escapeHTML(match.scoreLabel || "0 x 0")} · ${escapeHTML(match.noExtraMatch ? "sem partida extra" : "partida extra se necessário")}</p>
-                  ${match.winnerLabel && match.winnerLabel !== "A definir" ? `<p class="overview-team-battle-playoff-preview__winner">Vencedor: ${escapeHTML(match.winnerLabel)}</p>` : ""}
+                  <p>${escapeHTML(match.statusLabel || "Aguardando")} · ${escapeHTML(match.noExtraMatch ? "sem partida extra" : "partida extra se necessário")}</p>
                 </article>
               `).join("") : `
                 <article>
@@ -1807,6 +1763,43 @@ function getTournamentFormat(tournament) {
     ].includes(status);
   }
 
+  function sbwGetRegistrationDateValue(tournament, type = "close") {
+    const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+    const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+    const registrationMeta = metadata.registration && typeof metadata.registration === "object" ? metadata.registration : {};
+    const keys = type === "open"
+      ? ["registrationOpensAt", "registration_opens_at", "registrationStartAt", "registration_start_at", "opensAt"]
+      : ["registrationClosesAt", "registration_closes_at", "registrationEndAt", "registration_end_at", "closesAt"];
+
+    for (const key of keys) {
+      const value = tournament?.[key] || metadata?.[key] || settings?.[key] || registrationMeta?.[key];
+
+      if (value) {
+        return value;
+      }
+    }
+
+    return "";
+  }
+
+  function sbwGetRegistrationWindowState(tournament) {
+    const opensAt = sbwGetRegistrationDateValue(tournament, "open");
+    const closesAt = sbwGetRegistrationDateValue(tournament, "close");
+    const openDate = opensAt ? new Date(opensAt) : null;
+    const closeDate = closesAt ? new Date(closesAt) : null;
+    const now = Date.now();
+
+    if (openDate && !Number.isNaN(openDate.getTime()) && now < openDate.getTime()) {
+      return { open: false, state: "waiting", reason: `Inscrições abrem em ${formatDateTimeLabel(opensAt)}.` };
+    }
+
+    if (closeDate && !Number.isNaN(closeDate.getTime()) && now > closeDate.getTime()) {
+      return { open: false, state: "closed", reason: `Inscrições encerraram em ${formatDateTimeLabel(closesAt)}.` };
+    }
+
+    return { open: true, state: "open", reason: "Janela de inscrição ativa." };
+  }
+
   function sbwGetRegistrationAvailability(tournament) {
     const participantsCount = getParticipantsCount(tournament);
     const maxParticipants = sbwGetMaxParticipantsNumber(tournament);
@@ -1814,9 +1807,23 @@ function getTournamentFormat(tournament) {
     const statusInfo = getStatusInfo(rawStatus);
     const isFull = Boolean(maxParticipants && participantsCount >= maxParticipants);
     const isOpenStatus = sbwIsRegistrationStatusOpen(tournament);
+    const windowState = sbwGetRegistrationWindowState(tournament);
     const percent = maxParticipants
       ? Math.max(0, Math.min(100, Math.round((participantsCount / maxParticipants) * 100)))
       : 0;
+
+    if (isOpenStatus && !windowState.open) {
+      return {
+        open: false,
+        className: windowState.state === "waiting" ? "draft" : "closed",
+        label: windowState.state === "waiting" ? "Inscrições em breve" : "Inscrições encerradas",
+        shortLabel: windowState.state === "waiting" ? "Em breve" : "Encerrada",
+        reason: windowState.reason,
+        participantsCount,
+        maxParticipants,
+        percent
+      };
+    }
 
     if (isFull) {
       return {
@@ -4047,6 +4054,29 @@ async function hydrateDetailRegistrationState(tournament) {
   }
 }
 
+function sbwIsTeamBattleLeagueRegistrationTournament(tournament) {
+  const format = String(getTournamentFormat(tournament) || tournament?.format || tournament?.formatKey || "").toLowerCase().trim();
+  const settings = tournament?.settings && typeof tournament.settings === "object" ? tournament.settings : {};
+  const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+  const formatFamily = String(
+    metadata.formatFamily ||
+    metadata.format_family ||
+    settings.formatFamily ||
+    settings.format_family ||
+    ""
+  ).toLowerCase();
+
+  return Boolean(
+    format === "team-battle-league-4v4" ||
+    format.includes("team-battle") ||
+    formatFamily === "team_battle" ||
+    settings.teamBattleLeague ||
+    settings.team_battle_league ||
+    metadata.teamBattleLeague ||
+    metadata.team_battle_league
+  );
+}
+
 function sbwBuildRegistrationViewState(tournament, registrationOpen) {
   const availability = sbwGetRegistrationAvailability(tournament);
   const supabaseMode = isSupabaseRegistrationReady();
@@ -4054,6 +4084,19 @@ function sbwBuildRegistrationViewState(tournament, registrationOpen) {
   const alreadyRegistered = supabaseMode
     ? Boolean(sbwCurrentDetailRegistration)
     : localAlreadyRegistered;
+
+  if (sbwIsTeamBattleLeagueRegistrationTournament(tournament)) {
+    return {
+      availability,
+      supabaseMode,
+      alreadyRegistered: false,
+      title: "Inscrição por equipe",
+      description: "Este formato usa inscrição por equipe. O capitão ou gestor autorizado deve inscrever uma equipe real da plataforma -SBW- e selecionar 4 membros da própria equipe.",
+      notice: "Team Battle League 4v4 não aceita inscrição individual nem mistura jogadores de equipes diferentes. A etapa própria de inscrição por equipe será usada para este formato.",
+      buttonLabel: "Inscrição por equipe",
+      disabled: true
+    };
+  }
 
   if (!registrationOpen) {
     return {
@@ -4429,7 +4472,10 @@ function sbwRenderRulesPublicPanel(tournament) {
 function renderRegistrationPanel(tournament, registrationState, availability) {
   const maxLabel = availability.maxParticipants ? availability.maxParticipants : "∞";
   const checkInLabel = tournament.checkInTime || tournament.checkinStartsAt || tournament.checkin || "A definir";
-  const checkInOpen = registrationState.alreadyRegistered && sbwIsCheckInOpen(tournament);
+  const checkInAlreadyConfirmed = sbwCurrentDetailRegistration
+    ? sbwGetCheckInStatusInfo(sbwCurrentDetailRegistration).className === "checked-in"
+    : false;
+  const checkInOpen = registrationState.alreadyRegistered && sbwIsCheckInOpen(tournament) && !checkInAlreadyConfirmed;
   const accountLabel = registrationState.supabaseMode
     ? (registrationState.requiresLogin ? "Login obrigatório" : "Conta conectada")
     : "Modo demonstração";
@@ -4570,6 +4616,11 @@ async function handleTournamentRegistration(tournamentId) {
     return;
   }
 
+  if (sbwIsTeamBattleLeagueRegistrationTournament(tournament)) {
+    alert("Team Battle League 4v4 usa inscrição por equipe. O capitão ou gestor autorizado deve inscrever uma equipe real com 4 membros da própria equipe.");
+    return;
+  }
+
   if (!isOpenForRegistration(tournament)) {
     alert("As inscrições deste torneio não estão abertas neste momento.");
     return;
@@ -4652,6 +4703,94 @@ async function handleTournamentRegistration(tournamentId) {
   alert("Inscrição simulada registrada. Ative Supabase/Auth para inscrição real.");
 
   renderTournament(tournament);
+}
+
+async function handleTournamentCheckIn(tournamentId) {
+  if (sbwCurrentDetailRegistrationBusy) {
+    return;
+  }
+
+  const tournament =
+    findTournamentById(tournamentId) ||
+    (
+      sbwCurrentDetailTournament &&
+      String(sbwCurrentDetailTournament.id) === String(tournamentId)
+        ? sbwCurrentDetailTournament
+        : null
+    );
+
+  if (!tournament) {
+    alert("Torneio não encontrado.");
+    return;
+  }
+
+  if (!sbwIsCheckInOpen(tournament)) {
+    alert("O check-in deste torneio não está aberto neste momento.");
+    return;
+  }
+
+  if (!isSupabaseRegistrationReady()) {
+    alert("Check-in real exige Supabase/Auth ativo.");
+    return;
+  }
+
+  if (!window.SBWAuth || typeof window.SBWAuth.getUser !== "function") {
+    window.location.href = getLoginUrlForCurrentPage();
+    return;
+  }
+
+  sbwCurrentDetailRegistrationBusy = true;
+
+  try {
+    sbwCurrentDetailAuthUser = await window.SBWAuth.getUser();
+
+    if (!sbwCurrentDetailAuthUser) {
+      window.location.href = getLoginUrlForCurrentPage();
+      return;
+    }
+
+    if (typeof sbwCheckInTournamentParticipantAsync !== "function") {
+      alert("Função de check-in Supabase não encontrada. Rode o SQL da v1.6.76.14 e atualize os arquivos do patch.");
+      return;
+    }
+
+    const result = await sbwCheckInTournamentParticipantAsync(tournament, {
+      authUser: sbwCurrentDetailAuthUser
+    });
+
+    if (!result.success) {
+      if (result.requiresLogin) {
+        window.location.href = getLoginUrlForCurrentPage();
+        return;
+      }
+
+      alert(result.message || "Não foi possível confirmar o check-in.");
+      return;
+    }
+
+    const registration = result.registration || result.participant || null;
+
+    if (registration) {
+      sbwCurrentDetailRegistration = registration;
+      const participants = Array.isArray(tournament.participants) ? [...tournament.participants] : [];
+      const registrationKey = String(registration.participantId || registration.id || registration.authUserId || "");
+      const nextParticipants = participants.map((participant) => {
+        const key = String(participant.participantId || participant.id || participant.authUserId || "");
+        return key && key === registrationKey ? registration : participant;
+      });
+
+      if (!nextParticipants.some((participant) => String(participant.participantId || participant.id || participant.authUserId || "") === registrationKey)) {
+        nextParticipants.push(registration);
+      }
+
+      tournament.participants = nextParticipants;
+    }
+
+    alert(result.message || "Check-in confirmado com sucesso.");
+    renderTournament(tournament);
+  } finally {
+    sbwCurrentDetailRegistrationBusy = false;
+  }
 }
 
 function sbwGetTournamentDetailView() {
@@ -6102,7 +6241,7 @@ function renderTournament(tournament) {
 
     if (action === "tournament-checkin") {
       event.preventDefault();
-      alert("Check-in público preparado. A confirmação real será ativada quando a janela de check-in e a regra de atualização do Supabase estiverem configuradas para jogadores.");
+      handleTournamentCheckIn(button.dataset.tournamentId);
     }
   });
 

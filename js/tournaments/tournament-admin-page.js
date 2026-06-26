@@ -1344,6 +1344,10 @@ async function initAccessControl() {
         return false;
       }
 
+      if (!validateTournamentWindows()) {
+        return false;
+      }
+
       return true;
     }
 
@@ -1405,6 +1409,43 @@ async function initAccessControl() {
       };
     }
 
+    function buildOptionalDateTimeValue(dateId, timeId) {
+      const dateValue = String(document.getElementById(dateId)?.value || "").trim();
+      const timeValue = String(document.getElementById(timeId)?.value || "").trim();
+
+      if (!dateValue) {
+        return "";
+      }
+
+      return `${dateValue}T${timeValue || "00:00"}:00`;
+    }
+
+    function validateTournamentWindows() {
+      const registrationOpensAt = buildOptionalDateTimeValue("registrationOpensDate", "registrationOpensTime");
+      const registrationClosesAt = buildOptionalDateTimeValue("registrationClosesDate", "registrationClosesTime");
+      const checkinStartsAt = buildOptionalDateTimeValue("checkinStartsDate", "checkinStartsTime");
+      const checkinEndsAt = buildOptionalDateTimeValue("checkinEndsDate", "checkinEndsTime");
+
+      const pairs = [
+        [registrationOpensAt, registrationClosesAt, "A abertura das inscrições precisa ser antes do fechamento."],
+        [checkinStartsAt, checkinEndsAt, "A abertura do check-in precisa ser antes do fechamento."]
+      ];
+
+      for (const [start, end, message] of pairs) {
+        if (start && end && new Date(start).getTime() >= new Date(end).getTime()) {
+          alert(message);
+          return false;
+        }
+      }
+
+      if (registrationClosesAt && checkinStartsAt && new Date(registrationClosesAt).getTime() > new Date(checkinStartsAt).getTime()) {
+        alert("O check-in deve abrir no mesmo momento ou depois do fechamento das inscrições.");
+        return false;
+      }
+
+      return true;
+    }
+
     function createTournamentObject() {
       const title = document.getElementById("title").value.trim();
       const game = document.getElementById("game").value.trim();
@@ -1423,6 +1464,10 @@ async function initAccessControl() {
       });
       const tournamentCapacity = getTournamentCapacityFromInput(format);
       const isTeamBattleLeagueTournament = isTeamBattleLeague4v4Format(format);
+      const registrationOpensAt = buildOptionalDateTimeValue("registrationOpensDate", "registrationOpensTime");
+      const registrationClosesAt = buildOptionalDateTimeValue("registrationClosesDate", "registrationClosesTime");
+      const checkinStartsAt = buildOptionalDateTimeValue("checkinStartsDate", "checkinStartsTime");
+      const checkinEndsAt = buildOptionalDateTimeValue("checkinEndsDate", "checkinEndsTime");
 
       return {
         id: `sbw-${Date.now()}`,
@@ -1454,8 +1499,19 @@ async function initAccessControl() {
         schedule: {
           startDate: document.getElementById("startDate").value,
           startTime: document.getElementById("startTime").value,
-          checkin: "required"
+          checkin: "required",
+          registrationOpensAt,
+          registrationClosesAt,
+          checkinStartsAt,
+          checkinEndsAt
         },
+
+        registrationOpensAt,
+        registrationClosesAt,
+        checkinStartsAt,
+        checkInStartsAt: checkinStartsAt,
+        checkinEndsAt,
+        checkInEndsAt: checkinEndsAt,
 
         settings: {
           maxPlayers: tournamentCapacity,
@@ -1479,6 +1535,12 @@ async function initAccessControl() {
           } : {}),
           matchFormat: matchPhaseRules.defaultFormat,
           checkInRequired: true,
+          registrationOpensAt,
+          registrationClosesAt,
+          checkinStartsAt,
+          checkInStartsAt: checkinStartsAt,
+          checkinEndsAt,
+          checkInEndsAt: checkinEndsAt,
           phaseRules: matchPhaseRules,
           matchPhaseRules,
           formatFamily: formatDefinition.family,
@@ -1511,6 +1573,15 @@ async function initAccessControl() {
             value: tournamentCapacity,
             unit: isTeamBattleLeagueTournament ? "teams" : "participants",
             evenOnly: true
+          },
+          registration: {
+            opensAt: registrationOpensAt,
+            closesAt: registrationClosesAt
+          },
+          checkin: {
+            startsAt: checkinStartsAt,
+            endsAt: checkinEndsAt,
+            required: true
           },
           ...(isTeamBattleLeagueTournament ? {
             matchScheduling: teamBattleLeagueDraft?.metadata?.matchScheduling || teamBattleLeagueDraft?.settings?.matchScheduling || {

@@ -171,6 +171,26 @@
                 <small id="organizerTournamentEditMaxNote" class="organizer-admin-field-note">Use capacidade em número par. Se o torneio terminar com número ímpar de inscritos reais, a bracket usa bye/encaixe normalmente.</small>
               </div>
 
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditRegistrationOpens">Abertura das inscrições</label>
+                <input id="organizerTournamentEditRegistrationOpens" type="datetime-local">
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditRegistrationCloses">Fechamento das inscrições</label>
+                <input id="organizerTournamentEditRegistrationCloses" type="datetime-local">
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditCheckinStarts">Abertura do check-in</label>
+                <input id="organizerTournamentEditCheckinStarts" type="datetime-local">
+              </div>
+
+              <div class="organizer-admin-field">
+                <label for="organizerTournamentEditCheckinEnds">Fechamento do check-in</label>
+                <input id="organizerTournamentEditCheckinEnds" type="datetime-local">
+              </div>
+
               <div class="organizer-admin-field organizer-admin-field--wide">
                 <label>Capa/banner do torneio</label>
                 <input id="organizerTournamentEditCover" type="hidden">
@@ -344,38 +364,6 @@
             </form>
 
             <div id="organizerTeamBattleResultsMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
-          </section>
-
-
-          <section id="organizerTeamBattlePlayoffsPanel" class="organizer-admin-team-battle-playoffs-panel" hidden>
-            <div class="organizer-admin-edit-form-head organizer-admin-participants-head">
-              <div>
-                <span class="organizer-admin-eyebrow">Playoffs 4v4</span>
-                <h3 id="organizerTeamBattlePlayoffsTitle">Playoffs do Team Battle League 4v4</h3>
-                <p id="organizerTeamBattlePlayoffsMeta">Libere a escada -SBW- a partir do Top 4 real da Divisão Única.</p>
-              </div>
-              <button id="organizerTeamBattlePlayoffsClose" class="organizer-admin-small-link" type="button">Fechar</button>
-            </div>
-
-            <div class="organizer-admin-participants-toolbar organizer-admin-team-battle-playoffs-toolbar">
-              <p>Os playoffs só devem ser liberados depois que todos os confrontos reais da fase classificatória estiverem finalizados. O sistema usa o Top 4 real, sem equipe fake/demo.</p>
-              <a id="organizerTeamBattlePlayoffsPublicLink" class="organizer-admin-small-link" href="#" target="_blank" rel="noopener noreferrer">Ver página pública</a>
-            </div>
-
-            <form id="organizerTeamBattlePlayoffsForm" class="organizer-admin-team-battle-playoffs-form">
-              <div id="organizerTeamBattlePlayoffsList" class="organizer-admin-team-battle-playoffs-list">
-                <div class="organizer-admin-empty-row">Selecione um torneio Team Battle League 4v4 para liberar playoffs.</div>
-              </div>
-
-              <div class="organizer-admin-edit-actions organizer-admin-team-battle-playoffs-actions">
-                <button id="organizerTeamBattlePlayoffsSave" class="organizer-admin-action-btn organizer-admin-action-btn--cyan" type="submit">
-                  <i class="fa-solid fa-trophy"></i>
-                  Liberar playoffs -SBW-
-                </button>
-              </div>
-            </form>
-
-            <div id="organizerTeamBattlePlayoffsMessage" class="organizer-admin-inline-message" aria-live="polite"></div>
           </section>
         </article>
 
@@ -793,8 +781,8 @@
   <script src="../js/tournaments/tournaments-models.js"></script>
   <script src="../js/tournaments/tournament-formats.js?v=1.6.76.0"></script>
   <script src="../js/tournaments/team-battle-league.js?v=1.6.76.3"></script>
-  <script src="../js/tournaments/tournaments-storage.js"></script>
-  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.76.0"></script>
+  <script src="../js/tournaments/tournaments-storage.js?v=1.6.76.14"></script>
+  <script src="../js/tournaments/tournament-organizer-admin-page.js?v=1.6.76.14"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
