@@ -1377,3 +1377,73 @@ body.sbw-has-sidebar :where(
   place-items: center;
   color: var(--sbw-cyan);
 }
+
+/* v1.6.79.3 — Hotfix: conta da sidebar em largura correta */
+.sbw-sidebar__top.sbw-sidebar__top--account-only {
+  display: block !important;
+  grid-template-columns: none !important;
+  width: 100% !important;
+  min-height: auto !important;
+  margin: 0 0 14px !important;
+  padding: 0 !important;
+}
+
+.sbw-sidebar__top--account-only .sbw-sidebar__account,
+.sbw-sidebar__top--account-only .sbw-sidebar__account--top {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.sbw-sidebar__top--account-only .sbw-account-compact {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.sbw-sidebar__top--account-only .sbw-account-compact__button {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 38px minmax(0, 1fr) 18px !important;
+  align-items: center !important;
+  gap: 9px !important;
+  min-height: 52px !important;
+  padding: 7px 9px !important;
+}
+
+.sbw-sidebar__top--account-only .sbw-account-compact__name {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.sbw-sidebar__top--account-only .sbw-account-card__avatar,
+.sbw-sidebar__top--account-only .sbw-account-card__avatar--image {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  flex: 0 0 38px !important;
+  overflow: hidden !important;
+}
+
+.sbw-sidebar__top--account-only .sbw-account-admin-shortcut {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 22px minmax(0, 1fr) !important;
+  align-items: center !important;
+  margin: 7px 0 0 !important;
+}
+
+.sbw-sidebar__top--account-only .sbw-account-dropdown {
+  width: 100% !important;
+}

@@ -578,8 +578,53 @@
 
   function getFilteredTeams() {
     const query = getCurrentTeamQuery();
-    const filteredByQuery = state.teams.filter((team) => matchesTeam(team, query));
+    const filteredByQuery = state.teams
+      .filter((team) => !isTeamDeleted(team) || state.teamLetterFilter || query.trim())
+      .filter((team) => matchesTeam(team, query));
     return applyLetterFilter(filteredByQuery, state.teamLetterFilter, getTeamInitialLetter);
+  }
+
+  function isTournamentDeletedForAdmin(tournament) {
+    const status = getTournamentStatusValue(tournament);
+    const metadata = asObject(tournament?.metadata);
+
+    return (
+      ["deleted", "removed"].includes(status) ||
+      metadata.adminDeleted === true ||
+      metadata.admin_deleted === true
+    );
+  }
+
+  function matchesAdminKey(item, key, keys = []) {
+    const safeKey = String(key || "").trim();
+    if (!safeKey) return false;
+
+    return keys
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .includes(safeKey);
+  }
+
+  function removeTournamentFromStateByKey(key) {
+    state.tournaments = (state.tournaments || []).filter((item) => {
+      return !matchesAdminKey(item, key, [
+        getTournamentDatabaseKey(item),
+        getTournamentKey(item),
+        item?.slug,
+        item?.supabaseId,
+        item?.id
+      ]);
+    });
+  }
+
+  function removeTeamFromStateByKey(key) {
+    state.teams = (state.teams || []).filter((item) => {
+      return !matchesAdminKey(item, key, [
+        getTeamKey(item),
+        item?.slug,
+        item?.id
+      ]);
+    });
   }
 
   function getListLimit(isExpanded, defaultLimit) {
@@ -587,6 +632,13 @@
   }
 
   function renderProfilesList() {
+    const query = getCurrentProfileQuery().trim();
+
+    if (!state.profileListExpanded && !state.profileLetterFilter && !query) {
+      resetProfileResults();
+      return;
+    }
+
     renderProfileResults(sortProfilesByName(getFilteredProfiles()), {
       limit: getListLimit(state.profileListExpanded, 40)
     });
@@ -594,6 +646,13 @@
   }
 
   function renderTeamsList() {
+    const query = getCurrentTeamQuery().trim();
+
+    if (!state.teamListExpanded && !state.teamLetterFilter && !query) {
+      resetTeamResults();
+      return;
+    }
+
     renderTeamResults(sortTeamsByName(getFilteredTeams()), {
       limit: getListLimit(state.teamListExpanded, 60)
     });
@@ -1067,9 +1126,11 @@
     });
 
     state.profiles = sortProfilesByName(Array.from(profilesByKey.values()));
-    state.teams = sortTeamsByName(teams);
+    state.teams = sortTeamsByName(Array.isArray(teams) ? teams.filter((team) => !isTeamDeleted(team)) : []);
     state.tournaments = Array.isArray(tournaments)
-      ? tournaments.sort((a, b) => String(b.createdAt || b.startsAt || "").localeCompare(String(a.createdAt || a.startsAt || "")))
+      ? tournaments
+          .filter((tournament) => !isTournamentDeletedForAdmin(tournament))
+          .sort((a, b) => String(b.createdAt || b.startsAt || "").localeCompare(String(a.createdAt || a.startsAt || "")))
       : [];
 
     renderStats(organizerCount);
@@ -1365,6 +1426,11 @@
 
     return (state.tournaments || []).filter((tournament) => {
       const bucket = getTournamentStatusBucket(tournament);
+      const deleted = isTournamentDeletedForAdmin(tournament);
+
+      if (deleted && statusFilter !== "archived") {
+        return false;
+      }
 
       if (statusFilter && bucket !== statusFilter) {
         return false;
@@ -1393,9 +1459,13 @@
     const root = $("#sbwAdminTournamentResults");
     if (!root) return;
 
+    if (!state.tournamentListExpanded && !state.tournamentSearchQuery && !state.tournamentStatusFilter) {
+      resetTournamentResults();
+      return;
+    }
+
     const filtered = getFilteredAdminTournaments();
-    const shouldLimit = !state.tournamentListExpanded && !state.tournamentSearchQuery && !state.tournamentStatusFilter;
-    renderTournamentResults(filtered, { limit: shouldLimit ? 30 : 0 });
+    renderTournamentResults(filtered, { limit: 0 });
     updateListControls();
   }
 
@@ -1550,7 +1620,7 @@
       nextStatus = "archived";
       nextVisibility = "private";
     } else if (safeAction === "delete") {
-      nextStatus = "deleted";
+      nextStatus = "archived";
       nextVisibility = "private";
     }
 
@@ -1641,17 +1711,30 @@
 
       const result = data && typeof data === "object" ? data : {};
       addLog(result.message || `Ação ${safeAction} executada no torneio ${name || safeKey}.`);
-      await refreshData();
-      renderTournamentsList();
+
+      if (safeAction === "delete") {
+        removeTournamentFromStateByKey(safeKey);
+        renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
+        renderTournamentsList();
+      } else {
+        await refreshData();
+        renderTournamentsList();
+      }
     } catch (error) {
       console.warn("[SBW Admin] Falha na ação administrativa do torneio:", error);
 
       const fallbackSaved = await directUpdateTournamentAdminAction(tournament, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.2 para manter a RPC como caminho principal.`, "warning");
-        await refreshData();
-        renderTournamentsList();
+        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.3 para manter a RPC como caminho principal.`, "warning");
+        if (safeAction === "delete") {
+          removeTournamentFromStateByKey(safeKey);
+          renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
+          renderTournamentsList();
+        } else {
+          await refreshData();
+          renderTournamentsList();
+        }
         return;
       }
 
@@ -2023,7 +2106,7 @@
       is_verified: false,
       verification_status: "not_verified",
       member_limit: 50,
-      status: "deleted",
+      status: "inactive",
       metadata: buildAdminActionMetadata(team?.metadata, safeAction, { status: previousStatus, visibility: previousVisibility, active: previousActive }, "Ação executada pelo Admin Master na central de equipes."),
       updated_at: new Date().toISOString()
     };
@@ -2097,17 +2180,30 @@
 
       const result = data && typeof data === "object" ? data : {};
       addLog(result.message || `Ação ${safeAction} executada na equipe ${name || safeKey}.`);
-      await refreshData();
-      renderTeamsList();
+
+      if (safeAction === "delete") {
+        removeTeamFromStateByKey(safeKey);
+        renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
+        renderTeamsList();
+      } else {
+        await refreshData();
+        renderTeamsList();
+      }
     } catch (error) {
       console.warn("[SBW Admin] Falha na ação administrativa da equipe:", error);
 
       const fallbackSaved = await directUpdateTeamAdminAction(team, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.2 para manter a RPC como caminho principal.`, "warning");
-        await refreshData();
-        renderTeamsList();
+        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.3 para manter a RPC como caminho principal.`, "warning");
+        if (safeAction === "delete") {
+          removeTeamFromStateByKey(safeKey);
+          renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
+          renderTeamsList();
+        } else {
+          await refreshData();
+          renderTeamsList();
+        }
         return;
       }
 
@@ -2224,7 +2320,7 @@
           const form = $("[data-sbw-admin-profile-search]");
           if (form?.query) form.query.value = "";
           renderAlphaFilters();
-          renderProfilesList();
+          resetProfileResults();
           addLog("Lista de perfis recolhida para a visualização inicial.");
         }
 
@@ -2257,7 +2353,7 @@
           const form = $("[data-sbw-admin-tournament-search]");
           if (form?.query) form.query.value = "";
           updateTournamentFilterButtons();
-          renderTournamentsList();
+          resetTournamentResults();
           addLog("Lista global de torneios recolhida para a visualização inicial.");
         }
 
@@ -2290,7 +2386,7 @@
           const form = $("[data-sbw-admin-team-search]");
           if (form?.query) form.query.value = "";
           renderAlphaFilters();
-          renderTeamsList();
+          resetTeamResults();
           addLog("Lista de equipes recolhida para a visualização inicial.");
         }
 
