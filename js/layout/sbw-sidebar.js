@@ -212,80 +212,69 @@
     }
   }
 
+  async function getSidebarContextViaRpc(client) {
+    if (!client?.rpc) return null;
+
+    try {
+      const result = await client.rpc("sbw_get_sidebar_context");
+      if (result?.error || !result?.data) return null;
+
+      const data = result.data && typeof result.data === "object" ? result.data : {};
+      const profile = data.profile && typeof data.profile === "object" ? data.profile : null;
+      const userData = data.user && typeof data.user === "object" ? data.user : null;
+      const permissions = mergePermissionObjects(
+        asObject(profile?.permissions || profile?.metadata?.permissions),
+        asObject(data.permissions),
+        data.canAdmin === true || data.can_admin === true ? { isAdminSbw: true, canManagePermissions: true } : null
+      );
+
+      return {
+        profile,
+        userData,
+        displayName:
+          profile?.display_name ||
+          profile?.displayName ||
+          profile?.nickname ||
+          profile?.username ||
+          userData?.display_name ||
+          userData?.name ||
+          "",
+        email: data.email || userData?.email || "",
+        avatarUrl: getAvatarUrlFromProfile(profile, userData),
+        permissions
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
   async function buildFallbackContextFromSupabase(user) {
     if (!user) return null;
 
     const client = await waitForSupabaseClient();
-    const table = window.SBWSupabaseConfig?.tables?.profiles || "profiles";
-    let profile = null;
-    let sitePermission = null;
+    const rpcContext = await getSidebarContextViaRpc(client);
     const adminAllowedByRpc = await canManageAdminViaRpc(client);
 
-    if (client?.from) {
-      try {
-        const profileFilters = [
-          user.id ? `auth_user_id.eq.${user.id}` : "",
-          user.id ? `id.eq.${user.id}` : "",
-          user.email ? `email.eq.${user.email}` : ""
-        ].filter(Boolean).join(",");
-
-        if (profileFilters) {
-          const profileResult = await client
-            .from(table)
-            .select("*")
-            .or(profileFilters)
-            .limit(1)
-            .maybeSingle();
-
-          if (!profileResult.error && profileResult.data) {
-            profile = profileResult.data;
-          }
-        }
-      } catch (error) {
-        console.warn("[SBW Sidebar] Fallback de perfil indisponível:", error);
-      }
-
-      try {
-        const permissionFilters = [
-          user.id ? `auth_user_id.eq.${user.id}` : "",
-          user.id ? `user_id.eq.${user.id}` : "",
-          profile?.id ? `profile_id.eq.${profile.id}` : "",
-          profile?.slug ? `profile_slug.eq.${profile.slug}` : ""
-        ].filter(Boolean).join(",");
-
-        if (!permissionFilters) {
-          throw new Error("Sem filtros suficientes para site_permissions.");
-        }
-
-        const permissionResult = await client
-          .from("site_permissions")
-          .select("*")
-          .or(permissionFilters)
-          .limit(20);
-
-        if (!permissionResult.error && Array.isArray(permissionResult.data) && permissionResult.data.length) {
-          sitePermission = permissionResult.data.find((row) => {
-            const status = String(row?.status || row?.state || "active").toLowerCase();
-            return !["inactive", "disabled", "revoked", "blocked"].includes(status);
-          }) || permissionResult.data[0];
-        }
-      } catch (error) {
-        // site_permissions pode não estar exposta em algumas páginas; o perfil ainda é suficiente em muitos casos.
-      }
-    }
-
+    const profile = rpcContext?.profile || null;
+    const mergedUser = Object.assign({}, rpcContext?.userData || {}, user || {});
     const permissions = mergePermissionObjects(
       asObject(profile?.permissions || profile?.metadata?.permissions),
-      sitePermission,
+      rpcContext?.permissions,
       adminAllowedByRpc ? { isAdminSbw: true, canManagePermissions: true } : null
     );
 
     return {
-      user,
+      user: mergedUser,
       profile,
-      displayName: profile ? (profile.display_name || profile.displayName || profile.nickname || profile.username || getDisplayNameFromUser(user)) : getDisplayNameFromUser(user),
-      avatarUrl: getAvatarUrlFromProfile(profile, user),
-      email: user.email || "",
+      displayName:
+        rpcContext?.displayName ||
+        profile?.display_name ||
+        profile?.displayName ||
+        profile?.nickname ||
+        profile?.username ||
+        getDisplayNameFromUser(user),
+      avatarUrl: rpcContext?.avatarUrl || getAvatarUrlFromProfile(profile, user),
+      email: user.email || rpcContext?.email || "",
       permissions
     };
   }

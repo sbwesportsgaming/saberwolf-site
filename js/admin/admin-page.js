@@ -1758,7 +1758,7 @@
       const fallbackSaved = await directUpdateTournamentAdminAction(tournament, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.6 para manter a RPC como caminho principal.`, "warning");
+        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.8 para manter a RPC como caminho principal.`, "warning");
         if (safeAction === "delete") {
           removeTournamentFromStateByKey(safeKey);
           renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
@@ -2131,7 +2131,7 @@
     const table = getTable("teams", "teams");
     const previousStatus = getTeamStatusValue(team || {});
     const previousVisibility = team?.isPublic !== false && team?.is_public !== false;
-    const previousActive = team?.isActive !== false && team?.is_active !== false;
+    const previousActive = getTeamStatusValue(team || {}) !== "archived";
 
     const attempts = [];
     if (team?.id) attempts.push(["id", team.id]);
@@ -2163,7 +2163,6 @@
     }
 
     const patch = {
-      is_active: false,
       is_public: false,
       status: "archived",
       metadata: buildAdminActionMetadata(team?.metadata, safeAction, { status: previousStatus, visibility: previousVisibility, active: previousActive }, "Ação executada pelo Admin Master na central de equipes."),
@@ -2205,12 +2204,16 @@
     const team = getTeamByKey(safeKey);
     const name = getTeamName(team || {});
     const labels = {
-      delete: "excluir do painel"
+      archive: "arquivar",
+      delete: "excluir definitivamente"
     };
 
+    const actionWarning = safeAction === "delete"
+      ? "Esta ação remove a equipe definitivamente do banco de dados. Use apenas para equipes demo/teste ou cadastros criados por engano."
+      : "Esta ação arquiva a equipe: ela some das áreas públicas e dos organizadores, mas o histórico é preservado.";
+
     const shouldRun = window.confirm(
-      `Atenção: deseja ${labels[safeAction] || safeAction} a equipe “${name || safeKey}”?\n\n` +
-      "Esta é uma exclusão administrativa segura: a equipe fica privada/inativa e o histórico é preservado."
+      `Atenção: deseja ${labels[safeAction] || safeAction} a equipe “${name || safeKey}”?\n\n${actionWarning}`
     );
 
     if (!shouldRun) return;
@@ -2246,7 +2249,7 @@
       const fallbackSaved = await directUpdateTeamAdminAction(team, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.6 para manter a RPC como caminho principal.`, "warning");
+        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.8 para manter a RPC como caminho principal.`, "warning");
         if (safeAction === "delete") {
           removeTeamFromStateByKey(safeKey);
           renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
@@ -2258,7 +2261,7 @@
         return;
       }
 
-      addLog(error.message || "Não foi possível executar a ação administrativa na equipe. Rode o SQL da v1.6.79.6 no Supabase e confira a permissão Admin Master.", "error");
+      addLog(error.message || "Não foi possível executar a ação administrativa na equipe. Rode o SQL da v1.6.79.8 no Supabase e confira a permissão Admin Master.", "error");
     }
   }
 
