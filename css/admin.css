@@ -819,3 +819,12 @@ body.sbw-has-sidebar .sbw-admin-page {
 .sbw-admin-result-card .sbw-admin-result-main {
   align-items: center;
 }
+
+/* v1.6.80.1 — gestão administrativa de Organizações de Torneios */
+.sbw-admin-card--stacked {
+  margin-top: 1.25rem;
+}
+
+.sbw-admin-organizer-entity-card .sbw-admin-actions {
+  flex-wrap: wrap;
+}

@@ -377,12 +377,6 @@ async function sbwRenderTournamentOrganizers(tournaments = []) {
     return;
   }
 
-  sbwTournamentOrganizersGrid.innerHTML = `
-    <div class="empty-tournament-state">
-      Carregando organizadores...
-    </div>
-  `;
-
   let organizers = [];
 
   try {
@@ -394,30 +388,16 @@ async function sbwRenderTournamentOrganizers(tournaments = []) {
     organizers = [];
   }
 
-  const organizersWithTournaments = Array.isArray(organizers)
-    ? organizers
-      .map((organizer) => ({
-        organizer,
-        count: sbwCountTournamentsByOrganizer(organizer, tournaments)
-      }))
-      .sort((a, b) => b.count - a.count)
-    : [];
+  const activeOrganizers = Array.isArray(organizers) ? organizers : [];
 
-  if (organizersWithTournaments.length === 0) {
-    sbwTournamentOrganizersGrid.innerHTML = `
-      <div class="empty-tournament-state">
-        Nenhum organizador publicado foi encontrado ainda.
-      </div>
-    `;
-  } else {
-    sbwTournamentOrganizersGrid.innerHTML = organizersWithTournaments
-      .slice(0, 6)
-      .map((entry) => sbwRenderTournamentOrganizerCard(entry.organizer, tournaments))
-      .join("");
-  }
+  sbwTournamentOrganizersGrid.innerHTML = `
+    <a class="sbw-tournaments-mini-link sbw-tournaments-mini-link--wide" href="../organizadores/organizadores.html">
+      Ver Organizadores de Torneios
+    </a>
+  `;
 
   if (sbwTournamentOrganizerCount) {
-    sbwTournamentOrganizerCount.textContent = String(organizersWithTournaments.length);
+    sbwTournamentOrganizerCount.textContent = String(activeOrganizers.length);
   }
 }
 
@@ -1356,6 +1336,48 @@ function sbwRegisterTournamentFilterEvents() {
 }
 
 
+function sbwOrganizerMatchesCurrentContext(organizer, context) {
+  if (!organizer || !context?.user) return false;
+
+  const raw = organizer.raw && typeof organizer.raw === "object" ? organizer.raw : {};
+  const metadata = organizer.metadata && typeof organizer.metadata === "object" ? organizer.metadata : {};
+  const userId = String(context.user.id || "").trim();
+  const email = String(context.user.email || "").trim().toLowerCase();
+  const profile = context.profile || {};
+  const profileId = String(profile.id || "").trim();
+  const profileSlug = String(profile.slug || profile.username || "").trim().toLowerCase();
+
+  const values = [
+    raw.owner_auth_user_id, raw.auth_user_id, raw.created_by_auth_user_id, raw.created_by_user_id, raw.user_id, raw.owner_user_id,
+    raw.owner_profile_id, raw.profile_id, raw.created_by_profile_id,
+    metadata.ownerAuthUserId, metadata.owner_auth_user_id, metadata.createdByAuthUserId, metadata.created_by_auth_user_id,
+    metadata.ownerProfileId, metadata.owner_profile_id, metadata.createdByProfileId, metadata.created_by_profile_id,
+    metadata.createdByProfileSlug, metadata.created_by_profile_slug, metadata.ownerProfileSlug, metadata.owner_profile_slug,
+    raw.owner_email, raw.email, metadata.ownerEmail, metadata.owner_email
+  ].map((value) => String(value || "").trim());
+
+  if (userId && values.includes(userId)) return true;
+  if (profileId && values.includes(profileId)) return true;
+  if (profileSlug && values.map((value) => value.toLowerCase()).includes(profileSlug)) return true;
+  if (email && values.map((value) => value.toLowerCase()).includes(email)) return true;
+
+  return false;
+}
+
+async function sbwFindCurrentUserTournamentOrganizer(context) {
+  if (!context?.user || typeof sbwGetAllTournamentOrganizersAsync !== "function") {
+    return null;
+  }
+
+  try {
+    const organizers = await sbwGetAllTournamentOrganizersAsync();
+    return (Array.isArray(organizers) ? organizers : []).find((organizer) => sbwOrganizerMatchesCurrentContext(organizer, context)) || null;
+  } catch (error) {
+    console.warn("[SBW Torneios] Não foi possível localizar organização da conta atual:", error);
+    return null;
+  }
+}
+
 async function sbwRenderTournamentOrganizerCreatorGate() {
   const card = document.getElementById("tournamentOrganizerCreatorCard");
   const body = document.getElementById("tournamentOrganizerCreatorBody");
@@ -1373,30 +1395,34 @@ async function sbwRenderTournamentOrganizerCreatorGate() {
     const context = await window.SBWSessionContext.getCurrentContext();
 
     if (!context?.user) {
-      card.hidden = false;
-      body.innerHTML = `
-        <p>Quer criar torneios pela plataforma?</p>
-        <small>Entre na sua conta -SBW- e solicite liberação para criar uma Organização de Torneios.</small>
-        <a class="sbw-tournaments-mini-link" href="${sbwSafeEscape(window.SBWRoutes?.login ? window.SBWRoutes.login(window.location.href) : "../auth/login.html")}">Entrar</a>
-      `;
+      card.hidden = true;
       return;
     }
 
     if (context.canCreateTournamentOrganizer) {
+      const ownOrganizer = await sbwFindCurrentUserTournamentOrganizer(context);
+      const organizerSlug = ownOrganizer?.slug || ownOrganizer?.id || "";
+
       card.hidden = false;
+
+      if (ownOrganizer && organizerSlug) {
+        body.innerHTML = `
+          <p>Sua Organização de Torneios já está criada.</p>
+          <small>Acesse o painel para editar perfil, criar torneios e acompanhar inscrições.</small>
+          <a class="sbw-tournaments-mini-link" href="editar-organizador.html?slug=${encodeURIComponent(organizerSlug)}">Minha organização</a>
+        `;
+        return;
+      }
+
       body.innerHTML = `
         <p>Sua conta está liberada para criar uma Organização de Torneios.</p>
-        <small>A criação real entra na próxima etapa. Esta porta já valida a permissão no Supabase.</small>
+        <small>Crie o perfil organizacional antes de chamar jogadores ou publicar torneios.</small>
         <a class="sbw-tournaments-mini-link" href="editar-organizador.html?novo=1">Criar organização</a>
       `;
       return;
     }
 
-    card.hidden = false;
-    body.innerHTML = `
-      <p>Organizações de Torneios são liberadas pela equipe -SBW-.</p>
-      <small>Usuários SBW comuns podem participar dos torneios; criação de organização precisa de permissão real.</small>
-    `;
+    card.hidden = true;
   } catch (error) {
     console.warn("[SBW Torneios] Não foi possível renderizar porta de organização:", error);
     card.hidden = true;

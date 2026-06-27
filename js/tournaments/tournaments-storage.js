@@ -277,6 +277,25 @@ function sbwNormalizeOrganizerStatus(status) {
   return value || "active";
 }
 
+function sbwIsTournamentOrganizerPubliclyVisible(organizer) {
+  if (!organizer) return false;
+
+  const raw = organizer.raw && typeof organizer.raw === "object" ? organizer.raw : {};
+  const metadata = organizer.metadata && typeof organizer.metadata === "object" ? organizer.metadata : {};
+  const status = sbwNormalizeOrganizerStatus(organizer.status || raw.status || metadata.status);
+
+  return !(
+    ["inactive", "archived", "deleted", "removed", "disabled"].includes(status) ||
+    metadata.adminArchived === true ||
+    metadata.admin_archived === true ||
+    metadata.adminDeleted === true ||
+    metadata.admin_deleted === true ||
+    raw.is_public === false ||
+    raw.public === false ||
+    raw.visibility === "private"
+  );
+}
+
 function sbwGetOrganizerStatusLabel(status) {
   const normalized = sbwNormalizeOrganizerStatus(status);
 
@@ -700,7 +719,9 @@ async function sbwGetSupabaseTournamentOrganizers() {
       return [];
     }
 
-    return data.map(sbwNormalizeSupabaseTournamentOrganizer);
+    return data
+      .map(sbwNormalizeSupabaseTournamentOrganizer)
+      .filter(sbwIsTournamentOrganizerPubliclyVisible);
   } catch (error) {
     console.error("[SaberWolf Supabase] Falha inesperada ao buscar organizadores de torneio:", error);
     return [];

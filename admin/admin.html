@@ -182,6 +182,28 @@
             <p class="sbw-admin-muted">Carregando organizadores autorizados...</p>
           </div>
         </div>
+
+        <div class="sbw-admin-card sbw-admin-card--stacked">
+          <div class="sbw-admin-card__header">
+            <div>
+              <h2>Organizações criadas</h2>
+              <p>Controle administrativo das Organizações de Torneios existentes na plataforma -SBW-.</p>
+            </div>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="refresh-organizer-entities">
+              Atualizar organizações
+            </button>
+          </div>
+
+          <div class="sbw-admin-message sbw-admin-message--warning">
+            <strong>Arquivar</strong> esconde a organização e seus torneios vinculados da área pública e do painel do organizador, preservando histórico.
+            <strong>Excluir definitivo</strong> remove a organização do banco e também remove torneios vinculados. Use somente para teste/demo ou cadastro criado errado.
+          </div>
+
+          <div class="sbw-admin-results" id="sbwAdminOrganizerEntityResults">
+            <p class="sbw-admin-muted">Carregando organizações criadas...</p>
+          </div>
+        </div>
       </section>
 
       <section class="sbw-admin-tab-panel" data-sbw-admin-panel="torneios">
@@ -198,7 +220,7 @@
           </div>
 
           <div class="sbw-admin-message sbw-admin-message--warning">
-            Use esta área para manutenção administrativa. A ação “Excluir do painel” é uma exclusão segura: oculta o torneio, marca como removido e preserva histórico para auditoria.
+            Use esta área para manutenção administrativa. Arquivar oculta o torneio preservando histórico; Excluir definitivo remove o registro do banco.
           </div>
 
           <form class="sbw-admin-search" data-sbw-admin-tournament-search>
@@ -348,7 +370,7 @@
   <script src="../js/core/sbw-session-context.js"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/layout/sbw-sidebar.js"></script>
-  <script src="../js/admin/admin-page.js?v=1.6.54.3"></script>
+  <script src="../js/admin/admin-page.js?v=1.6.80.1"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

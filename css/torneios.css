@@ -3335,3 +3335,11 @@ body.sbw-has-sidebar .sbw-tournaments-hub {
   color: rgba(205, 221, 235, 0.72);
   line-height: 1.6;
 }
+
+/* v1.6.80.1 — CTA simples para Organizadores de Torneios */
+.sbw-tournaments-mini-link--wide {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}

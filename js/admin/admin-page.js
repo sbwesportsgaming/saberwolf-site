@@ -17,7 +17,8 @@
     tournamentStatusFilter: "",
     tournamentSearchQuery: "",
     organizerPermissions: new Map(),
-    organizerPermissionRows: []
+    organizerPermissionRows: [],
+    tournamentOrganizers: []
   };
 
   function $(selector, root = document) {
@@ -379,6 +380,86 @@
     };
   }
 
+
+  function getOrganizerStatusValue(organizer) {
+    const metadata = asObject(organizer?.metadata);
+    return String(
+      organizer?.status ||
+      organizer?.public_status ||
+      metadata.status ||
+      "active"
+    ).trim().toLowerCase().replaceAll("_", "-");
+  }
+
+  function getOrganizerEntityName(organizer) {
+    return (
+      organizer?.name ||
+      organizer?.displayName ||
+      organizer?.display_name ||
+      organizer?.title ||
+      organizer?.organizer_name ||
+      "Organização sem nome"
+    );
+  }
+
+  function getOrganizerEntityKey(organizer) {
+    return String(organizer?.id || organizer?.slug || organizer?.name || "").trim();
+  }
+
+  function getOrganizerEntitySlug(organizer) {
+    return String(organizer?.slug || organizer?.public_slug || organizer?.id || "").trim();
+  }
+
+  function getOrganizerEntityStatusLabel(organizer) {
+    const status = getOrganizerStatusValue(organizer);
+    const labels = {
+      active: "Ativa",
+      approved: "Ativa",
+      published: "Ativa",
+      public: "Ativa",
+      pending: "Em análise",
+      review: "Em análise",
+      inactive: "Inativa",
+      disabled: "Inativa",
+      archived: "Arquivada",
+      deleted: "Removida",
+      removed: "Removida"
+    };
+    return labels[status] || status || "Ativa";
+  }
+
+  function isOrganizerEntityArchivedOrDeleted(organizer) {
+    const status = getOrganizerStatusValue(organizer);
+    const metadata = asObject(organizer?.metadata);
+    return Boolean(
+      ["archived", "deleted", "removed", "inactive", "disabled"].includes(status) ||
+      metadata.adminArchived === true ||
+      metadata.admin_archived === true ||
+      metadata.adminDeleted === true ||
+      metadata.admin_deleted === true
+    );
+  }
+
+  function normalizeOrganizerEntityFromAdminRow(row = {}) {
+    const raw = row && typeof row === "object" ? row : {};
+    const source = raw.organizer && typeof raw.organizer === "object" ? raw.organizer : raw;
+    const metadata = asObject(source.metadata);
+    return {
+      ...source,
+      id: source.id || raw.id || source.organizer_id || raw.organizer_id || "",
+      slug: source.slug || source.public_slug || metadata.slug || "",
+      name: source.name || source.display_name || source.title || source.organizer_name || "Organização sem nome",
+      displayName: source.displayName || source.display_name || source.name || source.organizer_name || "Organização sem nome",
+      tag: source.tag || source.short_tag || source.acronym || metadata.tag || "",
+      status: source.status || source.public_status || metadata.status || "active",
+      logoUrl: source.logoUrl || source.logo_url || source.avatar_url || metadata.logoUrl || metadata.logo_url || "",
+      tournamentCount: Number(raw.tournament_count || raw.tournamentCount || source.tournament_count || source.tournamentCount || 0) || 0,
+      memberCount: Number(raw.member_count || raw.memberCount || source.member_count || source.memberCount || 0) || 0,
+      createdAt: source.created_at || source.createdAt || "",
+      updatedAt: source.updated_at || source.updatedAt || "",
+      metadata
+    };
+  }
   function isVerifiedTeam(team) {
     const metadata = asObject(team?.metadata);
     return Boolean(
@@ -1080,6 +1161,35 @@
     }
   }
 
+
+  async function loadTournamentOrganizersForAdmin() {
+    if (!state.client) return [];
+
+    try {
+      const rpcResult = await state.client.rpc("sbw_admin_list_tournament_organizers");
+
+      if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+        return rpcResult.data.map(normalizeOrganizerEntityFromAdminRow);
+      }
+    } catch (error) {
+      console.warn("[SBW Admin] RPC sbw_admin_list_tournament_organizers indisponível, tentando leitura direta:", error);
+    }
+
+    try {
+      const result = await state.client
+        .from("tournament_organizers")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+
+      if (result.error) throw result.error;
+      return (result.data || []).map(normalizeOrganizerEntityFromAdminRow);
+    } catch (error) {
+      console.warn("[SBW Admin] Falha ao carregar organizações de torneios:", error);
+      return [];
+    }
+  }
+
   function indexOrganizerPermissions(rows = []) {
     const map = new Map();
 
@@ -1106,17 +1216,21 @@
   }
 
   async function refreshData() {
-    const [supabaseProfiles, fallbackProfiles, teams, tournaments, organizerPermissionRows] = await Promise.all([
+    const [supabaseProfiles, fallbackProfiles, teams, tournaments, organizerPermissionRows, tournamentOrganizers] = await Promise.all([
       loadProfilesFromSupabase(),
       loadProfilesFromFallback(),
       loadTeams(),
       loadTournamentsForAdmin(),
-      loadOrganizerPermissions()
+      loadOrganizerPermissions(),
+      loadTournamentOrganizersForAdmin()
     ]);
 
     state.organizerPermissionRows = Array.isArray(organizerPermissionRows) ? organizerPermissionRows : [];
+    state.tournamentOrganizers = Array.isArray(tournamentOrganizers)
+      ? tournamentOrganizers.sort((a, b) => String(getOrganizerEntityName(a)).localeCompare(String(getOrganizerEntityName(b)), "pt-BR"))
+      : [];
     state.organizerPermissions = indexOrganizerPermissions(state.organizerPermissionRows);
-    const organizerCount = countApprovedOrganizerPermissions(state.organizerPermissionRows);
+    const organizerCount = state.tournamentOrganizers.length || countApprovedOrganizerPermissions(state.organizerPermissionRows);
 
     const profilesByKey = new Map();
 
@@ -1136,6 +1250,7 @@
     renderStats(organizerCount);
     renderOrganizerExternalPretest();
     renderOrganizerPermissionResults();
+    renderOrganizerEntityResults();
   }
 
   function renderStats(organizerCount = 0) {
@@ -1758,7 +1873,7 @@
       const fallbackSaved = await directUpdateTournamentAdminAction(tournament, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.8 para manter a RPC como caminho principal.`, "warning");
+        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.6 para manter a RPC como caminho principal.`, "warning");
         if (safeAction === "delete") {
           removeTournamentFromStateByKey(safeKey);
           renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
@@ -1771,6 +1886,151 @@
       }
 
       addLog(error.message || "Não foi possível executar a ação administrativa no torneio. Rode o SQL da v1.6.79.6 no Supabase e confira a permissão Admin Master.", "error");
+    }
+  }
+
+
+  function renderOrganizerEntityResults() {
+    const root = $("#sbwAdminOrganizerEntityResults");
+    if (!root) return;
+
+    const organizers = Array.isArray(state.tournamentOrganizers) ? state.tournamentOrganizers : [];
+
+    if (!organizers.length) {
+      root.innerHTML = `
+        <p class="sbw-admin-muted">Nenhuma Organização de Torneios criada ainda.</p>
+      `;
+      return;
+    }
+
+    root.innerHTML = `
+      <p class="sbw-admin-muted">
+        ${organizers.length} organização(ões) exibida(s). Arquivadas ficam preservadas para o Admin; excluídas definitivamente saem do banco.
+      </p>
+      ${organizers.map(renderOrganizerEntityCard).join("")}
+    `;
+  }
+
+  function renderOrganizerEntityCard(organizer) {
+    const key = getOrganizerEntityKey(organizer);
+    const slug = getOrganizerEntitySlug(organizer);
+    const name = getOrganizerEntityName(organizer);
+    const statusLabel = getOrganizerEntityStatusLabel(organizer);
+    const archived = isOrganizerEntityArchivedOrDeleted(organizer);
+    const initial = String(organizer?.tag || name || "O").charAt(0).toUpperCase();
+    const publicUrl = slug ? `../torneios/organizador.html?slug=${encodeURIComponent(slug)}` : "../organizadores/organizadores.html";
+    const manageUrl = slug ? `../torneios/editar-organizador.html?slug=${encodeURIComponent(slug)}` : "../torneios/editar-organizador.html";
+
+    return `
+      <article class="sbw-admin-result-card sbw-admin-organizer-entity-card" data-organizer-key="${escapeHtml(key)}">
+        <div class="sbw-admin-result-main">
+          <div class="sbw-admin-avatar">${escapeHtml(initial)}</div>
+
+          <div class="sbw-admin-result-title">
+            <strong>${escapeHtml(name)}</strong>
+            <small>${escapeHtml([slug, `Torneios: ${organizer.tournamentCount || 0}`, `Staff: ${organizer.memberCount || 0}`].filter(Boolean).join(" · "))}</small>
+          </div>
+
+          <div class="sbw-admin-badges">
+            <span class="sbw-admin-badge ${archived ? "sbw-admin-badge--danger" : "sbw-admin-badge--success"}">${escapeHtml(statusLabel)}</span>
+            ${organizer?.tag ? `<span class="sbw-admin-badge">${escapeHtml(organizer.tag)}</span>` : ""}
+          </div>
+        </div>
+
+        <div class="sbw-admin-actions">
+          <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">
+            Ver público
+          </a>
+          <a class="sbw-admin-button sbw-admin-button--ghost" href="${escapeHtml(manageUrl)}" target="_blank" rel="noopener">
+            Gerenciar
+          </a>
+          <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="admin-organizer-action" data-organizer-key="${escapeHtml(key)}" data-organizer-action="archive">
+            Arquivar
+          </button>
+          <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="admin-organizer-action" data-organizer-key="${escapeHtml(key)}" data-organizer-action="delete">
+            Excluir definitivo
+          </button>
+        </div>
+      </article>
+    `;
+  }
+
+  function removeOrganizerEntityFromStateByKey(key) {
+    state.tournamentOrganizers = (state.tournamentOrganizers || []).filter((item) => {
+      return !matchesAdminKey(item, key, [
+        item?.id,
+        item?.slug,
+        item?.name,
+        getOrganizerEntityKey(item),
+        getOrganizerEntitySlug(item)
+      ]);
+    });
+  }
+
+  async function runAdminOrganizerEntityAction(organizerKey, action) {
+    const safeKey = String(organizerKey || "").trim();
+    const safeAction = String(action || "").trim().toLowerCase();
+
+    if (!safeKey || !safeAction) {
+      addLog("Organização ou ação administrativa inválida.", "error");
+      return;
+    }
+
+    const organizer = (state.tournamentOrganizers || []).find((item) => {
+      return [item?.id, item?.slug, getOrganizerEntityKey(item), getOrganizerEntitySlug(item)]
+        .map((value) => String(value || "").trim())
+        .includes(safeKey);
+    });
+
+    const name = getOrganizerEntityName(organizer || {});
+
+    if (safeAction === "delete") {
+      const confirmation = window.prompt(
+        `Excluir definitivamente a Organização de Torneios “${name || safeKey}”?\n\n` +
+        "Isto remove a organização do banco e também remove torneios vinculados a ela. Digite EXCLUIR para confirmar."
+      );
+
+      if (confirmation !== "EXCLUIR") {
+        addLog("Exclusão definitiva de organização cancelada.", "warning");
+        return;
+      }
+    } else {
+      const shouldRun = window.confirm(
+        `Arquivar a Organização de Torneios “${name || safeKey}”?\n\n` +
+        "Ela ficará invisível publicamente e também deixará de aparecer para o organizador, mas o histórico será preservado para o Admin."
+      );
+
+      if (!shouldRun) return;
+    }
+
+    if (!state.client) {
+      addLog("Supabase não disponível para ação administrativa em organização.", "error");
+      return;
+    }
+
+    try {
+      const { data, error } = await state.client.rpc("sbw_admin_manage_tournament_organizer", {
+        p_organizer: safeKey,
+        p_action: safeAction,
+        p_reason: "Ação executada pelo Admin Master na central de organizações."
+      });
+
+      if (error) throw error;
+
+      const result = data && typeof data === "object" ? data : {};
+      addLog(result.message || `Ação ${safeAction} executada na organização ${name || safeKey}.`);
+
+      if (safeAction === "delete") {
+        removeOrganizerEntityFromStateByKey(safeKey);
+        renderOrganizerEntityResults();
+        renderStats(state.tournamentOrganizers.length || countApprovedOrganizerPermissions(state.organizerPermissionRows));
+      } else {
+        await refreshData();
+        renderOrganizerEntityResults();
+      }
+    } catch (error) {
+      console.warn("[SBW Admin] Falha na ação administrativa da organização:", error);
+      addLog(error.message || "Não foi possível executar a ação administrativa na organização. Rode o SQL da v1.6.80.1 no Supabase.", "error");
     }
   }
 
@@ -2131,7 +2391,7 @@
     const table = getTable("teams", "teams");
     const previousStatus = getTeamStatusValue(team || {});
     const previousVisibility = team?.isPublic !== false && team?.is_public !== false;
-    const previousActive = getTeamStatusValue(team || {}) !== "archived";
+    const previousActive = team?.isActive !== false && team?.is_active !== false;
 
     const attempts = [];
     if (team?.id) attempts.push(["id", team.id]);
@@ -2163,6 +2423,7 @@
     }
 
     const patch = {
+      is_active: false,
       is_public: false,
       status: "archived",
       metadata: buildAdminActionMetadata(team?.metadata, safeAction, { status: previousStatus, visibility: previousVisibility, active: previousActive }, "Ação executada pelo Admin Master na central de equipes."),
@@ -2204,16 +2465,12 @@
     const team = getTeamByKey(safeKey);
     const name = getTeamName(team || {});
     const labels = {
-      archive: "arquivar",
-      delete: "excluir definitivamente"
+      delete: "excluir do painel"
     };
 
-    const actionWarning = safeAction === "delete"
-      ? "Esta ação remove a equipe definitivamente do banco de dados. Use apenas para equipes demo/teste ou cadastros criados por engano."
-      : "Esta ação arquiva a equipe: ela some das áreas públicas e dos organizadores, mas o histórico é preservado.";
-
     const shouldRun = window.confirm(
-      `Atenção: deseja ${labels[safeAction] || safeAction} a equipe “${name || safeKey}”?\n\n${actionWarning}`
+      `Atenção: deseja ${labels[safeAction] || safeAction} a equipe “${name || safeKey}”?\n\n` +
+      "Esta é uma exclusão administrativa segura: a equipe fica privada/inativa e o histórico é preservado."
     );
 
     if (!shouldRun) return;
@@ -2249,7 +2506,7 @@
       const fallbackSaved = await directUpdateTeamAdminAction(team, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.8 para manter a RPC como caminho principal.`, "warning");
+        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.6 para manter a RPC como caminho principal.`, "warning");
         if (safeAction === "delete") {
           removeTeamFromStateByKey(safeKey);
           renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
@@ -2261,7 +2518,7 @@
         return;
       }
 
-      addLog(error.message || "Não foi possível executar a ação administrativa na equipe. Rode o SQL da v1.6.79.8 no Supabase e confira a permissão Admin Master.", "error");
+      addLog(error.message || "Não foi possível executar a ação administrativa na equipe. Rode o SQL da v1.6.79.6 no Supabase e confira a permissão Admin Master.", "error");
     }
   }
 
@@ -2382,7 +2639,14 @@
           await refreshData();
           renderOrganizerExternalPretest();
           renderOrganizerPermissionResults();
-          addLog("Lista de organizadores autorizados atualizada.");
+          renderOrganizerEntityResults();
+          addLog("Lista de organizadores e organizações atualizada.");
+        }
+
+        if (action === "refresh-organizer-entities") {
+          await refreshData();
+          renderOrganizerEntityResults();
+          addLog("Lista de organizações criadas atualizada.");
         }
 
         if (action === "refresh-tournaments") {
@@ -2420,6 +2684,10 @@
 
         if (action === "admin-tournament-action") {
           await runAdminTournamentAction(button.dataset.tournamentKey, button.dataset.tournamentAction);
+        }
+
+        if (action === "admin-organizer-action") {
+          await runAdminOrganizerEntityAction(button.dataset.organizerKey, button.dataset.organizerAction);
         }
 
         if (action === "copy-organizer-pretest") {
