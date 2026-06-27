@@ -6713,3 +6713,541 @@ body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-team-v2-button {
     justify-content: center;
   }
 }
+
+
+/* =========================================================
+   -SBW- v1.6.80.3 — novo selo verificado das equipes
+   Escopo: listagem pública, perfil público e áreas internas da equipe.
+   Inspirado em selos sociais modernos (Twitter/Instagram),
+   mantendo identidade visual da plataforma -SBW-.
+   ========================================================= */
+.sbw-verified-badge {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: linear-gradient(135deg, #2563eb 0%, #38bdf8 58%, #22d3ee 100%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 1000;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(2, 6, 23, 0.24);
+  box-shadow:
+    0 0 0 2px rgba(2, 6, 23, 0.74),
+    0 10px 20px rgba(14, 165, 233, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.sbw-verified-badge::before {
+  content: "";
+  position: absolute;
+  inset: 2px 3px 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.sbw-team-card-v2__identity .sbw-verified-badge,
+.sbw-team-v2-identity-main .sbw-verified-badge,
+.sbw-team-name-wrap .sbw-verified-badge {
+  transform: translateY(1px);
+}
+
+.sbw-team-v2-badge-verified,
+.sbw-team-badge-v2--verified {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-color: rgba(96, 165, 250, 0.28);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(8, 19, 36, 0.88));
+  color: #eaf6ff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 8px 20px rgba(2, 6, 23, 0.22);
+}
+
+.sbw-team-v2-badge-verified::before,
+.sbw-team-badge-v2--verified::before {
+  content: "✓";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: linear-gradient(135deg, #2563eb 0%, #38bdf8 58%, #22d3ee 100%);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 1000;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(2, 6, 23, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(2, 6, 23, 0.52),
+    0 8px 16px rgba(14, 165, 233, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, #2563eb 0%, color-mix(in srgb, var(--team-primary) 32%, #38bdf8) 52%, #22d3ee 100%);
+  color: #ffffff;
+  font-size: 12px;
+  box-shadow:
+    0 0 0 3px rgba(2, 6, 23, 0.84),
+    0 14px 28px color-mix(in srgb, var(--team-primary) 18%, rgba(14, 165, 233, 0.22)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge::before {
+  inset: 2px 4px 12px;
+}
+
+@media (max-width: 760px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    margin-left: 3px;
+  }
+}
+
+/* =========================================================
+   -SBW- v1.6.80.4 — selo verificado oficial SBW (modelo 4)
+   Escopo: aplica o conceito escolhido do selo próprio da -SBW-
+   com contorno prata, núcleo azul/ciano e check branco.
+   ========================================================= */
+.sbw-verified-badge {
+  --sbw-verified-size: 20px;
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: var(--sbw-verified-size);
+  height: var(--sbw-verified-size);
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  vertical-align: middle;
+}
+
+.sbw-verified-badge::before,
+.sbw-verified-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sbw-verified-badge::before {
+  clip-path: polygon(15% 0%, 33% 0%, 42% 12%, 58% 12%, 67% 0%, 85% 0%, 100% 27%, 92% 58%, 75% 100%, 50% 87%, 25% 100%, 8% 58%, 0% 27%);
+  background:
+    linear-gradient(145deg, #fbfdff 0%, #d6dde7 28%, #94a3b8 68%, #eef5fb 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 12px rgba(56, 232, 255, 0.22),
+    0 8px 16px rgba(2, 6, 23, 0.34);
+}
+
+.sbw-verified-badge::after {
+  inset: 2px;
+  clip-path: polygon(16% 2%, 34% 2%, 43% 13%, 57% 13%, 66% 2%, 84% 2%, 97% 28%, 90% 57%, 74% 97%, 50% 83%, 26% 97%, 10% 57%, 3% 28%);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0) 24%),
+    linear-gradient(145deg, #6fefff 0%, #23cde7 22%, #0f76d6 52%, #072e69 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.22),
+    inset 0 -3px 6px rgba(2, 6, 23, 0.24),
+    0 0 10px rgba(56, 232, 255, 0.18);
+}
+
+.sbw-verified-badge > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sbw-verified-badge {
+  text-indent: -9999px;
+}
+
+.sbw-verified-badge span,
+.sbw-verified-badge svg {
+  display: none;
+}
+
+.sbw-verified-badge::marker {
+  content: "";
+}
+
+.sbw-verified-badge::selection {
+  background: transparent;
+}
+
+.sbw-verified-badge {
+  align-self: center;
+}
+
+.sbw-verified-badge::before {
+  z-index: 0;
+}
+
+.sbw-verified-badge::after {
+  z-index: 1;
+}
+
+.sbw-verified-badge {
+  filter: drop-shadow(0 0 9px rgba(56, 232, 255, 0.16));
+}
+
+.sbw-verified-badge:empty::before,
+.sbw-verified-badge:empty::after,
+.sbw-verified-badge::before,
+.sbw-verified-badge::after {
+  display: block;
+}
+
+.sbw-verified-badge {
+  --sbw-verified-check-size: calc(var(--sbw-verified-size) * 0.54);
+}
+
+.sbw-verified-badge::after,
+.sbw-verified-badge::before {
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.sbw-verified-badge::after {
+  /* camada azul */
+}
+
+.sbw-verified-badge::before {
+  /* moldura prata */
+}
+
+.sbw-verified-badge {
+  transform: translateY(1px);
+}
+
+.sbw-verified-badge::before {
+  background:
+    linear-gradient(145deg, #fbfdff 0%, #d8e1ea 26%, #8d9bad 70%, #eef5fb 100%);
+}
+
+.sbw-verified-badge::after {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0) 22%),
+    linear-gradient(150deg, #73f0ff 0%, #2fdaf0 21%, #0a82e0 50%, #052a5f 100%);
+}
+
+.sbw-verified-badge {
+  text-shadow: none;
+}
+
+.sbw-verified-badge::after {
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.22),
+    inset 0 -3px 6px rgba(2, 6, 23, 0.28),
+    0 0 12px rgba(56, 232, 255, 0.2);
+}
+
+.sbw-verified-badge::before {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 10px rgba(56, 232, 255, 0.14),
+    0 8px 16px rgba(2, 6, 23, 0.36);
+}
+
+.sbw-verified-badge::after {
+  /* check branco embutido */
+}
+
+.sbw-verified-badge {
+  position: relative;
+}
+
+.sbw-verified-badge .sbw-hidden { display: none; }
+
+.sbw-verified-badge {
+  background-image: none;
+}
+
+.sbw-verified-badge::after {
+  /* added check using CSS mask-like overlay via box-shadow text substitute */
+}
+
+.sbw-verified-badge::before,
+.sbw-verified-badge::after {
+  will-change: transform;
+}
+
+.sbw-verified-badge::after {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0) 22%),
+    linear-gradient(150deg, #73f0ff 0%, #2fdaf0 21%, #0a82e0 50%, #052a5f 100%);
+}
+
+.sbw-verified-badge::selection { color: transparent; }
+
+.sbw-verified-badge::before,
+.sbw-verified-badge::after {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.sbw-verified-badge::after {
+  content: "✓";
+  inset: 2px;
+  display: grid;
+  place-items: center;
+  padding-top: 1px;
+  clip-path: polygon(16% 2%, 34% 2%, 43% 13%, 57% 13%, 66% 2%, 84% 2%, 97% 28%, 90% 57%, 74% 97%, 50% 83%, 26% 97%, 10% 57%, 3% 28%);
+  color: #ffffff;
+  font-size: calc(var(--sbw-verified-size) * 0.52);
+  font-weight: 1000;
+  line-height: 1;
+  text-indent: 0;
+  text-shadow: 0 1px 0 rgba(2, 6, 23, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0) 22%),
+    linear-gradient(150deg, #73f0ff 0%, #2fdaf0 21%, #0a82e0 50%, #052a5f 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.22),
+    inset 0 -3px 6px rgba(2, 6, 23, 0.28),
+    0 0 12px rgba(56, 232, 255, 0.2);
+}
+
+.sbw-team-v2-badge-verified,
+.sbw-team-badge-v2--verified {
+  gap: 8px;
+  border-color: rgba(103, 232, 249, 0.24);
+  background: linear-gradient(180deg, rgba(6, 15, 30, 0.96), rgba(8, 20, 40, 0.88));
+  color: #eefaff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 10px 22px rgba(2, 6, 23, 0.22);
+}
+
+.sbw-team-v2-badge-verified::before,
+.sbw-team-badge-v2--verified::before {
+  content: "✓";
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 1000;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(2, 6, 23, 0.24);
+  clip-path: polygon(15% 0%, 33% 0%, 42% 12%, 58% 12%, 67% 0%, 85% 0%, 100% 27%, 92% 58%, 75% 100%, 50% 87%, 25% 100%, 8% 58%, 0% 27%);
+  background:
+    linear-gradient(145deg, #fbfdff 0%, #d8e1ea 26%, #8d9bad 70%, #eef5fb 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 10px rgba(56, 232, 255, 0.18);
+}
+
+.sbw-team-v2-badge-verified::after,
+.sbw-team-badge-v2--verified::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin-left: 3px;
+  border-radius: 3px;
+}
+
+.sbw-team-v2-badge-verified::before,
+.sbw-team-badge-v2--verified::before {
+  background:
+    linear-gradient(145deg, #fbfdff 0%, #d8e1ea 26%, #8d9bad 70%, #eef5fb 100%),
+    linear-gradient(150deg, #73f0ff 0%, #2fdaf0 21%, #0a82e0 50%, #052a5f 100%);
+}
+
+.sbw-team-v2-badge-verified::before,
+.sbw-team-badge-v2--verified::before {
+  box-shadow:
+    inset 0 0 0 2px rgba(3, 10, 24, 0.84),
+    inset 0 0 0 3px rgba(115, 240, 255, 0.18),
+    0 0 10px rgba(56, 232, 255, 0.18);
+}
+
+.sbw-team-card-v2__identity .sbw-verified-badge,
+.sbw-team-v2-identity-main .sbw-verified-badge,
+.sbw-team-name-wrap .sbw-verified-badge {
+  margin-left: 2px;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+  --sbw-verified-size: 24px;
+  margin-left: 4px;
+  filter: drop-shadow(0 0 12px rgba(56, 232, 255, 0.24));
+}
+
+@media (max-width: 760px) {
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+    --sbw-verified-size: 20px;
+    margin-left: 3px;
+  }
+
+  .sbw-team-v2-badge-verified::before,
+  .sbw-team-badge-v2--verified::before {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+    font-size: 9px;
+  }
+}
+
+/* =========================================================
+   -SBW- v1.6.80.4.1 — hotfix selo verificado UI
+   Motivo: o modelo 4 completo ficou detalhado demais em tamanho pequeno.
+   Solução: selo próprio da -SBW- mais simples, limpo e legível.
+   ========================================================= */
+.sbw-verified-badge {
+  --sbw-verified-size: 20px;
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 auto;
+  width: var(--sbw-verified-size);
+  height: var(--sbw-verified-size);
+  display: inline-grid;
+  place-items: center;
+  margin-left: 2px;
+  border: 1px solid rgba(226, 245, 255, 0.72);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.46), transparent 31%),
+    linear-gradient(145deg, #5ef3ff 0%, #12bde7 42%, #0759b8 100%);
+  color: #ffffff;
+  font-size: calc(var(--sbw-verified-size) * 0.58);
+  font-weight: 1000;
+  line-height: 1;
+  text-indent: 0;
+  text-shadow: 0 1px 0 rgba(2, 6, 23, 0.32);
+  vertical-align: middle;
+  overflow: visible;
+  transform: translateY(1px);
+  box-shadow:
+    0 0 0 2px rgba(2, 8, 20, 0.86),
+    0 0 12px rgba(56, 232, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    inset 0 -3px 8px rgba(2, 6, 23, 0.28);
+  filter: none;
+}
+
+.sbw-verified-badge::before,
+.sbw-verified-badge::after {
+  content: none !important;
+  display: none !important;
+}
+
+.sbw-verified-badge:not(:empty) {
+  font-size: 0;
+}
+
+.sbw-verified-badge:not(:empty)::after {
+  content: "✓" !important;
+  position: static;
+  display: grid !important;
+  place-items: center;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  clip-path: none;
+  background: transparent;
+  box-shadow: none;
+  color: #ffffff;
+  font-size: calc(var(--sbw-verified-size) * 0.58);
+  font-weight: 1000;
+  line-height: 1;
+  text-indent: 0;
+  text-shadow: 0 1px 0 rgba(2, 6, 23, 0.32);
+}
+
+.sbw-team-card-v2__identity .sbw-verified-badge,
+.sbw-team-v2-identity-main .sbw-verified-badge,
+.sbw-team-name-wrap .sbw-verified-badge {
+  margin-left: 3px;
+}
+
+body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+  --sbw-verified-size: 22px;
+  margin-left: 5px;
+  border-color: rgba(226, 245, 255, 0.78);
+  box-shadow:
+    0 0 0 3px rgba(2, 8, 20, 0.82),
+    0 0 16px rgba(56, 232, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    inset 0 -3px 8px rgba(2, 6, 23, 0.28);
+}
+
+/* Pílulas textuais: “Verificada” */
+.sbw-team-v2-badge-verified,
+.sbw-team-badge-v2--verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-color: rgba(56, 232, 255, 0.28);
+  background: rgba(8, 20, 40, 0.76);
+  color: #dffaff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.sbw-team-v2-badge-verified::before,
+.sbw-team-badge-v2--verified::before {
+  content: "✓";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(226, 245, 255, 0.68);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.42), transparent 31%),
+    linear-gradient(145deg, #5ef3ff 0%, #12bde7 42%, #0759b8 100%);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 1000;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(2, 6, 23, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(2, 8, 20, 0.74),
+    0 0 8px rgba(56, 232, 255, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.40);
+}
+
+.sbw-team-v2-badge-verified::after,
+.sbw-team-badge-v2--verified::after {
+  content: none !important;
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .sbw-verified-badge,
+  body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
+    --sbw-verified-size: 19px;
+  }
+}
+
