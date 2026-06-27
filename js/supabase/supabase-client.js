@@ -31,4 +31,32 @@
       return Boolean(client);
     }
   };
+
+
+  function loadAnalytics() {
+    try {
+      if (window.SBW_DISABLE_ANALYTICS === true) return;
+      if (document.querySelector('script[data-sbw-analytics="true"]')) return;
+
+      const currentScript = document.currentScript || Array.from(document.scripts).find(function (script) {
+        return /js\/supabase\/supabase-client\.js(\?.*)?$/.test(script.getAttribute('src') || '');
+      });
+
+      const currentSrc = currentScript ? currentScript.getAttribute('src') || '' : '';
+      const basePath = currentSrc.replace(/js\/supabase\/supabase-client\.js(\?.*)?$/, '');
+      const script = document.createElement('script');
+      script.defer = true;
+      script.setAttribute('data-sbw-analytics', 'true');
+      script.src = basePath + 'js/analytics/sbw-analytics.js?v=1.6.80.0';
+      document.head.appendChild(script);
+    } catch (error) {
+      if (window.SBW_ANALYTICS_DEBUG) {
+        console.warn('[SBW Analytics] loader ignorado:', error);
+      }
+    }
+  }
+
+  if (client) {
+    loadAnalytics();
+  }
 })();
