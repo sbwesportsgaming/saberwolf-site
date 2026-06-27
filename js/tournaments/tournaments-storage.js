@@ -1257,6 +1257,21 @@ function sbwBuildSupabaseTournamentPayload(tournament, options = {}) {
   return payload;
 }
 
+function sbwTournamentIsHiddenFromPublic(tournament) {
+  const status = String(tournament?.status || tournament?.raw?.status || "").trim().toLowerCase();
+  const visibility = String(tournament?.visibility || tournament?.raw?.visibility || tournament?.metadata?.visibility || "public").trim().toLowerCase();
+  const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
+
+  return (
+    ["archived", "archive", "deleted", "removed", "hidden", "private"].includes(status) ||
+    ["private", "hidden", "deleted", "archived"].includes(visibility) ||
+    metadata.adminDeleted === true ||
+    metadata.admin_deleted === true ||
+    metadata.adminArchived === true ||
+    metadata.admin_archived === true
+  );
+}
+
 function sbwNormalizeSupabaseTournament(row) {
   const settings = row.settings && typeof row.settings === "object"
     ? row.settings
@@ -1368,7 +1383,9 @@ async function sbwGetSupabaseTournaments() {
       return [];
     }
 
-    return data.map(sbwNormalizeSupabaseTournament);
+    return data
+      .map(sbwNormalizeSupabaseTournament)
+      .filter((tournament) => !sbwTournamentIsHiddenFromPublic(tournament));
   } catch (error) {
     console.error("[SaberWolf Supabase] Falha inesperada ao buscar torneios:", error);
     return [];

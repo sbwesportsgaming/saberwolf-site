@@ -1409,11 +1409,14 @@
           ` : ""}
 
           ${!deleted ? `
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="admin-team-action" data-team-key="${escapeHtml(key)}" data-team-action="archive">
+              Arquivar
+            </button>
             <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="admin-team-action" data-team-key="${escapeHtml(key)}" data-team-action="delete">
-              Excluir do painel
+              Excluir definitivo
             </button>
           ` : `
-            <span class="sbw-admin-muted">Equipe removida do painel público.</span>
+            <span class="sbw-admin-muted">Equipe arquivada/removida da área pública.</span>
           `}
         </div>
       </article>
@@ -1575,7 +1578,7 @@
             Arquivar
           </button>
           <button class="sbw-admin-button sbw-admin-button--danger" type="button" data-admin-action="admin-tournament-action" data-tournament-key="${escapeHtml(dbKey)}" data-tournament-action="delete">
-            Excluir do painel
+            Excluir definitivo
           </button>
         </div>
       </article>
@@ -1586,6 +1589,7 @@
     return {
       ...asObject(currentMetadata),
       adminManaged: true,
+      adminArchived: action === "archive" ? true : Boolean(asObject(currentMetadata).adminArchived),
       adminDeleted: action === "delete" ? true : Boolean(asObject(currentMetadata).adminDeleted),
       adminLastAction: {
         action,
@@ -1620,8 +1624,36 @@
       nextStatus = "archived";
       nextVisibility = "private";
     } else if (safeAction === "delete") {
-      nextStatus = "archived";
-      nextVisibility = "private";
+      // Exclusão definitiva deve apagar a linha do banco. O caminho preferencial é a RPC
+      // security definer, mas este fallback tenta remover diretamente quando a RLS permitir.
+      const deleteAttempts = [];
+      if (tournament?.supabaseId) deleteAttempts.push(["id", tournament.supabaseId]);
+      if (tournament?.id) deleteAttempts.push(["id", tournament.id]);
+      if (tournament?.slug) deleteAttempts.push(["slug", tournament.slug]);
+      if (safeKey) {
+        deleteAttempts.push(["id", safeKey]);
+        deleteAttempts.push(["slug", safeKey]);
+      }
+
+      const seenDelete = new Set();
+      for (const [column, value] of deleteAttempts) {
+        const key = `${column}:${value}`;
+        if (!value || seenDelete.has(key)) continue;
+        seenDelete.add(key);
+
+        try {
+          const result = await state.client
+            .from(table)
+            .delete()
+            .eq(column, value);
+
+          if (!result.error) return true;
+        } catch (error) {
+          // tenta próximo identificador
+        }
+      }
+
+      return false;
     }
 
     const patch = {
@@ -1677,7 +1709,7 @@
       hide: "ocultar",
       publish: "publicar",
       archive: "arquivar",
-      delete: "excluir do painel"
+      delete: "excluir definitivamente"
     };
 
     const tournament = (state.tournaments || []).find((item) => {
@@ -1726,7 +1758,7 @@
       const fallbackSaved = await directUpdateTournamentAdminAction(tournament, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.3 para manter a RPC como caminho principal.`, "warning");
+        addLog(`Ação ${safeAction} aplicada diretamente no torneio ${name || safeKey}. Rode o SQL da v1.6.79.6 para manter a RPC como caminho principal.`, "warning");
         if (safeAction === "delete") {
           removeTournamentFromStateByKey(safeKey);
           renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
@@ -1738,7 +1770,7 @@
         return;
       }
 
-      addLog(error.message || "Não foi possível executar a ação administrativa no torneio. Rode o SQL da v1.6.79.2 no Supabase e confira a permissão Admin Master.", "error");
+      addLog(error.message || "Não foi possível executar a ação administrativa no torneio. Rode o SQL da v1.6.79.6 no Supabase e confira a permissão Admin Master.", "error");
     }
   }
 
@@ -2094,22 +2126,12 @@
   }
 
   async function directUpdateTeamAdminAction(team, safeKey, safeAction) {
-    if (!state.client || safeAction !== "delete") return false;
+    if (!state.client || !["archive", "delete"].includes(safeAction)) return false;
 
     const table = getTable("teams", "teams");
     const previousStatus = getTeamStatusValue(team || {});
     const previousVisibility = team?.isPublic !== false && team?.is_public !== false;
     const previousActive = team?.isActive !== false && team?.is_active !== false;
-    const patch = {
-      is_active: false,
-      is_public: false,
-      is_verified: false,
-      verification_status: "not_verified",
-      member_limit: 50,
-      status: "inactive",
-      metadata: buildAdminActionMetadata(team?.metadata, safeAction, { status: previousStatus, visibility: previousVisibility, active: previousActive }, "Ação executada pelo Admin Master na central de equipes."),
-      updated_at: new Date().toISOString()
-    };
 
     const attempts = [];
     if (team?.id) attempts.push(["id", team.id]);
@@ -2118,6 +2140,35 @@
       attempts.push(["id", safeKey]);
       attempts.push(["slug", safeKey]);
     }
+
+    if (safeAction === "delete") {
+      const seenDelete = new Set();
+      for (const [column, value] of attempts) {
+        const key = `${column}:${value}`;
+        if (!value || seenDelete.has(key)) continue;
+        seenDelete.add(key);
+
+        try {
+          const result = await state.client
+            .from(table)
+            .delete()
+            .eq(column, value);
+
+          if (!result.error) return true;
+        } catch (error) {
+          // tenta próximo identificador
+        }
+      }
+      return false;
+    }
+
+    const patch = {
+      is_active: false,
+      is_public: false,
+      status: "archived",
+      metadata: buildAdminActionMetadata(team?.metadata, safeAction, { status: previousStatus, visibility: previousVisibility, active: previousActive }, "Ação executada pelo Admin Master na central de equipes."),
+      updated_at: new Date().toISOString()
+    };
 
     const seen = new Set();
     for (const [column, value] of attempts) {
@@ -2195,7 +2246,7 @@
       const fallbackSaved = await directUpdateTeamAdminAction(team, safeKey, safeAction);
 
       if (fallbackSaved) {
-        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.3 para manter a RPC como caminho principal.`, "warning");
+        addLog(`Ação ${safeAction} aplicada diretamente na equipe ${name || safeKey}. Rode o SQL da v1.6.79.6 para manter a RPC como caminho principal.`, "warning");
         if (safeAction === "delete") {
           removeTeamFromStateByKey(safeKey);
           renderStats(countApprovedOrganizerPermissions(state.organizerPermissionRows));
@@ -2207,7 +2258,7 @@
         return;
       }
 
-      addLog(error.message || "Não foi possível executar a ação administrativa na equipe. Rode o SQL da v1.6.79.2 no Supabase e confira a permissão Admin Master.", "error");
+      addLog(error.message || "Não foi possível executar a ação administrativa na equipe. Rode o SQL da v1.6.79.6 no Supabase e confira a permissão Admin Master.", "error");
     }
   }
 

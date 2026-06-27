@@ -323,6 +323,22 @@
     return getMainTeamType();
   }
 
+  function isTeamHiddenFromPublic(team) {
+    const status = String(team?.status || team?.raw?.status || "").trim().toLowerCase();
+    const metadata = team?.metadata && typeof team.metadata === "object" ? team.metadata : {};
+    return (
+      team?.isPublic === false ||
+      team?.is_public === false ||
+      team?.isActive === false ||
+      team?.is_active === false ||
+      ["archived", "archive", "deleted", "removed", "inactive", "hidden", "private"].includes(status) ||
+      metadata.adminDeleted === true ||
+      metadata.admin_deleted === true ||
+      metadata.adminArchived === true ||
+      metadata.admin_archived === true
+    );
+  }
+
   function normalizeSupabaseTeam(row) {
     const safeRow = row || {};
     const metadata = asObject(safeRow.metadata);
@@ -418,7 +434,9 @@
         return [];
       }
 
-      return result.data.map(normalizeSupabaseTeam);
+      return result.data
+        .map(normalizeSupabaseTeam)
+        .filter((team) => !publicOnly || !isTeamHiddenFromPublic(team));
     } catch (error) {
       console.error("[SaberWolf Teams] Falha inesperada ao buscar equipes:", error);
       return [];
