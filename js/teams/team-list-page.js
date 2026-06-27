@@ -574,7 +574,7 @@
 
           <div class="sbw-team-card-v2__footer">
             <span class="sbw-team-card-v2__source">
-              ${team?.source === "supabase" ? "Dados reais" : "Fallback/local"}
+              Perfil público
             </span>
 
             <a class="sbw-team-v2-btn sbw-team-v2-btn--primary" href="${teamUrl}">
@@ -751,7 +751,6 @@
 
   function renderAll() {
     renderStats();
-    renderFeaturedTeams();
     renderTeams();
   }
 

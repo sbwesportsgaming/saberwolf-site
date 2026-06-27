@@ -3854,6 +3854,150 @@ body.sbw-team-list-body::before {
   }
 }
 
+
+/* =========================================================
+   SaberWolf v1.6.80.2 — Diretório de equipes compacto
+   Escopo: /equipes/equipes.html
+   Remove o destaque duplicado e prioriza a grade pública com até 4 cards por fileira.
+   ========================================================= */
+
+.sbw-teams-grid-v2 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2 {
+  border-radius: 20px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.24);
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--team-primary) 34%, rgba(56, 189, 248, 0.18));
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.3), 0 0 26px color-mix(in srgb, var(--team-primary) 12%, transparent);
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__banner {
+  min-height: 92px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__content {
+  gap: 10px;
+  padding: 0 14px 14px;
+  margin-top: -28px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__top {
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__logo {
+  width: 62px;
+  height: 62px;
+  border-radius: 17px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__logo span {
+  font-size: 0.95rem;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__badges {
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-badge-v2,
+.sbw-teams-grid-v2 .sbw-team-focus-tag-v2,
+.sbw-teams-grid-v2 .sbw-team-pill-v2 {
+  min-height: 20px;
+  padding: 0 7px;
+  font-size: 0.62rem;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__identity h3 {
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__identity p {
+  margin-top: 4px;
+  font-size: 0.74rem;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__description {
+  min-height: 40px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__focus {
+  display: none;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__games {
+  gap: 5px;
+  min-height: 20px;
+  max-height: 46px;
+  overflow: hidden;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__stats div {
+  border-radius: 12px;
+  padding: 8px 7px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__stats strong {
+  font-size: 0.9rem;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__stats span {
+  margin-top: 4px;
+  font-size: 0.6rem;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__footer {
+  gap: 8px;
+}
+
+.sbw-teams-grid-v2 .sbw-team-card-v2__source {
+  font-size: 0.68rem;
+}
+
+.sbw-teams-grid-v2 .sbw-team-v2-btn {
+  min-height: 36px;
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 1180px) {
+  .sbw-teams-grid-v2 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .sbw-teams-grid-v2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .sbw-teams-grid-v2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* v1.6.11 — Painel de equipe com sidebar e edição ampliada */
 body.sbw-team-admin-body {
   min-height: 100vh;
