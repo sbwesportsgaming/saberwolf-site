@@ -237,20 +237,33 @@
     return Math.min(max, Math.max(min, number));
   }
 
+  function getObjectValue(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  }
+
+  function getFrameSource(...sources) {
+    for (const source of sources) {
+      const value = getObjectValue(source);
+
+      if (Object.keys(value).length > 0) {
+        return value;
+      }
+    }
+
+    return {};
+  }
+
   function getTeamAssetFrame(team, assetType) {
     const metadata = getMeta(team);
-    const teamAssets = metadata.teamAssets && typeof metadata.teamAssets === "object" && !Array.isArray(metadata.teamAssets)
-      ? metadata.teamAssets
-      : {};
-    const fallbackAssets = metadata.assetFrames && typeof metadata.assetFrames === "object" && !Array.isArray(metadata.assetFrames)
-      ? metadata.assetFrames
-      : {};
-    const raw = teamAssets[assetType] || fallbackAssets[assetType] || {};
+    const teamAssets = getObjectValue(metadata.teamAssets || metadata.team_assets);
+    const fallbackAssets = getObjectValue(metadata.assetFrames || metadata.asset_frames);
+    const directAssets = getObjectValue(team?.teamAssets || team?.team_assets || team?.assetFrames || team?.asset_frames);
+    const raw = getFrameSource(teamAssets[assetType], fallbackAssets[assetType], directAssets[assetType]);
 
     return {
-      positionX: clampNumber(raw.positionX ?? raw.x ?? raw.objectPositionX, 0, 100, 50),
-      positionY: clampNumber(raw.positionY ?? raw.y ?? raw.objectPositionY, 0, 100, 50),
-      zoom: clampNumber(raw.zoom ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
+      positionX: clampNumber(raw.positionX ?? raw.position_x ?? raw.x ?? raw.objectPositionX ?? raw.object_position_x ?? raw.xPercent, 0, 100, 50),
+      positionY: clampNumber(raw.positionY ?? raw.position_y ?? raw.y ?? raw.objectPositionY ?? raw.object_position_y ?? raw.yPercent, 0, 100, 50),
+      zoom: clampNumber(raw.zoom ?? raw.zoomValue ?? raw.zoom_value ?? raw.scale ?? raw.size, 100, assetType === "banner" ? 180 : 160, 100)
     };
   }
 
@@ -266,6 +279,22 @@
       `--sbw-team-logo-x:${logo.positionX}%`,
       `--sbw-team-logo-y:${logo.positionY}%`,
       `--sbw-team-logo-scale:${(logo.zoom / 100).toFixed(2)}`
+    ].join("; ") + ";";
+  }
+
+  function getTeamBannerCoverStyle(team, bannerUrl) {
+    const url = safeUrl(bannerUrl || team?.bannerUrl || team?.banner_url || "");
+
+    if (!url) return "";
+
+    const frame = getTeamAssetFrame(team, "banner");
+    const size = frame.zoom <= 100 ? "cover" : `${frame.zoom}% auto`;
+
+    return [
+      "background-image: linear-gradient(90deg, rgba(3, 8, 20, 0.76) 0%, rgba(3, 8, 20, 0.34) 44%, rgba(3, 8, 20, 0.54) 100%), linear-gradient(180deg, rgba(3, 8, 20, 0.04) 0%, rgba(3, 8, 20, 0.24) 48%, rgba(3, 8, 20, 0.72) 100%), url('" + url + "'), linear-gradient(135deg, rgba(8, 19, 36, 0.96), rgba(2, 6, 23, 0.98))",
+      `background-position: center, center, ${frame.positionX}% ${frame.positionY}%, center`,
+      `background-size: cover, cover, ${size}, cover`,
+      "background-repeat: no-repeat, no-repeat, no-repeat, no-repeat"
     ].join("; ") + ";";
   }
 
@@ -465,7 +494,7 @@
   function renderVerifiedBadge(team, label) {
     if (!isTeamVerified(team)) return "";
 
-    return `<span class="sbw-team-v2-badge sbw-team-v2-badge-verified" title="${escapeHtml(label || getVerificationLabel(team))}">✓ Verificada</span>`;
+    return `<span class="sbw-team-v2-badge sbw-team-v2-badge-verified" title="${escapeHtml(label || getVerificationLabel(team))}">Verificada</span>`;
   }
 
   function renderPill(value, modifier) {
@@ -505,10 +534,11 @@
       bannerUrl ? `--team-banner-image: url('${bannerUrl}')` : "",
       getTeamAssetFrameStyle(team)
     ].filter(Boolean).join("; "));
+    const coverStyle = styleAttribute(getTeamBannerCoverStyle(team, bannerUrl));
 
     return `
       <section class="sbw-team-v2-hero sbw-team-v2-hero-clean sbw-team-v2-hero-social sbw-team-v2-hero-facebook sbw-team-v2-hero-minimal ${bannerUrl ? "has-team-banner" : "is-team-banner-placeholder"}" ${heroStyle}>
-        <div class="sbw-team-v2-cover" aria-label="Banner público da equipe"></div>
+        <div class="sbw-team-v2-cover" aria-label="Banner público da equipe" ${coverStyle}></div>
 
         <div class="sbw-team-v2-profile-strip">
           ${renderLogo(team, "sbw-team-v2-logo")}

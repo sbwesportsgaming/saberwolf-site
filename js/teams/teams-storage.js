@@ -573,7 +573,170 @@
       return supabaseConfig.tables.teamMembers;
     }
 
+    if (supabaseConfig.tables && supabaseConfig.tables.team_members) {
+      return supabaseConfig.tables.team_members;
+    }
+
     return "team_members";
+  }
+
+  function getProfilesSupabaseTableNameForTeams() {
+    const supabaseConfig = window.SBWSupabaseConfig || {};
+
+    if (supabaseConfig.tables && supabaseConfig.tables.profiles) {
+      return supabaseConfig.tables.profiles;
+    }
+
+    return "profiles";
+  }
+
+  function uniqueStrings(values) {
+    return Array.from(new Set((values || []).map(function (value) {
+      return String(value || "").trim();
+    }).filter(Boolean)));
+  }
+
+  function getMemberProfileLookupKeys(member) {
+    const metadata = asObject(member?.metadata);
+
+    return {
+      slugs: uniqueStrings([
+        member?.profileSlug,
+        member?.profile_slug,
+        member?.profileId,
+        member?.profile_id,
+        member?.userId,
+        member?.user_id,
+        metadata.profileSlug,
+        metadata.profile_slug
+      ]),
+      authUserIds: uniqueStrings([
+        member?.authUserId,
+        member?.auth_user_id,
+        metadata.authUserId,
+        metadata.auth_user_id
+      ])
+    };
+  }
+
+  function normalizeMemberProfileRow(row) {
+    const safeRow = row || {};
+    const metadata = asObject(safeRow.metadata);
+
+    return {
+      slug: safeRow.slug || metadata.slug || "",
+      authUserId: safeRow.auth_user_id || metadata.authUserId || metadata.auth_user_id || "",
+      displayName: safeRow.display_name || safeRow.nickname || safeRow.username || metadata.displayName || metadata.display_name || "",
+      nickname: safeRow.nickname || safeRow.username || metadata.nickname || "",
+      avatarUrl: safeRow.avatar_url || metadata.avatarUrl || metadata.avatar_url || ""
+    };
+  }
+
+  async function fetchProfileRowsForMembers(members) {
+    const safeMembers = Array.isArray(members) ? members : [];
+
+    if (!safeMembers.length || !teamsSupabaseEnabled()) {
+      return [];
+    }
+
+    const profileSlugs = uniqueStrings(safeMembers.flatMap(function (member) {
+      return getMemberProfileLookupKeys(member).slugs;
+    }));
+    const authUserIds = uniqueStrings(safeMembers.flatMap(function (member) {
+      return getMemberProfileLookupKeys(member).authUserIds;
+    }));
+
+    if (!profileSlugs.length && !authUserIds.length) {
+      return [];
+    }
+
+    const tableName = getProfilesSupabaseTableNameForTeams();
+    const profileMap = new Map();
+
+    async function collectBy(column, values) {
+      if (!values.length) return;
+
+      try {
+        const result = await window.SBWSupabase.client
+          .from(tableName)
+          .select("slug, auth_user_id, display_name, nickname, username, avatar_url, metadata")
+          .in(column, values);
+
+        if (result.error) {
+          console.warn("[SaberWolf Teams] Não foi possível enriquecer membros por " + column + ":", result.error);
+          return;
+        }
+
+        (result.data || []).forEach(function (row) {
+          const profile = normalizeMemberProfileRow(row);
+          const profileKey = profile.slug || profile.authUserId;
+
+          if (profileKey) {
+            profileMap.set(profileKey, profile);
+          }
+
+          if (profile.slug) profileMap.set("slug:" + profile.slug, profile);
+          if (profile.authUserId) profileMap.set("auth:" + profile.authUserId, profile);
+        });
+      } catch (error) {
+        console.warn("[SaberWolf Teams] Falha inesperada ao enriquecer membros por " + column + ":", error);
+      }
+    }
+
+    await collectBy("slug", profileSlugs);
+    await collectBy("auth_user_id", authUserIds);
+
+    return Array.from(profileMap.values());
+  }
+
+  async function enrichMembersWithProfileData(members) {
+    const safeMembers = Array.isArray(members) ? members : [];
+
+    if (!safeMembers.length) {
+      return safeMembers;
+    }
+
+    const profiles = await fetchProfileRowsForMembers(safeMembers);
+
+    if (!profiles.length) {
+      return safeMembers;
+    }
+
+    const bySlug = new Map();
+    const byAuthUserId = new Map();
+
+    profiles.forEach(function (profile) {
+      if (profile.slug) bySlug.set(String(profile.slug), profile);
+      if (profile.authUserId) byAuthUserId.set(String(profile.authUserId), profile);
+    });
+
+    return safeMembers.map(function (member) {
+      const metadata = asObject(member.metadata);
+      const keys = getMemberProfileLookupKeys(member);
+      const matchedProfile =
+        keys.slugs.map(function (slug) { return bySlug.get(slug); }).find(Boolean) ||
+        keys.authUserIds.map(function (authUserId) { return byAuthUserId.get(authUserId); }).find(Boolean) ||
+        null;
+
+      if (!matchedProfile) {
+        return member;
+      }
+
+      return Object.assign({}, member, {
+        avatarUrl: matchedProfile.avatarUrl || member.avatarUrl || member.avatar_url || "",
+        avatar_url: matchedProfile.avatarUrl || member.avatar_url || member.avatarUrl || "",
+        displayName: matchedProfile.displayName || member.displayName || member.display_name || member.nickname || "",
+        display_name: matchedProfile.displayName || member.display_name || member.displayName || "",
+        nickname: matchedProfile.nickname || member.nickname || member.displayName || member.display_name || "",
+        profileSlug: matchedProfile.slug || member.profileSlug || member.profile_slug || "",
+        profile_slug: matchedProfile.slug || member.profile_slug || member.profileSlug || "",
+        metadata: Object.assign({}, metadata, {
+          avatarUrl: matchedProfile.avatarUrl || metadata.avatarUrl || "",
+          avatar_url: matchedProfile.avatarUrl || metadata.avatar_url || "",
+          profileAvatarSyncedAt: matchedProfile.avatarUrl ? new Date().toISOString() : metadata.profileAvatarSyncedAt
+        })
+      });
+    });
   }
 
 
@@ -1395,7 +1558,7 @@
         return [];
       }
 
-      return result.data.map(normalizeSupabaseMember);
+      return enrichMembersWithProfileData(result.data.map(normalizeSupabaseMember));
     } catch (error) {
       console.error("[SaberWolf Teams] Falha inesperada ao buscar membros:", error);
       return [];

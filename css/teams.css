@@ -7251,3 +7251,30 @@ body.sbw-team-public-body .sbw-team-v2-hero-minimal .sbw-verified-badge {
   }
 }
 
+/* =========================================================
+   -SBW- v1.6.80.5 — fidelidade do banner público + avatar real
+   Escopo: perfil público da equipe e listas de membros.
+   O banner público passa a respeitar o mesmo frame salvo na edição,
+   e avatares de membros ficam preparados para foto real do perfil.
+   ========================================================= */
+body.sbw-team-public-body .sbw-team-v2-hero-minimal.has-team-banner .sbw-team-v2-cover[style] {
+  background-position: center, center, var(--sbw-team-banner-x, 50%) var(--sbw-team-banner-y, 50%), center !important;
+  background-size: cover, cover, var(--sbw-team-banner-size, cover), cover !important;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat !important;
+}
+
+.sbw-team-v2-member-avatar img,
+.sbw-admin-member-avatar img,
+.sbw-member-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+.sbw-team-v2-member-avatar:has(img) {
+  border-color: rgba(56, 232, 255, 0.22);
+  background: rgba(2, 8, 20, 0.72);
+}
+
