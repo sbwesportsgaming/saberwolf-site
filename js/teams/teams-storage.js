@@ -29,6 +29,10 @@
     const host = String(window.location?.hostname || "").toLowerCase();
     const cfg = window.SBW_TEAMS_CONFIG || {};
 
+    if (teamsSupabaseEnabled()) {
+      return Boolean(cfg.allowLocalDemoFallback === true && cfg.forceLocalDemoFallback === true);
+    }
+
     return Boolean(
       cfg.allowLocalDemoFallback === true ||
       host === "localhost" ||
@@ -234,6 +238,61 @@
     };
   }
 
+
+  function normalizeTeamStatusValue(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_]+/g, "-");
+  }
+
+  function getTeamMetadata(team) {
+    const metadata = team?.metadata;
+    return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+  }
+
+  function isTeamAdminArchivedOrDeleted(team) {
+    const metadata = getTeamMetadata(team);
+    const raw = team?.raw || {};
+    const rawMetadata = raw.metadata && typeof raw.metadata === "object" && !Array.isArray(raw.metadata)
+      ? raw.metadata
+      : {};
+    const status = normalizeTeamStatusValue(team?.status || raw.status);
+
+    return Boolean(
+      metadata.adminDeleted === true ||
+      metadata.adminArchived === true ||
+      metadata.deleted === true ||
+      metadata.archived === true ||
+      rawMetadata.adminDeleted === true ||
+      rawMetadata.adminArchived === true ||
+      rawMetadata.deleted === true ||
+      rawMetadata.archived === true ||
+      status === "deleted" ||
+      status === "removed" ||
+      status === "archived" ||
+      status === "inactive" ||
+      team?.isActive === false ||
+      raw.is_active === false
+    );
+  }
+
+  function isTeamPubliclyVisible(team) {
+    if (!team || isTeamAdminArchivedOrDeleted(team)) {
+      return false;
+    }
+
+    if (team.isPublic === false || team.raw?.is_public === false) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function filterPublicTeams(teams) {
+    return Array.isArray(teams) ? teams.filter(isTeamPubliclyVisible) : [];
+  }
+
   function getLocalTeams() {
     return readJson(getStorageKey("teams", "sbw_teams_v1_3_9"), []);
   }
@@ -321,22 +380,6 @@
     }
 
     return getMainTeamType();
-  }
-
-  function isTeamHiddenFromPublic(team) {
-    const status = String(team?.status || team?.raw?.status || "").trim().toLowerCase();
-    const metadata = team?.metadata && typeof team.metadata === "object" ? team.metadata : {};
-    return (
-      team?.isPublic === false ||
-      team?.is_public === false ||
-      team?.isActive === false ||
-      team?.is_active === false ||
-      ["archived", "archive", "deleted", "removed", "inactive", "hidden", "private"].includes(status) ||
-      metadata.adminDeleted === true ||
-      metadata.admin_deleted === true ||
-      metadata.adminArchived === true ||
-      metadata.admin_archived === true
-    );
   }
 
   function normalizeSupabaseTeam(row) {
@@ -434,9 +477,9 @@
         return [];
       }
 
-      return result.data
-        .map(normalizeSupabaseTeam)
-        .filter((team) => !publicOnly || !isTeamHiddenFromPublic(team));
+      const normalizedTeams = result.data.map(normalizeSupabaseTeam);
+
+      return publicOnly ? filterPublicTeams(normalizedTeams) : normalizedTeams;
     } catch (error) {
       console.error("[SaberWolf Teams] Falha inesperada ao buscar equipes:", error);
       return [];
@@ -1387,17 +1430,19 @@
       });
 
       if (supabaseTeams.length > 0) {
-        return mergeSupabaseAndLocalTeamsForAllowedFallback(supabaseTeams);
+        const mergedTeams = mergeSupabaseAndLocalTeamsForAllowedFallback(supabaseTeams);
+        return safeOptions.publicOnly === false ? mergedTeams : filterPublicTeams(mergedTeams);
       }
 
       if (!localDemoFallbackAllowed()) {
         return [];
       }
 
-      console.warn("[SaberWolf Teams] Nenhuma equipe retornada do Supabase. Usando fallback local-demo apenas em ambiente local.");
+      console.warn("[SaberWolf Teams] Nenhuma equipe pública retornada do Supabase. Usando fallback local-demo apenas em ambiente local sem Supabase real.");
     }
 
-    return mergeDemoAndLocalTeams();
+    const localTeams = mergeDemoAndLocalTeams();
+    return safeOptions.publicOnly === false ? localTeams : filterPublicTeams(localTeams);
   }
 
   async function getAllTeamsForSession() {
@@ -1824,6 +1869,8 @@
   saveTeamToSupabase,
   normalizeSupabaseTeam,
   normalizeSupabaseMember,
+  isTeamAdminArchivedOrDeleted,
+  isTeamPubliclyVisible,
 
   getTeamTypeOptions,
   getTeamTypeByTeamId,

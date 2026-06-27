@@ -20,6 +20,10 @@ function sbwTournamentLocalDemoFallbackAllowed() {
   const host = String(window.location?.hostname || "").toLowerCase();
   const config = sbwGetStorageConfig();
 
+  if (sbwIsSupabaseEnabled()) {
+    return Boolean(config.allowLocalDemoFallback === true && config.forceLocalDemoFallback === true);
+  }
+
   return Boolean(
     config.allowLocalDemoFallback === true ||
     config.appMode === "local-demo" ||
@@ -1257,21 +1261,6 @@ function sbwBuildSupabaseTournamentPayload(tournament, options = {}) {
   return payload;
 }
 
-function sbwTournamentIsHiddenFromPublic(tournament) {
-  const status = String(tournament?.status || tournament?.raw?.status || "").trim().toLowerCase();
-  const visibility = String(tournament?.visibility || tournament?.raw?.visibility || tournament?.metadata?.visibility || "public").trim().toLowerCase();
-  const metadata = tournament?.metadata && typeof tournament.metadata === "object" ? tournament.metadata : {};
-
-  return (
-    ["archived", "archive", "deleted", "removed", "hidden", "private"].includes(status) ||
-    ["private", "hidden", "deleted", "archived"].includes(visibility) ||
-    metadata.adminDeleted === true ||
-    metadata.admin_deleted === true ||
-    metadata.adminArchived === true ||
-    metadata.admin_archived === true
-  );
-}
-
 function sbwNormalizeSupabaseTournament(row) {
   const settings = row.settings && typeof row.settings === "object"
     ? row.settings
@@ -1385,7 +1374,7 @@ async function sbwGetSupabaseTournaments() {
 
     return data
       .map(sbwNormalizeSupabaseTournament)
-      .filter((tournament) => !sbwTournamentIsHiddenFromPublic(tournament));
+      .filter(sbwIsTournamentPubliclyVisible);
   } catch (error) {
     console.error("[SaberWolf Supabase] Falha inesperada ao buscar torneios:", error);
     return [];
@@ -1443,16 +1432,16 @@ function sbwSaveTournaments(tournaments) {
 }
 
 function sbwGetLocalTournaments() {
-  const saved = sbwGetSavedTournaments();
+  const saved = sbwFilterPublicTournaments(sbwGetSavedTournaments());
 
   if (!sbwTournamentLocalDemoFallbackAllowed()) {
     return saved;
   }
 
-  return [
+  return sbwFilterPublicTournaments([
     ...saved,
     ...sbwGetDemoTournaments()
-  ];
+  ]);
 }
 
 function sbwGetTournamentDatabaseId(tournament) {
@@ -1476,6 +1465,70 @@ function sbwGetTournamentPublicId(tournament) {
   }
 
   return String(tournament.slug || tournament.id || tournament.supabaseId || "");
+}
+
+function sbwGetTournamentMetadata(tournament) {
+  const metadata = tournament?.metadata;
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+}
+
+function sbwNormalizeTournamentStatusValue(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+}
+
+function sbwIsTournamentAdminArchivedOrDeleted(tournament) {
+  const metadata = sbwGetTournamentMetadata(tournament);
+  const raw = tournament?.raw || {};
+  const rawMetadata = raw.metadata && typeof raw.metadata === "object" && !Array.isArray(raw.metadata)
+    ? raw.metadata
+    : {};
+  const status = sbwNormalizeTournamentStatusValue(tournament?.status || raw.status);
+  const visibility = sbwNormalizeTournamentStatusValue(tournament?.visibility || raw.visibility);
+
+  return Boolean(
+    metadata.adminDeleted === true ||
+    metadata.adminArchived === true ||
+    metadata.deleted === true ||
+    metadata.archived === true ||
+    rawMetadata.adminDeleted === true ||
+    rawMetadata.adminArchived === true ||
+    rawMetadata.deleted === true ||
+    rawMetadata.archived === true ||
+    status === "deleted" ||
+    status === "removed" ||
+    status === "archived" ||
+    status === "hidden" ||
+    visibility === "private" ||
+    visibility === "hidden"
+  );
+}
+
+function sbwIsTournamentPubliclyVisible(tournament) {
+  if (!tournament || sbwIsTournamentAdminArchivedOrDeleted(tournament)) {
+    return false;
+  }
+
+  const status = sbwNormalizeTournamentStatusValue(tournament.status);
+  const visibility = sbwNormalizeTournamentStatusValue(tournament.visibility || "public");
+
+  if (["draft", "cancelled", "canceled", "rejected", "blocked"].includes(status)) {
+    return false;
+  }
+
+  if (visibility && visibility !== "public") {
+    return false;
+  }
+
+  return true;
+}
+
+function sbwFilterPublicTournaments(tournaments) {
+  return Array.isArray(tournaments)
+    ? tournaments.filter(sbwIsTournamentPubliclyVisible)
+    : [];
 }
 
 function sbwGetTournamentName(tournament) {
@@ -2837,15 +2890,15 @@ async function sbwGetAllTournamentsAsync() {
     const supabaseTournaments = await sbwGetSupabaseTournaments();
 
     if (supabaseTournaments.length > 0) {
-      return supabaseTournaments;
+      return sbwFilterPublicTournaments(supabaseTournaments);
     }
 
     if (!sbwTournamentLocalDemoFallbackAllowed()) {
-      console.warn("[SaberWolf Supabase] Nenhum torneio retornado. Exibindo estado vazio em produção.");
+      console.warn("[SaberWolf Supabase] Nenhum torneio público retornado. Exibindo estado vazio real.");
       return [];
     }
 
-    console.warn("[SaberWolf Supabase] Nenhum torneio retornado. Usando fallback local-demo apenas em ambiente local.");
+    console.warn("[SaberWolf Supabase] Nenhum torneio público retornado. Usando fallback local-demo apenas em ambiente local sem Supabase real.");
   }
 
   return sbwGetLocalTournaments();
