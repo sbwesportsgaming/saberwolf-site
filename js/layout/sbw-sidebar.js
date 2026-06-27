@@ -101,14 +101,23 @@
       profileMetadata.profileImageUrl ||
       profileMetadata.picture ||
       profileMetadata.imageUrl ||
+      profileMetadata.image_url ||
       profileAssets.avatarUrl ||
       profileAssets.avatar_url ||
       profileAssets.photoUrl ||
       profileAssets.photo_url ||
       avatarAsset.url ||
       avatarAsset.src ||
+      avatarAsset.publicUrl ||
+      avatarAsset.public_url ||
+      avatarAsset.signedUrl ||
+      avatarAsset.signed_url ||
       photoAsset.url ||
       photoAsset.src ||
+      photoAsset.publicUrl ||
+      photoAsset.public_url ||
+      photoAsset.signedUrl ||
+      photoAsset.signed_url ||
       assetFrames.avatarUrl ||
       assetFrames.avatar_url ||
       userMetadata.avatar_url ||
@@ -192,6 +201,17 @@
     return null;
   }
 
+  async function canManageAdminViaRpc(client) {
+    if (!client?.rpc) return false;
+
+    try {
+      const result = await client.rpc("sbw_admin_panel_can_manage");
+      return !result?.error && result?.data === true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async function buildFallbackContextFromSupabase(user) {
     if (!user) return null;
 
@@ -199,6 +219,7 @@
     const table = window.SBWSupabaseConfig?.tables?.profiles || "profiles";
     let profile = null;
     let sitePermission = null;
+    const adminAllowedByRpc = await canManageAdminViaRpc(client);
 
     if (client?.from) {
       try {
@@ -253,7 +274,11 @@
       }
     }
 
-    const permissions = mergePermissionObjects(asObject(profile?.permissions || profile?.metadata?.permissions), sitePermission);
+    const permissions = mergePermissionObjects(
+      asObject(profile?.permissions || profile?.metadata?.permissions),
+      sitePermission,
+      adminAllowedByRpc ? { isAdminSbw: true, canManagePermissions: true } : null
+    );
 
     return {
       user,
@@ -386,15 +411,6 @@
           </a>
         `
       : "";
-    const adminShortcut = canOpenAdmin
-      ? `
-          <a class="sbw-account-admin-shortcut" href="/admin/admin.html">
-            <span>⚙️</span>
-            <strong>Administrador</strong>
-          </a>
-        `
-      : "";
-
     return `
       <div class="sbw-account-compact" data-sbw-account-compact>
         <button
@@ -411,8 +427,6 @@
 
           <span class="sbw-account-compact__chevron">▾</span>
         </button>
-
-        ${adminShortcut}
 
         <nav class="sbw-account-dropdown" aria-label="Menu do perfil" data-sbw-account-menu hidden>
           <a class="sbw-account-dropdown__item sbw-account-dropdown__item--primary" href="/perfis/meu-perfil.html">
