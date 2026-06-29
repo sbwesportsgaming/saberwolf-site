@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'v1.6.80.0';
+  const VERSION = 'v1.6.80.6';
   const MAX_META_KEYS = 12;
   const MAX_META_VALUE = 160;
   const DEFAULT_CATEGORY = 'site';

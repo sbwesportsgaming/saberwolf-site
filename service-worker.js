@@ -1,14 +1,15 @@
 /*
-  -SBW- PWA Beta Service Worker v1.6.41
+  -SBW- PWA Beta Service Worker v1.6.80.6
   - Cache conservador com versionamento para evitar assets antigos no app instalado.
   - HTML/pages usam network-first e caem para offline.html somente sem conexão.
   - Não cacheia Supabase, Auth, Admin, dados privados ou páginas dinâmicas de forma agressiva.
 */
 
-const SBW_PWA_CACHE = "sbw-pwa-beta-v4";
+const SBW_PWA_CACHE = "sbw-pwa-beta-v8";
 const SBW_PWA_PRECACHE = [
   "/offline.html",
-  "/manifest.webmanifest?v=20260618-1641",
+  "/index.html",
+  "/manifest.webmanifest?v=20260629-16806",
   "/assets/icons/icon-192-v3.png",
   "/assets/icons/icon-512-v3.png",
   "/assets/icons/apple-touch-icon-v3.png",
@@ -19,7 +20,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(SBW_PWA_CACHE)
-      .then((cache) => cache.addAll(SBW_PWA_PRECACHE))
+      .then((cache) => Promise.allSettled(SBW_PWA_PRECACHE.map((url) => cache.add(url))))
       .then(() => self.skipWaiting())
   );
 });
@@ -48,6 +49,8 @@ function isSameOrigin(url) {
 
 function isPwaStaticAsset(pathname) {
   return (
+    pathname === "/" ||
+    pathname === "/index.html" ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/offline.html" ||
     pathname === "/assets/images/app-sbw-beta-promo-v2.png" ||
@@ -58,10 +61,20 @@ function isPwaStaticAsset(pathname) {
 }
 
 function networkFirst(request, fallbackUrl) {
-  return fetch(request, { cache: "no-store" }).catch(() => {
-    if (fallbackUrl) return caches.match(fallbackUrl);
-    return caches.match(request);
-  });
+  return fetch(request, { cache: "no-store" })
+    .then((response) => {
+      if (response && response.ok && request.mode === "navigate") {
+        const copy = response.clone();
+        caches.open(SBW_PWA_CACHE).then((cache) => cache.put(request, copy));
+      }
+      return response;
+    })
+    .catch(async () => {
+      const cachedPage = await caches.match(request);
+      if (cachedPage) return cachedPage;
+      if (fallbackUrl) return caches.match(fallbackUrl);
+      return caches.match(request);
+    });
 }
 
 function networkFirstStatic(request) {

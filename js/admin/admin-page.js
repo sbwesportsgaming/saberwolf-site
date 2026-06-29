@@ -18,7 +18,10 @@
     tournamentSearchQuery: "",
     organizerPermissions: new Map(),
     organizerPermissionRows: [],
-    tournamentOrganizers: []
+    tournamentOrganizers: [],
+    analyticsDays: 7,
+    analyticsSummary: null,
+    analyticsError: ""
   };
 
   function $(selector, root = document) {
@@ -1216,15 +1219,17 @@
   }
 
   async function refreshData() {
-    const [supabaseProfiles, fallbackProfiles, teams, tournaments, organizerPermissionRows, tournamentOrganizers] = await Promise.all([
+    const [supabaseProfiles, fallbackProfiles, teams, tournaments, organizerPermissionRows, tournamentOrganizers, analyticsSummary] = await Promise.all([
       loadProfilesFromSupabase(),
       loadProfilesFromFallback(),
       loadTeams(),
       loadTournamentsForAdmin(),
       loadOrganizerPermissions(),
-      loadTournamentOrganizersForAdmin()
+      loadTournamentOrganizersForAdmin(),
+      loadAnalyticsSummary()
     ]);
 
+    state.analyticsSummary = analyticsSummary;
     state.organizerPermissionRows = Array.isArray(organizerPermissionRows) ? organizerPermissionRows : [];
     state.tournamentOrganizers = Array.isArray(tournamentOrganizers)
       ? tournamentOrganizers.sort((a, b) => String(getOrganizerEntityName(a)).localeCompare(String(getOrganizerEntityName(b)), "pt-BR"))
@@ -1251,6 +1256,7 @@
     renderOrganizerExternalPretest();
     renderOrganizerPermissionResults();
     renderOrganizerEntityResults();
+    renderAnalyticsPanel();
   }
 
   function renderStats(organizerCount = 0) {
@@ -1266,6 +1272,203 @@
       const el = $(`[data-sbw-admin-stat="${key}"]`);
       if (el) el.textContent = String(value);
     });
+  }
+
+
+  function safeNumber(value) {
+    const number = Number(value || 0);
+    return Number.isFinite(number) ? number : 0;
+  }
+
+  function formatShortNumber(value) {
+    return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(safeNumber(value));
+  }
+
+  function formatPercent(value) {
+    return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(safeNumber(value))}%`;
+  }
+
+  function normalizeAnalyticsSummary(payload) {
+    const source = payload && typeof payload === "object" ? payload : {};
+
+    if (source.ok === false) {
+      return {
+        ok: false,
+        message: source.message || "Analytics indisponível.",
+        totals: {},
+        daily: [],
+        pages: [],
+        categories: [],
+        devices: [],
+        pwa: []
+      };
+    }
+
+    return {
+      ok: true,
+      days: safeNumber(source.days || state.analyticsDays || 7),
+      totals: asObject(source.totals),
+      daily: Array.isArray(source.daily) ? source.daily : [],
+      pages: Array.isArray(source.pages) ? source.pages : [],
+      categories: Array.isArray(source.categories) ? source.categories : [],
+      devices: Array.isArray(source.devices) ? source.devices : [],
+      pwa: Array.isArray(source.pwa) ? source.pwa : []
+    };
+  }
+
+  async function loadAnalyticsSummary() {
+    if (!state.client) return normalizeAnalyticsSummary({ ok: false, message: "Supabase não carregado." });
+
+    try {
+      const result = await state.client.rpc("sbw_admin_get_site_analytics_summary", {
+        p_days: state.analyticsDays || 7
+      });
+
+      if (result.error) throw result.error;
+      return normalizeAnalyticsSummary(result.data || {});
+    } catch (error) {
+      return normalizeAnalyticsSummary({
+        ok: false,
+        message: error?.message || "Não foi possível carregar o resumo de analytics. Verifique se o SQL da v1.6.80.6 foi rodado."
+      });
+    }
+  }
+
+  function renderAnalyticsBarList(items, labelKey, valueKey, emptyText) {
+    const source = Array.isArray(items) ? items : [];
+    const total = source.reduce((sum, item) => sum + safeNumber(item?.[valueKey]), 0);
+
+    if (!source.length || total <= 0) {
+      return `<p class="sbw-admin-muted">${escapeHtml(emptyText || "Sem dados suficientes.")}</p>`;
+    }
+
+    return `
+      <div class="sbw-admin-analytics-bars">
+        ${source.map((item) => {
+          const label = item?.[labelKey] || "—";
+          const value = safeNumber(item?.[valueKey]);
+          const percent = total > 0 ? Math.max(3, Math.round((value / total) * 100)) : 0;
+
+          return `
+            <div class="sbw-admin-analytics-bar-row">
+              <div class="sbw-admin-analytics-bar-row__head">
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(formatShortNumber(value))}</strong>
+              </div>
+              <div class="sbw-admin-analytics-bar" aria-hidden="true">
+                <span style="width: ${escapeHtml(percent)}%"></span>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderAnalyticsDailyChart(items) {
+    const source = Array.isArray(items) ? items : [];
+    const max = Math.max(1, ...source.map((item) => safeNumber(item?.views)));
+
+    if (!source.length || source.every((item) => safeNumber(item?.views) <= 0)) {
+      return `<p class="sbw-admin-muted">Ainda não há page views suficientes para formar o gráfico diário.</p>`;
+    }
+
+    return `
+      <div class="sbw-admin-analytics-chart" aria-label="Visualizações por dia">
+        ${source.map((item) => {
+          const views = safeNumber(item?.views);
+          const percent = Math.max(6, Math.round((views / max) * 100));
+          const label = String(item?.date || "").slice(5).replace("-", "/");
+
+          return `
+            <div class="sbw-admin-analytics-chart__item" title="${escapeHtml(item?.date || "")} · ${escapeHtml(formatShortNumber(views))} views">
+              <span style="height: ${escapeHtml(percent)}%"></span>
+              <small>${escapeHtml(label)}</small>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function updateAnalyticsButtons() {
+    $all("[data-admin-action='analytics-days']").forEach((button) => {
+      button.classList.toggle("is-active", Number(button.dataset.analyticsDays || 0) === Number(state.analyticsDays || 7));
+    });
+  }
+
+  function renderAnalyticsPanel() {
+    const root = $("#sbwAdminAnalyticsResults");
+    if (!root) return;
+
+    updateAnalyticsButtons();
+
+    const summary = state.analyticsSummary;
+    if (!summary) {
+      root.innerHTML = `<p class="sbw-admin-muted">Carregando analytics...</p>`;
+      return;
+    }
+
+    if (summary.ok === false) {
+      root.innerHTML = `
+        <div class="sbw-admin-message sbw-admin-message--warning">
+          <strong>Analytics ainda não disponível.</strong><br />
+          ${escapeHtml(summary.message || "Rode o SQL da v1.6.80.6 no Supabase e atualize esta aba.")}
+        </div>
+      `;
+      return;
+    }
+
+    const totals = summary.totals || {};
+    const totalViews = safeNumber(totals.page_views);
+    const pwaViews = safeNumber(totals.pwa_views);
+    const pwaRate = totalViews > 0 ? (pwaViews / totalViews) * 100 : 0;
+
+    root.innerHTML = `
+      <section class="sbw-admin-analytics-summary" aria-label="Resumo do analytics">
+        <article><span>Eventos</span><strong>${escapeHtml(formatShortNumber(totals.events))}</strong></article>
+        <article><span>Page views</span><strong>${escapeHtml(formatShortNumber(totalViews))}</strong></article>
+        <article><span>Cliques</span><strong>${escapeHtml(formatShortNumber(totals.clicks))}</strong></article>
+        <article><span>PWA/App</span><strong>${escapeHtml(formatPercent(pwaRate))}</strong></article>
+      </section>
+
+      <section class="sbw-admin-analytics-grid">
+        <article class="sbw-admin-analytics-card sbw-admin-analytics-card--wide">
+          <div class="sbw-admin-analytics-card__head">
+            <h3>Visualizações por dia</h3>
+            <span>${escapeHtml(summary.days || state.analyticsDays || 7)} dias</span>
+          </div>
+          ${renderAnalyticsDailyChart(summary.daily)}
+        </article>
+
+        <article class="sbw-admin-analytics-card">
+          <div class="sbw-admin-analytics-card__head"><h3>Páginas mais acessadas</h3></div>
+          ${renderAnalyticsBarList(summary.pages, "path", "views", "Sem páginas registradas ainda.")}
+        </article>
+
+        <article class="sbw-admin-analytics-card">
+          <div class="sbw-admin-analytics-card__head"><h3>Categorias</h3></div>
+          ${renderAnalyticsBarList(summary.categories, "category", "views", "Sem categorias registradas ainda.")}
+        </article>
+
+        <article class="sbw-admin-analytics-card">
+          <div class="sbw-admin-analytics-card__head"><h3>Dispositivos</h3></div>
+          ${renderAnalyticsBarList(summary.devices, "device", "views", "Sem dados de dispositivo ainda.")}
+        </article>
+
+        <article class="sbw-admin-analytics-card">
+          <div class="sbw-admin-analytics-card__head"><h3>App vs navegador</h3></div>
+          ${renderAnalyticsBarList(summary.pwa, "label", "views", "Sem dados de PWA ainda.")}
+        </article>
+      </section>
+    `;
+  }
+
+  async function refreshAnalyticsPanel() {
+    const root = $("#sbwAdminAnalyticsResults");
+    if (root) root.innerHTML = `<p class="sbw-admin-muted">Atualizando analytics...</p>`;
+    state.analyticsSummary = await loadAnalyticsSummary();
+    renderAnalyticsPanel();
   }
 
   function getOrganizerExternalPretestItems() {
@@ -2655,6 +2858,17 @@
           addLog("Lista global de torneios atualizada.");
         }
 
+        if (action === "refresh-analytics") {
+          await refreshAnalyticsPanel();
+          addLog("Analytics atualizado.");
+        }
+
+        if (action === "analytics-days") {
+          state.analyticsDays = Number(button.dataset.analyticsDays || 7) || 7;
+          await refreshAnalyticsPanel();
+          addLog(`Analytics ajustado para ${state.analyticsDays} dia(s).`);
+        }
+
         if (action === "show-all-tournaments") {
           state.tournamentListExpanded = true;
           state.tournamentSearchQuery = "";
@@ -2827,6 +3041,7 @@
       await refreshData();
       renderAlphaFilters();
       renderTournamentsList();
+      renderAnalyticsPanel();
       updateTournamentFilterButtons();
       updateListControls();
       addLog("Painel Admin Master inicial carregado.");

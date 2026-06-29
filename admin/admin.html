@@ -74,6 +74,7 @@
         <button type="button" data-sbw-admin-tab="equipes">Equipes</button>
         <button type="button" data-sbw-admin-tab="organizadores">Organizadores</button>
         <button type="button" data-sbw-admin-tab="torneios">Torneios</button>
+        <button type="button" data-sbw-admin-tab="analytics">Analytics</button>
         <button type="button" data-sbw-admin-tab="permissoes">Permissões</button>
         <button type="button" data-sbw-admin-tab="rls">RLS / Segurança</button>
         <button type="button" data-sbw-admin-tab="logs">Logs</button>
@@ -263,6 +264,36 @@
         </div>
       </section>
 
+
+      <section class="sbw-admin-tab-panel" data-sbw-admin-panel="analytics">
+        <div class="sbw-admin-card">
+          <div class="sbw-admin-card__header">
+            <div>
+              <h2>Analytics da plataforma</h2>
+              <p>Métricas gerais agregadas da plataforma -SBW-, sem dados pessoais dos visitantes.</p>
+            </div>
+
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="refresh-analytics">
+              Atualizar analytics
+            </button>
+          </div>
+
+          <div class="sbw-admin-message">
+            Os gráficos dependem do SQL <code>docs/sql/v1_6_80_6_site_analytics_admin_dashboard.sql</code> e de eventos registrados após a ativação do analytics.
+          </div>
+
+          <div class="sbw-admin-inline-actions" aria-label="Período do analytics">
+            <button class="sbw-admin-button sbw-admin-button--ghost is-active" type="button" data-admin-action="analytics-days" data-analytics-days="7">7 dias</button>
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-days" data-analytics-days="30">30 dias</button>
+            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-days" data-analytics-days="90">90 dias</button>
+          </div>
+
+          <div class="sbw-admin-analytics" id="sbwAdminAnalyticsResults">
+            <p class="sbw-admin-muted">Carregando analytics...</p>
+          </div>
+        </div>
+      </section>
+
       <section class="sbw-admin-tab-panel" data-sbw-admin-panel="permissoes">
         <div class="sbw-admin-grid-2">
           <article class="sbw-admin-card">
@@ -370,7 +401,7 @@
   <script src="../js/core/sbw-session-context.js"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/layout/sbw-sidebar.js"></script>
-  <script src="../js/admin/admin-page.js?v=1.6.80.1"></script>
+  <script src="../js/admin/admin-page.js?v=1.6.80.6"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

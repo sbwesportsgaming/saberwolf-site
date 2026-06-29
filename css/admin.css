@@ -828,3 +828,169 @@ body.sbw-has-sidebar .sbw-admin-page {
 .sbw-admin-organizer-entity-card .sbw-admin-actions {
   flex-wrap: wrap;
 }
+
+/* =========================================================
+   -SBW- v1.6.80.6 — Analytics no Admin Master
+   Gráficos CSS simples, sem biblioteca externa.
+   ========================================================= */
+.sbw-admin-analytics {
+  display: grid;
+  gap: 18px;
+}
+
+.sbw-admin-analytics-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sbw-admin-analytics-summary article,
+.sbw-admin-analytics-card {
+  border: 1px solid rgba(76, 202, 255, 0.15);
+  border-radius: 18px;
+  background: rgba(3, 12, 24, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.sbw-admin-analytics-summary article {
+  padding: 14px;
+}
+
+.sbw-admin-analytics-summary span,
+.sbw-admin-analytics-card__head span,
+.sbw-admin-analytics-bar-row__head span,
+.sbw-admin-analytics-chart small {
+  color: var(--sbw-admin-muted);
+}
+
+.sbw-admin-analytics-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: #f8fbff;
+  font-size: clamp(1.25rem, 2vw, 1.85rem);
+  font-weight: 950;
+}
+
+.sbw-admin-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sbw-admin-analytics-card {
+  padding: 16px;
+}
+
+.sbw-admin-analytics-card--wide {
+  grid-column: 1 / -1;
+}
+
+.sbw-admin-analytics-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.sbw-admin-analytics-card__head h3 {
+  margin: 0;
+  color: #f8fbff;
+  font-size: 1rem;
+}
+
+.sbw-admin-analytics-chart {
+  min-height: 220px;
+  display: flex;
+  align-items: end;
+  gap: 7px;
+  padding: 12px 6px 0;
+  border-top: 1px solid rgba(76, 202, 255, 0.10);
+}
+
+.sbw-admin-analytics-chart__item {
+  min-width: 0;
+  flex: 1 1 0;
+  height: 190px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.sbw-admin-analytics-chart__item > span {
+  width: 100%;
+  min-height: 6px;
+  border-radius: 999px 999px 4px 4px;
+  background: linear-gradient(180deg, var(--sbw-admin-cyan), rgba(76, 202, 255, 0.18));
+  box-shadow: 0 0 16px rgba(76, 202, 255, 0.18);
+}
+
+.sbw-admin-analytics-chart small {
+  display: block;
+  overflow: hidden;
+  font-size: 0.64rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sbw-admin-analytics-bars {
+  display: grid;
+  gap: 12px;
+}
+
+.sbw-admin-analytics-bar-row {
+  display: grid;
+  gap: 6px;
+}
+
+.sbw-admin-analytics-bar-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sbw-admin-analytics-bar-row__head span {
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sbw-admin-analytics-bar-row__head strong {
+  color: #f8fbff;
+  font-size: 0.82rem;
+}
+
+.sbw-admin-analytics-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(76, 202, 255, 0.08);
+}
+
+.sbw-admin-analytics-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(76, 202, 255, 0.45), var(--sbw-admin-cyan));
+}
+
+@media (max-width: 980px) {
+  .sbw-admin-analytics-summary,
+  .sbw-admin-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sbw-admin-analytics-chart {
+    overflow-x: auto;
+  }
+
+  .sbw-admin-analytics-chart__item {
+    min-width: 34px;
+  }
+}
+

@@ -47,7 +47,7 @@
       const script = document.createElement('script');
       script.defer = true;
       script.setAttribute('data-sbw-analytics', 'true');
-      script.src = basePath + 'js/analytics/sbw-analytics.js?v=1.6.80.0';
+      script.src = basePath + 'js/analytics/sbw-analytics.js?v=1.6.80.6';
       document.head.appendChild(script);
     } catch (error) {
       if (window.SBW_ANALYTICS_DEBUG) {

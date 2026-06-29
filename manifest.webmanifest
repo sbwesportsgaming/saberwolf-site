@@ -1,12 +1,12 @@
 {
   "name": "-SBW- App Beta",
   "short_name": "-SBW-",
-  "description": "Acesse a plataforma -SBW- pelo celular, direto da tela inicial.",
+  "description": "Acesse a plataforma -SBW- pelo celular ou computador, direto da tela inicial.",
   "id": "/?source=pwa",
-  "start_url": "/?source=pwa",
+  "start_url": "/index.html?source=pwa&app=v0.2",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#030812",
   "theme_color": "#37c8ff",
   "categories": [
@@ -33,5 +33,10 @@
       "type": "image/png",
       "purpose": "any"
     }
+  ],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "browser"
   ]
 }
