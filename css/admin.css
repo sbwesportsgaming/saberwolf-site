@@ -994,3 +994,103 @@ body.sbw-has-sidebar .sbw-admin-page {
   }
 }
 
+
+/* =========================================================
+   -SBW- v1.6.80.7 — refinamento dos filtros do Analytics
+   Ajusta botões 7/15/30/90 dias, período personalizado e origem aproximada.
+   ========================================================= */
+.sbw-admin-analytics-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+.sbw-admin-analytics-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sbw-admin-analytics-presets .sbw-admin-button,
+.sbw-admin-analytics-custom .sbw-admin-button {
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sbw-admin-analytics-presets .sbw-admin-button.is-active {
+  border-color: rgba(76, 202, 255, 0.48);
+  background: linear-gradient(135deg, rgba(56, 215, 255, 0.32), rgba(28, 100, 255, 0.18));
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(76, 202, 255, 0.12);
+}
+
+.sbw-admin-analytics-custom {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.sbw-admin-analytics-custom label {
+  display: grid;
+  gap: 5px;
+  color: var(--sbw-admin-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sbw-admin-analytics-custom input[type="date"] {
+  min-height: 36px;
+  width: 142px;
+  border: 1px solid rgba(76, 202, 255, 0.18);
+  border-radius: 12px;
+  color: #f8fbff;
+  background: rgba(3, 12, 24, 0.58);
+  padding: 0 10px;
+  font: inherit;
+  font-size: 0.82rem;
+  color-scheme: dark;
+}
+
+.sbw-admin-analytics-custom.is-active input[type="date"] {
+  border-color: rgba(76, 202, 255, 0.42);
+  box-shadow: 0 0 0 1px rgba(76, 202, 255, 0.08);
+}
+
+.sbw-admin-analytics-card__hint {
+  margin: -4px 0 14px;
+  color: var(--sbw-admin-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 860px) {
+  .sbw-admin-analytics-toolbar,
+  .sbw-admin-analytics-custom {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sbw-admin-analytics-presets,
+  .sbw-admin-analytics-custom {
+    justify-content: flex-start;
+  }
+
+  .sbw-admin-analytics-custom label,
+  .sbw-admin-analytics-custom input[type="date"],
+  .sbw-admin-analytics-custom .sbw-admin-button {
+    width: 100%;
+  }
+}

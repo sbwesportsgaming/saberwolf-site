@@ -282,10 +282,26 @@
             Os gráficos dependem do SQL <code>docs/sql/v1_6_80_6_site_analytics_admin_dashboard.sql</code> e de eventos registrados após a ativação do analytics.
           </div>
 
-          <div class="sbw-admin-inline-actions" aria-label="Período do analytics">
-            <button class="sbw-admin-button sbw-admin-button--ghost is-active" type="button" data-admin-action="analytics-days" data-analytics-days="7">7 dias</button>
-            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-days" data-analytics-days="30">30 dias</button>
-            <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-days" data-analytics-days="90">90 dias</button>
+          <div class="sbw-admin-analytics-toolbar" aria-label="Período do analytics">
+            <div class="sbw-admin-analytics-presets">
+              <button class="sbw-admin-button sbw-admin-button--ghost is-active" type="button" data-admin-action="analytics-days" data-analytics-days="7">7 dias</button>
+              <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-days" data-analytics-days="15">15 dias</button>
+              <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-days" data-analytics-days="30">30 dias</button>
+              <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-days" data-analytics-days="90">90 dias</button>
+            </div>
+
+            <form class="sbw-admin-analytics-custom" data-sbw-admin-analytics-range>
+              <label>
+                <span>De</span>
+                <input type="date" name="start" />
+              </label>
+              <label>
+                <span>Até</span>
+                <input type="date" name="end" />
+              </label>
+              <button class="sbw-admin-button" type="submit">Aplicar</button>
+              <button class="sbw-admin-button sbw-admin-button--ghost" type="button" data-admin-action="analytics-clear-range">Limpar</button>
+            </form>
           </div>
 
           <div class="sbw-admin-analytics" id="sbwAdminAnalyticsResults">
@@ -401,7 +417,7 @@
   <script src="../js/core/sbw-session-context.js"></script>
   <script src="../js/core/sbw-page-state.js"></script>
   <script src="../js/layout/sbw-sidebar.js"></script>
-  <script src="../js/admin/admin-page.js?v=1.6.80.6"></script>
+  <script src="../js/admin/admin-page.js?v=1.6.80.7"></script>
   <script src="../js/core/sbw-site-compliance.js"></script>
 </body>
 </html>

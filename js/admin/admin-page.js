@@ -20,6 +20,9 @@
     organizerPermissionRows: [],
     tournamentOrganizers: [],
     analyticsDays: 7,
+    analyticsRangeMode: "days",
+    analyticsStartDate: "",
+    analyticsEndDate: "",
     analyticsSummary: null,
     analyticsError: ""
   };
@@ -1288,6 +1291,49 @@
     return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(safeNumber(value))}%`;
   }
 
+  function getTodayDateInputValue() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  }
+
+  function isDateInputValue(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+  }
+
+  function formatDateInputLabel(value) {
+    if (!isDateInputValue(value)) return "—";
+    const [year, month, day] = String(value).split("-");
+    return `${day}/${month}/${year}`;
+  }
+
+  function getAnalyticsPeriodLabel(summary) {
+    const period = asObject(summary?.period);
+    const start = period.start_date || state.analyticsStartDate;
+    const end = period.end_date || state.analyticsEndDate;
+
+    if ((summary?.mode || state.analyticsRangeMode) === "custom" && isDateInputValue(start) && isDateInputValue(end)) {
+      return `${formatDateInputLabel(start)} a ${formatDateInputLabel(end)}`;
+    }
+
+    return `${escapeHtml(summary?.days || state.analyticsDays || 7)} dias`;
+  }
+
+  function getAnalyticsRpcParams() {
+    const params = {
+      p_days: state.analyticsDays || 7,
+      p_start_date: null,
+      p_end_date: null
+    };
+
+    if (state.analyticsRangeMode === "custom" && isDateInputValue(state.analyticsStartDate) && isDateInputValue(state.analyticsEndDate)) {
+      params.p_start_date = state.analyticsStartDate;
+      params.p_end_date = state.analyticsEndDate;
+    }
+
+    return params;
+  }
+
   function normalizeAnalyticsSummary(payload) {
     const source = payload && typeof payload === "object" ? payload : {};
 
@@ -1300,19 +1346,24 @@
         pages: [],
         categories: [],
         devices: [],
-        pwa: []
+        pwa: [],
+        locations: [],
+        period: {}
       };
     }
 
     return {
       ok: true,
+      mode: source.mode || state.analyticsRangeMode || "days",
       days: safeNumber(source.days || state.analyticsDays || 7),
+      period: asObject(source.period),
       totals: asObject(source.totals),
       daily: Array.isArray(source.daily) ? source.daily : [],
       pages: Array.isArray(source.pages) ? source.pages : [],
       categories: Array.isArray(source.categories) ? source.categories : [],
       devices: Array.isArray(source.devices) ? source.devices : [],
-      pwa: Array.isArray(source.pwa) ? source.pwa : []
+      pwa: Array.isArray(source.pwa) ? source.pwa : [],
+      locations: Array.isArray(source.locations) ? source.locations : []
     };
   }
 
@@ -1320,21 +1371,79 @@
     if (!state.client) return normalizeAnalyticsSummary({ ok: false, message: "Supabase não carregado." });
 
     try {
-      const result = await state.client.rpc("sbw_admin_get_site_analytics_summary", {
-        p_days: state.analyticsDays || 7
-      });
+      const result = await state.client.rpc("sbw_admin_get_site_analytics_summary", getAnalyticsRpcParams());
 
       if (result.error) throw result.error;
       return normalizeAnalyticsSummary(result.data || {});
     } catch (error) {
       return normalizeAnalyticsSummary({
         ok: false,
-        message: error?.message || "Não foi possível carregar o resumo de analytics. Verifique se o SQL da v1.6.80.6 foi rodado."
+        message: error?.message || "Não foi possível carregar o resumo de analytics. Verifique se o SQL da v1.6.80.7 foi rodado."
       });
     }
   }
 
-  function renderAnalyticsBarList(items, labelKey, valueKey, emptyText) {
+  function getPracticalPageLabel(item) {
+    const path = String(item?.path || "").toLowerCase();
+    const rawLabel = String(item?.label || item?.page_title || "").trim();
+
+    if (path === "/" || path.endsWith("/index.html") || path === "index.html") return "Início";
+    if (path.includes("/admin/")) return "Admin Master";
+    if (path.includes("/equipes/minha-equipe")) return "Minha equipe";
+    if (path.includes("/equipes/equipe")) return "Perfil público de equipe";
+    if (path.includes("/equipes/criar-equipe")) return "Criar equipe";
+    if (path.includes("/equipes/equipes")) return "Equipes";
+    if (path.includes("/torneios/torneio")) return "Detalhe do torneio";
+    if (path.includes("/torneios/criar")) return "Criar torneio";
+    if (path.includes("/torneios/")) return "Torneios";
+    if (path.includes("/organizadores/")) return "Organizadores";
+    if (path.includes("/rankings/")) return "Rankings";
+    if (path.includes("/perfis/perfil")) return "Perfil público";
+    if (path.includes("/perfis/")) return "Perfis";
+    if (path.includes("/comunidades/")) return "Comunidades";
+    if (path.includes("/creators/")) return "Creators";
+    if (path.includes("/blog/noticia")) return "Notícia";
+    if (path.includes("/blog/")) return "Notícias";
+    if (path.includes("/pages/loja") || path.includes("/loja")) return "Loja";
+    if (path.includes("/transferencias/")) return "Transferências";
+    if (path.includes("/sobre")) return "Sobre";
+
+    if (rawLabel) {
+      return rawLabel
+        .replace(/\s*\|\s*-?SBW-?.*$/i, "")
+        .replace(/\s*\|\s*SaberWolf.*$/i, "")
+        .trim() || rawLabel;
+    }
+
+    return path || "Página não informada";
+  }
+
+  function getCategoryLabel(value) {
+    const map = {
+      home: "Início",
+      admin: "Admin",
+      equipes: "Equipes",
+      torneios: "Torneios",
+      organizadores: "Organizadores",
+      perfis: "Perfis",
+      rankings: "Rankings",
+      noticias: "Notícias",
+      creators: "Creators",
+      comunidades: "Comunidades",
+      loja: "Loja",
+      site: "Site"
+    };
+    const key = String(value || "").toLowerCase();
+    return map[key] || value || "—";
+  }
+
+  function getDeviceLabel(value) {
+    const map = { desktop: "Desktop", mobile: "Celular", tablet: "Tablet", unknown: "Não identificado" };
+    const key = String(value || "").toLowerCase();
+    return map[key] || value || "—";
+  }
+
+  function renderAnalyticsBarList(items, labelKey, valueKey, emptyText, options = {}) {
     const source = Array.isArray(items) ? items : [];
     const total = source.reduce((sum, item) => sum + safeNumber(item?.[valueKey]), 0);
 
@@ -1345,14 +1454,15 @@
     return `
       <div class="sbw-admin-analytics-bars">
         ${source.map((item) => {
-          const label = item?.[labelKey] || "—";
+          const rawLabel = item?.[labelKey] || "—";
+          const label = typeof options.formatLabel === "function" ? options.formatLabel(item, rawLabel) : rawLabel;
           const value = safeNumber(item?.[valueKey]);
           const percent = total > 0 ? Math.max(3, Math.round((value / total) * 100)) : 0;
 
           return `
             <div class="sbw-admin-analytics-bar-row">
               <div class="sbw-admin-analytics-bar-row__head">
-                <span>${escapeHtml(label)}</span>
+                <span title="${escapeHtml(rawLabel)}">${escapeHtml(label)}</span>
                 <strong>${escapeHtml(formatShortNumber(value))}</strong>
               </div>
               <div class="sbw-admin-analytics-bar" aria-hidden="true">
@@ -1393,8 +1503,16 @@
 
   function updateAnalyticsButtons() {
     $all("[data-admin-action='analytics-days']").forEach((button) => {
-      button.classList.toggle("is-active", Number(button.dataset.analyticsDays || 0) === Number(state.analyticsDays || 7));
+      const isActive = state.analyticsRangeMode !== "custom" && Number(button.dataset.analyticsDays || 0) === Number(state.analyticsDays || 7);
+      button.classList.toggle("is-active", isActive);
     });
+
+    const form = $("[data-sbw-admin-analytics-range]");
+    if (form) {
+      if (form.start && state.analyticsStartDate) form.start.value = state.analyticsStartDate;
+      if (form.end && state.analyticsEndDate) form.end.value = state.analyticsEndDate;
+      form.classList.toggle("is-active", state.analyticsRangeMode === "custom");
+    }
   }
 
   function renderAnalyticsPanel() {
@@ -1413,7 +1531,7 @@
       root.innerHTML = `
         <div class="sbw-admin-message sbw-admin-message--warning">
           <strong>Analytics ainda não disponível.</strong><br />
-          ${escapeHtml(summary.message || "Rode o SQL da v1.6.80.6 no Supabase e atualize esta aba.")}
+          ${escapeHtml(summary.message || "Rode o SQL da v1.6.80.7 no Supabase e atualize esta aba.")}
         </div>
       `;
       return;
@@ -1436,29 +1554,35 @@
         <article class="sbw-admin-analytics-card sbw-admin-analytics-card--wide">
           <div class="sbw-admin-analytics-card__head">
             <h3>Visualizações por dia</h3>
-            <span>${escapeHtml(summary.days || state.analyticsDays || 7)} dias</span>
+            <span>${getAnalyticsPeriodLabel(summary)}</span>
           </div>
           ${renderAnalyticsDailyChart(summary.daily)}
         </article>
 
         <article class="sbw-admin-analytics-card">
           <div class="sbw-admin-analytics-card__head"><h3>Páginas mais acessadas</h3></div>
-          ${renderAnalyticsBarList(summary.pages, "path", "views", "Sem páginas registradas ainda.")}
+          ${renderAnalyticsBarList(summary.pages, "path", "views", "Sem páginas registradas ainda.", { formatLabel: (item) => getPracticalPageLabel(item) })}
         </article>
 
         <article class="sbw-admin-analytics-card">
           <div class="sbw-admin-analytics-card__head"><h3>Categorias</h3></div>
-          ${renderAnalyticsBarList(summary.categories, "category", "views", "Sem categorias registradas ainda.")}
+          ${renderAnalyticsBarList(summary.categories, "category", "views", "Sem categorias registradas ainda.", { formatLabel: (_item, value) => getCategoryLabel(value) })}
         </article>
 
         <article class="sbw-admin-analytics-card">
           <div class="sbw-admin-analytics-card__head"><h3>Dispositivos</h3></div>
-          ${renderAnalyticsBarList(summary.devices, "device", "views", "Sem dados de dispositivo ainda.")}
+          ${renderAnalyticsBarList(summary.devices, "device", "views", "Sem dados de dispositivo ainda.", { formatLabel: (_item, value) => getDeviceLabel(value) })}
         </article>
 
         <article class="sbw-admin-analytics-card">
           <div class="sbw-admin-analytics-card__head"><h3>App vs navegador</h3></div>
           ${renderAnalyticsBarList(summary.pwa, "label", "views", "Sem dados de PWA ainda.")}
+        </article>
+
+        <article class="sbw-admin-analytics-card">
+          <div class="sbw-admin-analytics-card__head"><h3>Origem aproximada</h3></div>
+          <p class="sbw-admin-analytics-card__hint">Sem IP e sem dados pessoais. Mostra país/região somente se uma fonte futura preencher dados agregados; por enquanto usa fuso/idioma do navegador.</p>
+          ${renderAnalyticsBarList(summary.locations, "label", "views", "Sem origem aproximada registrada ainda.")}
         </article>
       </section>
     `;
@@ -2745,6 +2869,7 @@
     const profileForm = $("[data-sbw-admin-profile-search]");
     const teamForm = $("[data-sbw-admin-team-search]");
     const tournamentForm = $("[data-sbw-admin-tournament-search]");
+    const analyticsRangeForm = $("[data-sbw-admin-analytics-range]");
 
     if (profileForm) {
       profileForm.addEventListener("submit", (event) => {
@@ -2802,6 +2927,30 @@
         }
 
         renderTournamentsList();
+      });
+    }
+
+    if (analyticsRangeForm) {
+      analyticsRangeForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const start = String(analyticsRangeForm.start?.value || "").trim();
+        const end = String(analyticsRangeForm.end?.value || "").trim();
+
+        if (!isDateInputValue(start) || !isDateInputValue(end)) {
+          addLog("Selecione data inicial e final para aplicar o filtro personalizado de Analytics.", "warning");
+          return;
+        }
+
+        if (start > end) {
+          addLog("A data inicial do Analytics não pode ser maior que a data final.", "warning");
+          return;
+        }
+
+        state.analyticsRangeMode = "custom";
+        state.analyticsStartDate = start;
+        state.analyticsEndDate = end;
+        await refreshAnalyticsPanel();
+        addLog(`Analytics filtrado de ${formatDateInputLabel(start)} até ${formatDateInputLabel(end)}.`);
       });
     }
 
@@ -2864,9 +3013,24 @@
         }
 
         if (action === "analytics-days") {
+          state.analyticsRangeMode = "days";
           state.analyticsDays = Number(button.dataset.analyticsDays || 7) || 7;
+          state.analyticsStartDate = "";
+          state.analyticsEndDate = "";
+          const form = $("[data-sbw-admin-analytics-range]");
+          if (form) form.reset();
           await refreshAnalyticsPanel();
           addLog(`Analytics ajustado para ${state.analyticsDays} dia(s).`);
+        }
+
+        if (action === "analytics-clear-range") {
+          state.analyticsRangeMode = "days";
+          state.analyticsStartDate = "";
+          state.analyticsEndDate = "";
+          const form = $("[data-sbw-admin-analytics-range]");
+          if (form) form.reset();
+          await refreshAnalyticsPanel();
+          addLog("Filtro personalizado de Analytics removido.");
         }
 
         if (action === "show-all-tournaments") {

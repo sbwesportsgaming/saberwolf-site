@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'v1.6.80.6';
+  const VERSION = 'v1.6.80.7';
   const MAX_META_KEYS = 12;
   const MAX_META_VALUE = 160;
   const DEFAULT_CATEGORY = 'site';
@@ -95,6 +95,30 @@
     if (/Linux/i.test(ua)) return 'linux';
     return 'other';
   }
+  function getBrowserLanguage() {
+    try {
+      return safeText(navigator.language || (navigator.languages && navigator.languages[0]) || '', 32);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function getBrowserLanguages() {
+    try {
+      return Array.isArray(navigator.languages) ? navigator.languages.slice(0, 3).map((item) => safeText(item, 32)).join(',') : getBrowserLanguage();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function getTimezone() {
+    try {
+      return safeText(Intl.DateTimeFormat().resolvedOptions().timeZone || '', 64);
+    } catch (_) {
+      return '';
+    }
+  }
+
 
   function isPwa() {
     try {
@@ -139,7 +163,12 @@
       is_pwa: isPwa(),
       viewport_width: Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0) || null,
       viewport_height: Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0) || null,
-      metadata: sanitizeMetadata(Object.assign({ analytics_version: VERSION }, metadata || {}))
+      metadata: sanitizeMetadata(Object.assign({
+        analytics_version: VERSION,
+        browser_language: getBrowserLanguage(),
+        browser_languages: getBrowserLanguages(),
+        timezone: getTimezone()
+      }, metadata || {}))
     };
   }
 
