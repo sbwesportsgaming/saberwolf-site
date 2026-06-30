@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const VERSION = 'v1.6.80.7';
+  const VERSION = 'v1.6.80.8';
   const MAX_META_KEYS = 12;
   const MAX_META_VALUE = 160;
   const DEFAULT_CATEGORY = 'site';
@@ -172,18 +172,86 @@
     };
   }
 
+  function getSupabaseConfig() {
+    return window.SBWSupabase && window.SBWSupabase.config ? window.SBWSupabase.config : {};
+  }
+
+  function getAnalyticsFunctionUrl() {
+    const config = getSupabaseConfig();
+    const explicit = safeText(config.analyticsFunctionUrl || config.analytics_function_url || '', 240);
+
+    if (explicit) return explicit.replace(/\/+$/, '');
+
+    const baseUrl = safeText(config.url || '', 220).replace(/\/+$/, '');
+    if (!baseUrl) return '';
+
+    return `${baseUrl}/functions/v1/sbw-track-site-event`;
+  }
+
+  function getPublishableKey() {
+    const config = getSupabaseConfig();
+    return safeText(config.publishableKey || config.anonKey || config.anon_key || '', 260);
+  }
+
+  async function sendViaEdgeFunction(payload) {
+    if (window.SBW_ANALYTICS_EDGE_DISABLED === true) return false;
+
+    const functionUrl = getAnalyticsFunctionUrl();
+    const key = getPublishableKey();
+
+    if (!functionUrl || !key || typeof window.fetch !== 'function') return false;
+
+    const response = await window.fetch(functionUrl, {
+      method: 'POST',
+      mode: 'cors',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': key,
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({ event: payload })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Edge Function HTTP ${response.status}`);
+    }
+
+    return true;
+  }
+
+  async function sendViaRpcFallback(payload) {
+    const client = getClient();
+    if (!client || typeof client.rpc !== 'function') return false;
+
+    await client.rpc('sbw_track_site_event', {
+      p_event: payload
+    });
+
+    return true;
+  }
+
   async function send(eventType, eventName, metadata) {
     if (shouldSkip()) return;
-    const client = getClient();
-    if (!client || typeof client.rpc !== 'function') return;
+
+    const payload = baseEvent(eventType, eventName, metadata);
 
     try {
-      await client.rpc('sbw_track_site_event', {
-        p_event: baseEvent(eventType, eventName, metadata)
-      });
+      const sentByEdge = await sendViaEdgeFunction(payload);
+      if (sentByEdge) return;
+
+      await sendViaRpcFallback(payload);
     } catch (error) {
+      try {
+        await sendViaRpcFallback(payload);
+      } catch (fallbackError) {
+        if (window.SBW_ANALYTICS_DEBUG) {
+          console.warn('[SBW Analytics] Falha ignorada:', fallbackError && fallbackError.message ? fallbackError.message : fallbackError);
+        }
+      }
+
       if (window.SBW_ANALYTICS_DEBUG) {
-        console.warn('[SBW Analytics] Falha ignorada:', error && error.message ? error.message : error);
+        console.warn('[SBW Analytics] Edge Function indisponível, fallback usado:', error && error.message ? error.message : error);
       }
     }
   }

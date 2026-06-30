@@ -1348,6 +1348,9 @@
         devices: [],
         pwa: [],
         locations: [],
+        countries: [],
+        states: [],
+        regions: [],
         period: {}
       };
     }
@@ -1363,7 +1366,10 @@
       categories: Array.isArray(source.categories) ? source.categories : [],
       devices: Array.isArray(source.devices) ? source.devices : [],
       pwa: Array.isArray(source.pwa) ? source.pwa : [],
-      locations: Array.isArray(source.locations) ? source.locations : []
+      locations: Array.isArray(source.locations) ? source.locations : [],
+      countries: Array.isArray(source.countries) ? source.countries : [],
+      states: Array.isArray(source.states) ? source.states : [],
+      regions: Array.isArray(source.regions) ? source.regions : []
     };
   }
 
@@ -1378,7 +1384,7 @@
     } catch (error) {
       return normalizeAnalyticsSummary({
         ok: false,
-        message: error?.message || "Não foi possível carregar o resumo de analytics. Verifique se o SQL da v1.6.80.7 foi rodado."
+        message: error?.message || "Não foi possível carregar o resumo de analytics. Verifique se o SQL da v1.6.80.8 foi rodado."
       });
     }
   }
@@ -1531,7 +1537,7 @@
       root.innerHTML = `
         <div class="sbw-admin-message sbw-admin-message--warning">
           <strong>Analytics ainda não disponível.</strong><br />
-          ${escapeHtml(summary.message || "Rode o SQL da v1.6.80.7 no Supabase e atualize esta aba.")}
+          ${escapeHtml(summary.message || "Rode o SQL da v1.6.80.8 no Supabase e atualize esta aba.")}
         </div>
       `;
       return;
@@ -1580,9 +1586,21 @@
         </article>
 
         <article class="sbw-admin-analytics-card">
-          <div class="sbw-admin-analytics-card__head"><h3>Origem aproximada</h3></div>
-          <p class="sbw-admin-analytics-card__hint">Sem IP e sem dados pessoais. Mostra país/região somente se uma fonte futura preencher dados agregados; por enquanto usa fuso/idioma do navegador.</p>
-          ${renderAnalyticsBarList(summary.locations, "label", "views", "Sem origem aproximada registrada ainda.")}
+          <div class="sbw-admin-analytics-card__head"><h3>Países</h3></div>
+          <p class="sbw-admin-analytics-card__hint">Origem aproximada por IP temporário. O IP bruto não é salvo no banco da -SBW-.</p>
+          ${renderAnalyticsBarList(summary.countries, "label", "views", "Sem país registrado ainda.")}
+        </article>
+
+        <article class="sbw-admin-analytics-card">
+          <div class="sbw-admin-analytics-card__head"><h3>Estados</h3></div>
+          <p class="sbw-admin-analytics-card__hint">Para Brasil, mostra UF/estado quando a consulta aproximada conseguir identificar.</p>
+          ${renderAnalyticsBarList(summary.states, "label", "views", "Sem estado registrado ainda.")}
+        </article>
+
+        <article class="sbw-admin-analytics-card">
+          <div class="sbw-admin-analytics-card__head"><h3>Regiões BR</h3></div>
+          <p class="sbw-admin-analytics-card__hint">Agrupamento nacional por região brasileira, quando o estado for identificado.</p>
+          ${renderAnalyticsBarList(summary.regions, "label", "views", "Sem região brasileira registrada ainda.")}
         </article>
       </section>
     `;
